@@ -212,6 +212,17 @@ jobs:
       - name: Install CRDs
         run: make install
 
+      # Without this nothing reconciles: the suite would create resources that
+      # no controller ever sees, and every wait would time out.
+      - name: Deploy the operator
+        env:
+          IMG: authentik-operator:e2e
+        run: |
+          set -euo pipefail
+          make deploy
+          kubectl -n authentik-operator-system rollout status \
+            deployment/authentik-operator-controller-manager --timeout=180s
+
       - name: Run E2E suite
         env:
           IMG: authentik-operator:e2e
@@ -250,6 +261,18 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "> **No operator behaviour was exercised.** This job currently covers environment setup only." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Collect operator logs
+        if: always()
+        run: |
+          set +e
+          mkdir -p e2e-logs
+          kubectl -n authentik-operator-system logs \
+            deployment/authentik-operator-controller-manager \
+            --all-containers --tail=2000 > e2e-logs/operator.log 2>&1
+          kubectl -n authentik-operator-system describe pods > e2e-logs/operator-describe.txt 2>&1
+          kubectl get authentikconnections -A -o yaml > e2e-logs/connections.yaml 2>&1
+          kubectl get events -A --sort-by=.lastTimestamp > e2e-logs/events.txt 2>&1
 
       - name: Collect diagnostics
         if: failure()
