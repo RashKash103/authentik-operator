@@ -230,10 +230,17 @@ matrix, the table in the README, and the runtime compatibility gate. Changing
 the supported set means changing that file **and** the README table, and CI
 verifies the two agree.
 
-<!-- PLACEHOLDER: supported-versions.yaml refers to a `make sync-versions`
-     target that does not exist in the Makefile yet. Either add that target or
-     correct the comment in supported-versions.yaml, then document the real
-     workflow here. -->
+To change the supported set, edit `supported-versions.yaml` and then run:
+
+```sh
+make sync-versions   # rewrites the README table from that file
+make verify-versions # fails if anything is still out of step
+```
+
+`make verify` runs the check, so a stale README cannot reach `main`. The Go
+version gate in `internal/authentik/version.go` is checked but never rewritten:
+a regex rewrite of the gate would be more dangerous than useful, so if its
+constants disagree the check tells you and you edit them by hand.
 
 ## Commit conventions
 

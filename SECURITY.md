@@ -36,13 +36,12 @@ should go to the [authentik project](https://goauthentik.io/), not here.
 issues are visible to everyone the moment they are filed, including to anyone
 running an affected deployment who has not yet patched.
 
-Report privately through **GitHub private security advisories**: go to the
-repository's **Security → Advisories → Report a vulnerability** page. That
-creates a private thread visible only to the maintainers and to you.
+Report privately through **GitHub private security advisories**:
 
-<!-- PLACEHOLDER: replace with the repository's real advisory URL once the
-     repository location is fixed, e.g.
-     https://github.com/OWNER/authentik-operator/security/advisories/new -->
+**<https://github.com/RashKash103/authentik-operator/security/advisories/new>**
+
+That creates a private thread visible only to the maintainers and to you.
+
 
 Please include:
 

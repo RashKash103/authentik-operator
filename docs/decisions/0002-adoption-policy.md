@@ -1,7 +1,7 @@
 # 0002 — `spec.adoptionPolicy` defaults to `FailOnConflict`
 
 - **Status:** Accepted
-- **Date:** <!-- PLACEHOLDER: date the owner accepted this decision -->
+- **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Supersedes:** —
 - **Superseded by:** —

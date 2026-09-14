@@ -1,7 +1,7 @@
 # 0001 — Ship both a namespaced and a cluster-scoped connection kind
 
 - **Status:** Accepted
-- **Date:** <!-- PLACEHOLDER: date the owner accepted this decision -->
+- **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Supersedes:** —
 - **Superseded by:** —
