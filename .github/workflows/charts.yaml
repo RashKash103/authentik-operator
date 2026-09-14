@@ -134,6 +134,22 @@ jobs:
         with:
           cluster_name: chart-testing
 
+      # ci/full-values.yaml turns the ServiceMonitor on, which needs the
+      # Prometheus Operator CRD and the namespace it targets. Installing both
+      # keeps that template genuinely exercised; the alternative - dropping
+      # ServiceMonitor from the test values - would leave it never rendered
+      # against a real API server.
+      - name: Install Prometheus Operator CRDs
+        env:
+          PROMETHEUS_OPERATOR_VERSION: v0.94.0
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${PROMETHEUS_OPERATOR_VERSION}/example/prometheus-operator-crd"
+          kubectl apply --server-side -f "${base}/monitoring.coreos.com_servicemonitors.yaml"
+          kubectl wait --for=condition=Established --timeout=60s \
+            crd/servicemonitors.monitoring.coreos.com
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Build and load the image the chart defaults to
         # Rather than guessing the chart's values keys, read back whatever
         # image the chart actually renders and make that exact reference exist
