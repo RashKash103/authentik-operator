@@ -34,6 +34,13 @@ jobs:
   build:
     name: Build documentation
     runs-on: ubuntu-latest
+    # configure-pages needs pages:write to turn Pages on for the repository the
+    # first time. Enabling Actions does not enable Pages, and without this the
+    # first run fails with "Get Pages site failed ... Not Found".
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,6 +64,10 @@ jobs:
       - name: Configure Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        with:
+          # Enable Pages with the "GitHub Actions" source on first run, so the
+          # site does not need a manual click in repository settings.
+          enablement: true
 
       - name: Upload Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
