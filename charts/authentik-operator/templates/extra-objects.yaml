@@ -1,0 +1,9 @@
+{{- /*
+Arbitrary user-supplied manifests rendered with the release. Map entries are
+emitted as-is; string entries go through `tpl` so Helm templating works inside
+them.
+*/ -}}
+{{- range .Values.extraObjects }}
+---
+{{ if typeIs "string" . }}{{ tpl . $ | trim }}{{ else }}{{ toYaml . | trim }}{{ end }}
+{{- end }}

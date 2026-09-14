@@ -1,0 +1,33 @@
+# DELIBERATELY INVALID. Not a .yaml file so chart-testing never tries to
+# install it; `helm template -f` reads it fine regardless of extension.
+# Every line below must be caught by values.schema.json.
+
+replicaCount: "two"            # wrong type: string, not integer
+
+image:
+  repository: ghcr.io/rashkash103/authentik-operator
+  pullPolicy: Sometimes        # not in enum [Always, IfNotPresent, Never]
+  digest: not-a-digest         # fails the sha256:<64 hex> pattern
+
+resource:                      # typo for `resources` - the classic silent no-op
+  limits:
+    cpu: 500m
+
+log:
+  level: verbose               # not in enum [debug, info, error]
+  format: logfmt               # not in enum [json, console]
+
+metrics:
+  enabled: "yes"               # wrong type: string, not boolean
+  port: 99999                  # out of the 1-65535 range
+  service:
+    type: Ingress              # not in enum [ClusterIP, NodePort, LoadBalancer]
+  serviceMonitor:
+    enabled: false
+    interval: 30 seconds       # fails the duration pattern
+
+serviceAccount:
+  create: true
+  nmae: typo-here              # misspelled `name`
+
+watchNamespaces: "apps,platform"   # wrong type: string, not array

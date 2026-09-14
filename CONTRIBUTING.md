@@ -131,7 +131,7 @@ not in this list, the documentation is wrong — please fix it or open an issue.
 
 | Variable              | Default                                      | Purpose                             |
 | --------------------- | -------------------------------------------- | ----------------------------------- |
-| `IMG`                 | `ghcr.io/rka-sh/authentik-operator:latest`   | Image built, pushed and deployed.    |
+| `IMG`                 | `ghcr.io/rashkash103/authentik-operator:latest`   | Image built, pushed and deployed.    |
 | `ENVTEST_K8S_VERSION` | `1.34.0`                                     | Control-plane version envtest uses.  |
 
 ## Tests

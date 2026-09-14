@@ -1,0 +1,39 @@
+apiVersion: v2
+name: authentik-operator
+description: >-
+  Kubernetes operator that manages authentik resources declaratively.
+  This chart installs the operator and its CRDs only - it does NOT install
+  authentik itself.
+type: application
+
+# version  - the chart version, bumped on every chart change (SemVer 2).
+# appVersion - the operator version this chart defaults to deploying.
+version: 0.1.0
+appVersion: "0.1.0"
+
+# The operator relies on server-side apply, CEL-free structural CRDs and
+# metrics filtering that are all stable from 1.29 onwards.
+kubeVersion: ">=1.29.0-0"
+
+home: https://github.com/RashKash103/authentik-operator
+icon: https://goauthentik.io/img/icon_top_brand_colour.svg
+sources:
+  - https://github.com/RashKash103/authentik-operator
+
+keywords:
+  - authentik
+  - operator
+  - sso
+  - oidc
+  - saml
+  - identity
+  - iam
+  - gitops
+
+maintainers:
+  - name: RashKash103
+    url: https://github.com/RashKash103
+
+annotations:
+  category: Security
+  licenses: Apache-2.0

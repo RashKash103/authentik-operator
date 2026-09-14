@@ -1,0 +1,20 @@
+# The other end of the range: metrics off, RBAC and ServiceAccount supplied by
+# a cluster admin, single namespace watched, no leader election.
+serviceAccount:
+  create: false
+  name: preprovisioned-operator-sa
+rbac:
+  create: false
+leaderElection:
+  enabled: false
+watchNamespaces:
+  - authentik
+metrics:
+  enabled: false
+  service:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+log:
+  level: error
+  format: console

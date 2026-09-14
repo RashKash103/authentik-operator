@@ -1,0 +1,55 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+{{- if not (and .Values.metrics.enabled .Values.metrics.service.enabled) }}
+{{- fail "metrics.serviceMonitor.enabled requires metrics.enabled and metrics.service.enabled to be true - a ServiceMonitor with no Service behind it scrapes nothing." }}
+{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "authentik-operator.fullname" . }}
+  namespace: {{ default .Release.Namespace .Values.metrics.serviceMonitor.namespace }}
+  labels:
+    {{- include "authentik-operator.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.metrics.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "authentik-operator.selectorLabels" . | nindent 6 }}
+      {{- with .Values.metrics.service.labels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.metrics.serviceMonitor.path }}
+      scheme: {{ include "authentik-operator.metricsScheme" . }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      {{- with .Values.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ . }}
+      {{- end }}
+      honorLabels: {{ .Values.metrics.serviceMonitor.honorLabels }}
+      {{- if eq (include "authentik-operator.metricsScheme" .) "https" }}
+      {{- with .Values.metrics.serviceMonitor.bearerTokenFile }}
+      bearerTokenFile: {{ . }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.tlsConfig }}
+      tlsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

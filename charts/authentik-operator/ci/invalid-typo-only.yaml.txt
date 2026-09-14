@@ -1,0 +1,7 @@
+# DELIBERATELY INVALID, single fault: one misspelled key, everything else valid.
+# This is the case that additionalProperties:false exists to catch - without the
+# schema, Helm would accept it and silently deploy the default resources.
+resource:
+  limits:
+    cpu: 500m
+    memory: 256Mi

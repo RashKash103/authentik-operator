@@ -1,0 +1,99 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+IMPORTANT: this chart installed the OPERATOR ONLY. It did not install authentik.
+You still need a running authentik instance for the operator to talk to.
+
+1. Check the operator came up
+---------------------------------------------------------------------------
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "authentik-operator.fullname" . }} --timeout=120s
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "authentik-operator.fullname" . }} -f
+
+  A healthy start logs "starting manager"{{ if .Values.leaderElection.enabled }} and then
+  "successfully acquired lease {{ .Release.Namespace }}/authentik-operator.rka.sh"{{ end }}.
+
+2. Point it at your authentik instance
+---------------------------------------------------------------------------
+  Create a Secret holding an authentik API token (authentik UI:
+  Directory -> Tokens -> Create, intent "API Token"):
+
+    kubectl -n {{ .Release.Namespace }} create secret generic authentik-api \
+      --from-literal=token='<your-authentik-api-token>'
+
+  Then create a connection. Namespaced (usable by resources in this namespace):
+
+    cat <<'YAML' | kubectl apply -f -
+    apiVersion: authentik.k8s.rka.sh/v1alpha1
+    kind: AuthentikConnection
+    metadata:
+      name: authentik
+      namespace: {{ .Release.Namespace }}
+    spec:
+      url: https://authentik.example.com
+      tokenSecretRef:
+        name: authentik-api
+        key: token
+    YAML
+
+  Or cluster-scoped (usable from every namespace):
+
+    cat <<'YAML' | kubectl apply -f -
+    apiVersion: authentik.k8s.rka.sh/v1alpha1
+    kind: ClusterAuthentikConnection
+    metadata:
+      name: authentik
+    spec:
+      url: https://authentik.example.com
+      tokenSecretRef:
+        name: authentik-api
+        namespace: {{ .Release.Namespace }}
+        key: token
+    YAML
+
+  Watch it reach Ready:
+
+    kubectl -n {{ .Release.Namespace }} get authentikconnection authentik -o wide
+    kubectl -n {{ .Release.Namespace }} describe authentikconnection authentik
+
+  A Ready=False condition carries the reason (bad URL, bad token, unsupported
+  authentik version) in its message.
+
+{{- if .Values.watchNamespaces }}
+
+3. Watched namespaces
+---------------------------------------------------------------------------
+  This release watches ONLY: {{ join ", " .Values.watchNamespaces }}
+  AuthentikConnections created in any other namespace are silently ignored.
+{{- end }}
+
+{{- if .Values.metrics.enabled }}
+
+{{ if .Values.watchNamespaces }}4{{ else }}3{{ end }}. Metrics
+---------------------------------------------------------------------------
+{{- if .Values.metrics.service.enabled }}
+  Served on {{ include "authentik-operator.fullname" . }}-metrics:{{ .Values.metrics.service.port }} over {{ if .Values.metrics.secure }}HTTPS with authn/authz{{ else }}plain HTTP{{ end }}.
+{{- else }}
+  Served on the Pod at port {{ .Values.metrics.port }}; no Service was created.
+{{- end }}
+{{- if .Values.metrics.secure }}
+  Scrapers must present a token authorised for GET /metrics. Bind the
+  ClusterRole "{{ include "authentik-operator.fullname" . }}-metrics-reader" to your Prometheus ServiceAccount.
+{{- else }}
+  WARNING: metrics.secure=false serves unauthenticated plaintext metrics to
+  anything that can reach the Pod.
+{{- end }}
+{{- if not .Values.metrics.serviceMonitor.enabled }}
+  Prometheus Operator users: set metrics.serviceMonitor.enabled=true (requires
+  the monitoring.coreos.com CRDs).
+{{- end }}
+{{- end }}
+
+CRD UPGRADES ARE MANUAL
+---------------------------------------------------------------------------
+Helm installs CRDs from this chart's crds/ directory on FIRST INSTALL ONLY. It
+never updates or deletes them on `helm upgrade` / `helm uninstall`. After
+upgrading this chart, apply the new CRDs yourself:
+
+  helm show crds authentik-operator/authentik-operator --version <new-version> | kubectl apply --server-side -f -
+
+See charts/authentik-operator/crds/README.md for the full explanation.

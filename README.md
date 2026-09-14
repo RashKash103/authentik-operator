@@ -116,7 +116,7 @@ kubectl apply -f dist/install.yaml
 Set a different image with `IMG`:
 
 ```sh
-make bundle IMG=ghcr.io/rka-sh/authentik-operator:v0.1.0
+make bundle IMG=ghcr.io/rashkash103/authentik-operator:v0.1.0
 ```
 
 ### From a checkout

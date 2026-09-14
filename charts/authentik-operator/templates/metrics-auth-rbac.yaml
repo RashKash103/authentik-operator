@@ -1,0 +1,50 @@
+{{- if and .Values.rbac.create .Values.metrics.enabled .Values.metrics.secure }}
+{{/*
+With `--metrics-secure`, the manager authenticates and authorises every scrape
+by calling TokenReview/SubjectAccessReview. Without these permissions the
+metrics endpoint answers 401/403 to everything, including Prometheus.
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "authentik-operator.fullname" . }}-metrics-auth
+  labels:
+    {{- include "authentik-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "authentik-operator.fullname" . }}-metrics-auth
+  labels:
+    {{- include "authentik-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "authentik-operator.fullname" . }}-metrics-auth
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "authentik-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+{{/*
+Granting a scraper the right to read metrics: bind this ClusterRole to your
+Prometheus ServiceAccount. The chart does not bind it for you because it does
+not know which identity scrapes.
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "authentik-operator.fullname" . }}-metrics-reader
+  labels:
+    {{- include "authentik-operator.labels" . | nindent 4 }}
+rules:
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+{{- end }}

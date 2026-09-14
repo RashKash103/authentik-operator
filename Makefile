@@ -1,6 +1,6 @@
 # authentik-operator
 
-IMG ?= ghcr.io/rka-sh/authentik-operator:latest
+IMG ?= ghcr.io/rashkash103/authentik-operator:latest
 ENVTEST_K8S_VERSION = 1.34.0
 
 # Tool versions - pinned so a clean checkout and CI behave identically.
@@ -34,6 +34,13 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate CRDs and RBAC.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(MAKE) sync-chart-crds
+
+.PHONY: sync-chart-crds
+sync-chart-crds: ## Copy generated CRDs into the Helm chart.
+	@rm -f charts/authentik-operator/crds/*.yaml
+	@cp config/crd/bases/*.yaml charts/authentik-operator/crds/
+	@echo "synced $$(ls config/crd/bases/*.yaml | wc -l) CRDs into the Helm chart"
 
 .PHONY: generate
 generate: controller-gen ## Generate DeepCopy methods.

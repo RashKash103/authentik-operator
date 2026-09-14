@@ -1,0 +1,559 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/RashKash103/authentik-operator/charts/authentik-operator/values.schema.json",
+  "title": "authentik-operator Helm values",
+  "description": "Values for the authentik-operator chart. The chart installs the operator only; it does not install authentik itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "replicaCount",
+    "image",
+    "serviceAccount",
+    "rbac",
+    "log",
+    "leaderElection",
+    "health",
+    "metrics"
+  ],
+  "definitions": {
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "quantity": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m|e[0-9]+)?$" },
+        { "type": "number", "minimum": 0 }
+      ]
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^([0-9]+(ms|[smhdwy]))+$"
+    },
+    "dns1123": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "objectList": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "initialDelaySeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Seconds to wait after container start before the first probe."
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How often to probe, in seconds."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Seconds after which an individual probe attempt times out."
+        },
+        "successThreshold": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Consecutive successes required to consider the probe successful after a failure."
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Consecutive failures required before the probe is considered failed."
+        }
+      }
+    }
+  },
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Number of operator Pods. Leave at 1: leader election means only one replica reconciles. Raise to 2 only for faster failover during node drains."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pullPolicy"],
+      "description": "Operator container image.",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Operator image repository. Change only when mirroring into a private registry."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Image tag. Empty means use the chart's appVersion, keeping chart and operator in lockstep."
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-fA-F0-9]{64}$",
+          "description": "Image digest (sha256:...). When set it wins over tag, giving immutable, verifiable deploys."
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "description": "Image pull policy. IfNotPresent for released tags; Always only for moving tags such as main or latest."
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "Names of pre-existing image pull Secrets, needed only for a private image.repository. The Secret must already exist in the release namespace.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Name of an existing Secret of type kubernetes.io/dockerconfigjson."
+          }
+        }
+      }
+    },
+    "nameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "description": "Override the chart name portion of generated resource names and the app.kubernetes.io/name label."
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "description": "Replace the generated <release>-<chart> resource name entirely. Use to match an existing naming convention or to stay under the 63-character label limit."
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create"],
+      "description": "ServiceAccount the operator runs as.",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Create the ServiceAccount. Set false when your platform pre-provisions ServiceAccounts, then set name."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "ServiceAccount name. Empty means the generated fullname when create is true, or 'default' when it is false."
+        },
+        "annotations": {
+          "$ref": "#/definitions/stringMap",
+          "description": "Annotations for the ServiceAccount, typically cloud workload identity (eks.amazonaws.com/role-arn, iam.gke.io/...)."
+        },
+        "automountServiceAccountToken": {
+          "type": "boolean",
+          "description": "Mount the ServiceAccount token into the Pod. Must stay true unless credentials are injected another way."
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create"],
+      "description": "RBAC objects created by the chart.",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Create the ClusterRole/ClusterRoleBinding and leader-election Role/RoleBinding. Set false only when RBAC is managed out-of-band."
+        }
+      }
+    },
+    "podAnnotations": {
+      "$ref": "#/definitions/stringMap",
+      "description": "Extra annotations for the operator Pod, e.g. service-mesh opt-out or secret-injector hints."
+    },
+    "podLabels": {
+      "$ref": "#/definitions/stringMap",
+      "description": "Extra labels for the operator Pod, e.g. cost allocation or NetworkPolicy selectors."
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Pod-level security context. Defaults satisfy the restricted Pod Security Standard; change only if a policy engine demands different settings.",
+      "properties": {
+        "runAsNonRoot": { "type": "boolean", "description": "Refuse to start if the image would run as UID 0." },
+        "runAsUser": { "type": "integer", "description": "UID to run the Pod as." },
+        "runAsGroup": { "type": "integer", "description": "Primary GID to run the Pod as." },
+        "fsGroup": { "type": "integer", "description": "Supplemental group applied to mounted volumes." },
+        "supplementalGroups": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "Additional groups added to the container's first process."
+        },
+        "seccompProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Seccomp profile for all containers in the Pod.",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+              "description": "Seccomp profile source. RuntimeDefault is required by the restricted PSS."
+            },
+            "localhostProfile": {
+              "type": "string",
+              "description": "Profile path on the node, relative to the kubelet's seccomp root. Only with type Localhost."
+            }
+          }
+        }
+      }
+    },
+    "securityContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Container-level security context for the manager. The operator writes nothing to disk, so the rootfs is read-only and all capabilities are dropped.",
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "description": "Whether a process can gain more privileges than its parent. Keep false."
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "description": "Mount the container root filesystem read-only. If something needs to write, mount an emptyDir via extraVolumes rather than relaxing this."
+        },
+        "privileged": { "type": "boolean", "description": "Run the container privileged. Never needed here." },
+        "runAsNonRoot": { "type": "boolean", "description": "Container-level override of the Pod setting." },
+        "runAsUser": { "type": "integer", "description": "UID to run the container as." },
+        "runAsGroup": { "type": "integer", "description": "GID to run the container as." },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Linux capabilities added to or dropped from the container.",
+          "properties": {
+            "drop": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Capabilities to drop. ALL is the correct value for this operator."
+            },
+            "add": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Capabilities to add. Should stay empty."
+            }
+          }
+        },
+        "seccompProfile": {
+          "type": "object",
+          "description": "Container-level seccomp profile override.",
+          "properties": {
+            "type": { "type": "string", "enum": ["RuntimeDefault", "Localhost", "Unconfined"] },
+            "localhostProfile": { "type": "string" }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CPU/memory requests and limits for the manager container. The operator is event-driven and mostly idle; raise limits if you manage thousands of resources or see OOMKills.",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Resource ceiling. Memory over-limit means OOMKill; CPU over-limit means throttling.",
+          "properties": {
+            "cpu": { "$ref": "#/definitions/quantity", "description": "CPU limit, e.g. 500m." },
+            "memory": { "$ref": "#/definitions/quantity", "description": "Memory limit, e.g. 256Mi." },
+            "ephemeral-storage": { "$ref": "#/definitions/quantity", "description": "Ephemeral storage limit." }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Scheduling reservation. Kept small so the operator schedules anywhere.",
+          "properties": {
+            "cpu": { "$ref": "#/definitions/quantity", "description": "CPU request, e.g. 10m." },
+            "memory": { "$ref": "#/definitions/quantity", "description": "Memory request, e.g. 64Mi." },
+            "ephemeral-storage": { "$ref": "#/definitions/quantity", "description": "Ephemeral storage request." }
+          }
+        },
+        "claims": {
+          "$ref": "#/definitions/objectList",
+          "description": "ResourceClaim references (Dynamic Resource Allocation). Not used by this operator."
+        }
+      }
+    },
+    "nodeSelector": {
+      "$ref": "#/definitions/stringMap",
+      "description": "Node selector for the operator Pod. Use to keep the operator on a system node pool."
+    },
+    "tolerations": {
+      "$ref": "#/definitions/objectList",
+      "description": "Tolerations for the operator Pod, needed when the eligible nodes carry taints."
+    },
+    "affinity": {
+      "type": "object",
+      "description": "Affinity/anti-affinity rules. With replicaCount 2, add pod anti-affinity so both replicas do not land on one node."
+    },
+    "topologySpreadConstraints": {
+      "$ref": "#/definitions/objectList",
+      "description": "Topology spread constraints; an alternative to affinity for spreading replicas across zones or nodes."
+    },
+    "priorityClassName": {
+      "type": "string",
+      "maxLength": 253,
+      "description": "PriorityClass for the operator Pod, e.g. system-cluster-critical, so it survives node pressure ahead of workloads. Must already exist."
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Grace period before SIGKILL. The manager stops controllers and releases the leader lease on SIGTERM; 10s is ample."
+    },
+    "dnsPolicy": {
+      "type": "string",
+      "enum": ["", "ClusterFirst", "ClusterFirstWithHostNet", "Default", "None"],
+      "description": "Pod DNS policy. Use None (with dnsConfig) only in clusters with unusual DNS topology."
+    },
+    "dnsConfig": {
+      "type": "object",
+      "description": "Custom DNS settings (nameservers, searches, options), used when dnsPolicy is None."
+    },
+    "hostAliases": {
+      "$ref": "#/definitions/objectList",
+      "description": "Entries added to the Pod's /etc/hosts, for when the authentik URL resolves only via DNS the cluster cannot reach."
+    },
+    "extraEnv": {
+      "type": "array",
+      "description": "Extra environment variables for the manager container in full Kubernetes env form, so valueFrom works. Typical uses: HTTPS_PROXY/NO_PROXY, SSL_CERT_FILE.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Environment variable name." },
+          "value": { "type": "string", "description": "Literal value. Mutually exclusive with valueFrom." },
+          "valueFrom": { "type": "object", "description": "Source for the value: secretKeyRef, configMapKeyRef, fieldRef or resourceFieldRef." }
+        }
+      }
+    },
+    "extraArgs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Extra command-line flags appended to /manager. An escape hatch for flags newer than this chart version."
+    },
+    "extraVolumes": {
+      "type": "array",
+      "description": "Extra Pod volumes in full Kubernetes form. Most often a Secret/ConfigMap CA bundle for the authentik endpoint, or an emptyDir for a writable path.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Volume name, referenced by an extraVolumeMounts entry." }
+        }
+      }
+    },
+    "extraVolumeMounts": {
+      "type": "array",
+      "description": "Extra volume mounts on the manager container, matching extraVolumes by name.",
+      "items": {
+        "type": "object",
+        "required": ["name", "mountPath"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Name of the volume to mount, from extraVolumes." },
+          "mountPath": { "type": "string", "minLength": 1, "description": "Path inside the container to mount at." },
+          "subPath": { "type": "string", "description": "Mount a single file or subdirectory of the volume." },
+          "readOnly": { "type": "boolean", "description": "Mount read-only. Should be true for CA bundles and other config." }
+        }
+      }
+    },
+    "extraObjects": {
+      "type": "array",
+      "description": "Extra Kubernetes manifests rendered with the release. Strings pass through tpl, so Helm templating works. Use for a NetworkPolicy or PodDisruptionBudget you want in the release.",
+      "items": {
+        "oneOf": [
+          { "type": "object" },
+          { "type": "string" }
+        ]
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "format"],
+      "description": "Operator logging (zap).",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["debug", "info", "error"],
+          "description": "Log verbosity (--zap-log-level). Use debug when diagnosing reconcile behaviour; it is noisy in steady state."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "console"],
+          "description": "Log encoding (--zap-encoder). json for log pipelines, console for human-readable local debugging."
+        }
+      }
+    },
+    "leaderElection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "description": "Leader election settings.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable leader election (--leader-elect). Keep true: without it, overlapping replicas during a rolling update reconcile the same objects and fight."
+        }
+      }
+    },
+    "watchNamespaces": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/dns1123" },
+      "description": "Namespaces the operator watches. Empty means all namespaces. Restricting shrinks cache memory and blast radius, but resources elsewhere are silently ignored."
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port"],
+      "description": "Health and readiness endpoint settings.",
+      "properties": {
+        "port": {
+          "$ref": "#/definitions/port",
+          "description": "Container port for /healthz and /readyz. Change only on a port collision with an injected sidecar."
+        }
+      }
+    },
+    "livenessProbe": {
+      "$ref": "#/definitions/probe",
+      "description": "Liveness probe for the manager (GET /healthz). Raise initialDelaySeconds on very slow nodes."
+    },
+    "readinessProbe": {
+      "$ref": "#/definitions/probe",
+      "description": "Readiness probe for the manager (GET /readyz). Governs when the Pod counts as available during a rolling update."
+    },
+    "enableHTTP2": {
+      "type": "boolean",
+      "description": "Enable HTTP/2 on the metrics endpoint (--enable-http2). Off by default because of HTTP/2's DoS-shaped CVE history; the operator gains nothing from it."
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "port", "secure", "service", "serviceMonitor"],
+      "description": "controller-runtime metrics endpoint and its exposure.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Serve controller-runtime metrics. When false the bind address is set to 0 and no Service is created."
+        },
+        "port": {
+          "$ref": "#/definitions/port",
+          "description": "Port the metrics endpoint binds to inside the container."
+        },
+        "secure": {
+          "type": "boolean",
+          "description": "Serve metrics over HTTPS with authn/authz (--metrics-secure). Keep true in shared clusters; false serves plaintext to anything that can reach the Pod."
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "type", "port"],
+          "description": "Service fronting the metrics endpoint.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a Service for metrics. Disable if you scrape Pods directly."
+            },
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "description": "Service type. ClusterIP is correct; metrics should never leave the cluster."
+            },
+            "port": {
+              "$ref": "#/definitions/port",
+              "description": "Service port, usually mirroring metrics.port."
+            },
+            "annotations": {
+              "$ref": "#/definitions/stringMap",
+              "description": "Extra annotations on the metrics Service, e.g. annotation-based scrape config."
+            },
+            "labels": {
+              "$ref": "#/definitions/stringMap",
+              "description": "Extra labels on the metrics Service, for Prometheus serviceMonitorSelector matching."
+            }
+          }
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "description": "Prometheus Operator ServiceMonitor for the metrics endpoint.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a ServiceMonitor. Requires the monitoring.coreos.com/v1 CRD, or the install fails on an unknown kind."
+            },
+            "namespace": {
+              "type": "string",
+              "maxLength": 63,
+              "description": "Namespace for the ServiceMonitor. Empty means the release namespace."
+            },
+            "labels": {
+              "$ref": "#/definitions/stringMap",
+              "description": "Extra labels on the ServiceMonitor. Must match your Prometheus serviceMonitorSelector, or it is created and silently never scraped."
+            },
+            "annotations": {
+              "$ref": "#/definitions/stringMap",
+              "description": "Annotations on the ServiceMonitor."
+            },
+            "interval": {
+              "$ref": "#/definitions/duration",
+              "description": "Scrape interval, e.g. 30s."
+            },
+            "scrapeTimeout": {
+              "oneOf": [
+                { "type": "string", "maxLength": 0 },
+                { "$ref": "#/definitions/duration" }
+              ],
+              "description": "Scrape timeout. Empty means Prometheus' default. Must not exceed interval."
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/",
+              "description": "HTTP path to scrape."
+            },
+            "scheme": {
+              "type": "string",
+              "enum": ["", "http", "https"],
+              "description": "Scrape scheme. Empty derives it from metrics.secure (https when secure, http otherwise)."
+            },
+            "bearerTokenFile": {
+              "type": "string",
+              "description": "Token file Prometheus presents to the metrics endpoint, required when metrics.secure authorises via SubjectAccessReview."
+            },
+            "tlsConfig": {
+              "type": "object",
+              "description": "TLS settings for the scrape. The metrics server uses a self-signed certificate by default, hence insecureSkipVerify."
+            },
+            "honorLabels": {
+              "type": "boolean",
+              "description": "Keep target label values when they collide with Prometheus' own."
+            },
+            "relabelings": {
+              "$ref": "#/definitions/objectList",
+              "description": "relabel_configs applied before the scrape."
+            },
+            "metricRelabelings": {
+              "$ref": "#/definitions/objectList",
+              "description": "metric_relabel_configs applied after the scrape; use to drop high-cardinality controller-runtime histograms."
+            }
+          }
+        }
+      }
+    }
+  }
+}

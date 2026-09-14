@@ -1,0 +1,41 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "authentik-operator.fullname" . }}-manager
+  labels:
+    {{- include "authentik-operator.labels" . | nindent 4 }}
+rules:
+  # The operator's own API types.
+  - apiGroups:
+      - authentik.k8s.rka.sh
+    resources:
+      - authentikconnections
+      - clusterauthentikconnections
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups:
+      - authentik.k8s.rka.sh
+    resources:
+      - authentikconnections/status
+      - clusterauthentikconnections/status
+    verbs: ["get", "update", "patch"]
+  - apiGroups:
+      - authentik.k8s.rka.sh
+    resources:
+      - authentikconnections/finalizers
+      - clusterauthentikconnections/finalizers
+    verbs: ["update"]
+  # Connections reference API tokens and CA bundles held in Secrets; the
+  # operator also writes generated OAuth client credentials back into Secrets.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Non-sensitive connection settings (CA bundles, URLs) held in ConfigMaps.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Surfacing reconcile outcomes on the objects themselves.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+{{- end }}

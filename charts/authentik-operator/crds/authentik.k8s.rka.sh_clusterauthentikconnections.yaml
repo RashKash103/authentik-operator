@@ -1,0 +1,234 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: clusterauthentikconnections.authentik.k8s.rka.sh
+spec:
+  group: authentik.k8s.rka.sh
+  names:
+    kind: ClusterAuthentikConnection
+    listKind: ClusterAuthentikConnectionList
+    plural: clusterauthentikconnections
+    shortNames:
+    - clakconn
+    singular: clusterauthentikconnection
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.url
+      name: URL
+      type: string
+    - jsonPath: .status.authentikVersion
+      name: Version
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ClusterAuthentikConnection describes how to reach one authentik instance,
+          usable from any namespace.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterAuthentikConnectionSpec defines a cluster-wide connection to an
+              authentik instance.
+
+              SECURITY: because this object is cluster-scoped it must name the namespace
+              holding its credentials explicitly, which means it can reference a Secret
+              anywhere in the cluster. Permission to create or edit one of these is
+              therefore close to a cluster-admin privilege, and RBAC for it should be
+              granted accordingly. See SECURITY.md.
+            properties:
+              allowedNamespaces:
+                description: |-
+                  AllowedNamespaces optionally restricts which namespaces may reference this
+                  connection. An empty list means every namespace may use it.
+
+                  Without this, any user who can create a resource in any namespace can
+                  drive an authentik instance they were never granted access to.
+                items:
+                  type: string
+                type: array
+              caBundleSecretRef:
+                description: |-
+                  CABundleSecretRef optionally points at a Secret holding a PEM CA bundle
+                  used to verify the authentik server.
+                properties:
+                  key:
+                    description: Key within the Secret's data.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: Namespace holding the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                - namespace
+                type: object
+              insecureSkipTLSVerify:
+                default: false
+                description: |-
+                  InsecureSkipTLSVerify disables verification of the authentik server's TLS
+                  certificate. Intended for local testing against a self-signed instance;
+                  prefer caBundleSecretRef anywhere else.
+                type: boolean
+              probeInterval:
+                default: 5m
+                description: ProbeInterval is how often the connection is re-checked
+                  for reachability.
+                pattern: ^([0-9]+(s|m|h))+$
+                type: string
+              tokenSecretRef:
+                description: |-
+                  TokenSecretRef points at a Secret holding an authentik API token. The
+                  namespace is required and is the only place the token is read from; the
+                  namespace of a resource referring to this connection is never consulted.
+                properties:
+                  key:
+                    description: Key within the Secret's data.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: Namespace holding the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                - namespace
+                type: object
+              url:
+                description: |-
+                  URL is the base URL of the authentik instance, for example
+                  https://authentik.example.com. Do not include the /api/v3 suffix.
+                minLength: 1
+                pattern: ^https?://
+                type: string
+            required:
+            - tokenSecretRef
+            - url
+            type: object
+          status:
+            description: AuthentikConnectionStatus reports reachability and version
+              compatibility.
+            properties:
+              authentikVersion:
+                description: AuthentikVersion is the version reported by the instance,
+                  e.g. "2026.8.2".
+                type: string
+              conditions:
+                description: Conditions describe the current state of the connection.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastProbeTime:
+                description: LastProbeTime is when the instance was last contacted.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the .metadata.generation this status
+                  reflects.
+                format: int64
+                type: integer
+              versionSupported:
+                description: |-
+                  VersionSupported reports whether AuthentikVersion falls within the range
+                  this operator is tested against. When false, dependent resources refuse to
+                  reconcile rather than failing obscurely deep inside an API call.
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
