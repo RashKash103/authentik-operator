@@ -97,6 +97,12 @@ authentik-up: ## Start a local authentik for E2E tests.
 authentik-down: ## Stop the local authentik and remove its volumes.
 	./test/authentik/down.sh
 
+.PHONY: test-integration
+test-integration: ## Run client-layer tests against a running local authentik.
+	AUTHENTIK_URL=$${AUTHENTIK_URL:-http://localhost:9000} \
+	AUTHENTIK_TOKEN=$${AUTHENTIK_TOKEN:-authentik-operator-e2e-bootstrap-token} \
+		go test ./internal/authentik/ -run TestIntegration -v
+
 .PHONY: test-e2e
 test-e2e: ## Run the E2E suite against a running local authentik.
 	go test ./test/e2e/... -v -timeout 30m
