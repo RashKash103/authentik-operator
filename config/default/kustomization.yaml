@@ -1,0 +1,11 @@
+# Adds a namespace and a name prefix to every resource.
+namespace: authentik-operator-system
+namePrefix: authentik-operator-
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager

@@ -1,0 +1,43 @@
+version: "2"
+
+run:
+  timeout: 5m
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - errcheck
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+    gocyclo:
+      min-complexity: 20
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - goconst
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

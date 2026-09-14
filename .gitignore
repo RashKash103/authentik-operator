@@ -3,3 +3,24 @@
 # [epiq]: local hydrated state is never committed
 .epiq/events/
 .epiq/log/
+
+# Build output
+bin/
+dist/
+testbin/
+*.test
+
+# Coverage
+cover.out
+coverage.*
+
+# Local environment / secrets
+.env
+.env.local
+*.local.yaml
+kubeconfig
+
+# Editor
+.idea/
+.vscode/
+*.swp

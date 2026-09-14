@@ -1,0 +1,24 @@
+# Single source of truth for the authentik versions this operator supports.
+#
+# Consumed by:
+#   - .github/workflows/e2e.yaml    (CI test matrix)
+#   - README.md                     (supported versions table, verified by CI)
+#   - internal/authentik/version.go (runtime compatibility gate)
+#
+# authentik ships CalVer minor series (YYYY.M). We support the three most
+# recent series and pin an exact patch tag per series so CI is reproducible.
+#
+# Changing this file without running `make sync-versions` will fail CI.
+supported:
+  - series: "2026.8"
+    image: "ghcr.io/goauthentik/server:2026.8.2"
+  - series: "2026.5"
+    image: "ghcr.io/goauthentik/server:2026.5.7"
+  - series: "2026.2"
+    image: "ghcr.io/goauthentik/server:2026.2.7"
+
+# Inclusive lower bound enforced by the runtime version gate.
+minimum: "2026.2"
+
+# Versions above this still reconcile, but the operator logs a warning.
+maximum: "2026.8"
