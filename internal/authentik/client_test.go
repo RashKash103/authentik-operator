@@ -155,10 +155,13 @@ func TestClientVersionAndCompatibility(t *testing.T) {
 		reported  string
 		wantLevel SupportLevel
 	}{
-		{name: "supported", reported: "2026.5.7", wantLevel: SupportSupported},
+		// Derived from the bounds rather than hardcoded: pinning a specific
+		// series here made this test fail the moment the supported range
+		// changed, even though the behaviour under test had not.
+		{name: "maximum", reported: MaximumVersion + ".7", wantLevel: SupportSupported},
 		{name: "minimum", reported: MinimumVersion + ".0", wantLevel: SupportSupported},
 		{name: "too old", reported: "2025.12.1", wantLevel: SupportUnsupported},
-		{name: "newer than tested", reported: "2026.10.1", wantLevel: SupportUntested},
+		{name: "newer than tested", reported: "2027.10.1", wantLevel: SupportUntested},
 		{name: "nonsense", reported: "dev", wantLevel: SupportUnknown},
 	}
 

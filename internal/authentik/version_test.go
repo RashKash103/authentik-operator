@@ -1,6 +1,7 @@
 package authentik
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,15 +130,18 @@ func TestCheckVersionBoundaries(t *testing.T) {
 		wantSupported bool
 		wantWarn      bool
 	}{
-		{name: "below minimum series", raw: "2026.1.0", wantLevel: SupportUnsupported},
-		{name: "far below minimum", raw: "2025.10.1", wantLevel: SupportUnsupported},
+		// Cases are derived from the bounds rather than hardcoded. A previous
+		// version of this test pinned 2026.2 and 2026.5 as supported, and
+		// broke the moment the range narrowed - the test was asserting the
+		// range of the day rather than the behaviour at its edges.
+		{name: "one series below minimum", raw: seriesBelow(MinimumVersion), wantLevel: SupportUnsupported},
+		{name: "a year below minimum", raw: "2025.10.1", wantLevel: SupportUnsupported},
 		{name: "exactly minimum", raw: MinimumVersion, wantLevel: SupportSupported, wantSupported: true},
-		{name: "minimum with patch", raw: "2026.2.7", wantLevel: SupportSupported, wantSupported: true},
-		{name: "middle of range", raw: "2026.5.7", wantLevel: SupportSupported, wantSupported: true},
+		{name: "minimum with patch", raw: MinimumVersion + ".7", wantLevel: SupportSupported, wantSupported: true},
 		{name: "exactly maximum", raw: MaximumVersion, wantLevel: SupportSupported, wantSupported: true},
-		{name: "maximum with high patch", raw: "2026.8.99", wantLevel: SupportSupported, wantSupported: true},
-		{name: "one series above maximum", raw: "2026.9.0", wantLevel: SupportUntested, wantSupported: true, wantWarn: true},
-		{name: "double digit month above maximum", raw: "2026.10.0", wantLevel: SupportUntested, wantSupported: true, wantWarn: true},
+		{name: "maximum with high patch", raw: MaximumVersion + ".99", wantLevel: SupportSupported, wantSupported: true},
+		{name: "one series above maximum", raw: seriesAbove(MaximumVersion), wantLevel: SupportUntested, wantSupported: true, wantWarn: true},
+		{name: "double digit month above maximum", raw: "2026.12.0", wantLevel: SupportUntested, wantSupported: true, wantWarn: true},
 		{name: "next year", raw: "2027.1.0", wantLevel: SupportUntested, wantSupported: true, wantWarn: true},
 		{name: "unparsable", raw: "not-a-version", wantLevel: SupportUnknown},
 		{name: "empty", raw: "", wantLevel: SupportUnknown},
@@ -251,4 +255,30 @@ func TestSupportedVersionConstantsMatchYAML(t *testing.T) {
 				entry.Series, MinimumVersion, MaximumVersion)
 		}
 	}
+}
+
+// seriesBelow returns the CalVer series immediately before the given one.
+func seriesBelow(series string) string {
+	return shiftSeries(series, -1)
+}
+
+// seriesAbove returns the CalVer series immediately after the given one.
+func seriesAbove(series string) string {
+	return shiftSeries(series, 1)
+}
+
+// shiftSeries moves a "YYYY.M" series by whole months, rolling the year over.
+func shiftSeries(series string, delta int) string {
+	var year, month int
+	if _, err := fmt.Sscanf(series, "%d.%d", &year, &month); err != nil {
+		panic("unparsable series in test: " + series)
+	}
+	month += delta
+	switch {
+	case month < 1:
+		year, month = year-1, 12
+	case month > 12:
+		year, month = year+1, 1
+	}
+	return fmt.Sprintf("%d.%d.0", year, month)
 }
