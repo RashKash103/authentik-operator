@@ -64,8 +64,16 @@ test: manifests generate fmt vet envtest ## Run unit and envtest tests.
 test-unit: ## Run only the fast unit tests (no envtest, no Docker).
 	go test ./internal/... -race -short
 
+.PHONY: sync-versions
+sync-versions: ## Regenerate files derived from supported-versions.yaml.
+	python3 hack/sync-versions.py
+
+.PHONY: verify-versions
+verify-versions: ## Fail if the version matrix has drifted out of sync.
+	python3 hack/sync-versions.py --check
+
 .PHONY: verify
-verify: manifests generate ## Fail if generated artifacts are out of date.
+verify: manifests generate verify-versions ## Fail if generated artifacts are out of date.
 	@if ! git diff --quiet --exit-code; then \
 		echo "ERROR: generated artifacts are out of date. Run 'make manifests generate' and commit."; \
 		git --no-pager diff --stat; \
