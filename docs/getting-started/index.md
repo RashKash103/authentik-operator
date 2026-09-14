@@ -8,12 +8,11 @@ in four steps:
 3. Create a connection pointing at your authentik.
 4. [Declare a provider and an application](first-application.md).
 
-!!! warning "Partially implemented"
+!!! warning "Early, but working"
 
-    Connections, `OAuth2Provider` and `Application` reconcile today and are
-    exercised end-to-end against a real authentik in CI. `SAMLProvider`,
-    `ProxyProvider` and the outpost kinds are still design documentation.
-    See [Implementation status](#implementation-status) below.
+    Every kind reconciles and is exercised end-to-end against a real authentik
+    in CI. The `v1alpha1` API is still unstable and coverage of less common
+    fields is thin. See [Implementation status](#implementation-status) below.
 
 ## Prerequisites
 

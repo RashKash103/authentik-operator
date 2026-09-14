@@ -74,18 +74,17 @@ conversion webhooks until it graduates to `v1beta1`.
 | `AuthentikConnection`         | Namespaced | Implemented |
 | `ClusterAuthentikConnection`  | Cluster    | Implemented |
 | `OAuth2Provider`              | Namespaced | Implemented |
+| `SAMLProvider`                | Namespaced | Implemented |
+| `ProxyProvider`               | Namespaced | Implemented |
 | `Application`                 | Namespaced | Implemented |
-| `SAMLProvider`                | Namespaced | Planned     |
-| `ProxyProvider`               | Namespaced | Planned     |
-| `Outpost`                     | Namespaced | Planned     |
-| `KubernetesServiceConnection` | Namespaced | Planned     |
-| `DockerServiceConnection`     | Namespaced | Planned     |
+| `Outpost`                     | Namespaced | Implemented |
+| `KubernetesServiceConnection` | Namespaced | Implemented |
+| `DockerServiceConnection`     | Namespaced | Implemented |
 <!-- END IMPLEMENTATION-STATUS -->
 
-Rows marked _Planned_ are design documentation, not a feature list. An
-`Application` may reference a `SAMLProvider` or `ProxyProvider` in its schema,
-but the operator rejects the reference until those kinds land, rather than
-retrying forever.
+Every kind reconciles and is exercised against a real authentik in CI. What is
+still thin is coverage of the less common fields, and there is no conversion
+webhook story yet.
 
 ## Installation
 
@@ -151,10 +150,7 @@ registered.
 
 ## Quickstart
 
-> [!NOTE]
-> `AuthentikConnection`, `OAuth2Provider` and `Application` reconcile today.
-> `SAMLProvider`, `ProxyProvider` and the outpost kinds are still design
-> documentation — see [Implementation status](#implementation-status).
+
 
 **1. Store an authentik API token.** Create one in authentik under
 _Directory → Tokens and App passwords_, scoped as narrowly as your use case

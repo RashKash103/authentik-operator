@@ -70,12 +70,12 @@ before it is built. Pages describing unbuilt features say so at the top.
 | `AuthentikConnection`         | Namespaced | Implemented |
 | `ClusterAuthentikConnection`  | Cluster    | Implemented |
 | `OAuth2Provider`              | Namespaced | Implemented |
+| `SAMLProvider`                | Namespaced | Implemented |
+| `ProxyProvider`               | Namespaced | Implemented |
 | `Application`                 | Namespaced | Implemented |
-| `SAMLProvider`                | Namespaced | Planned     |
-| `ProxyProvider`               | Namespaced | Planned     |
-| `Outpost`                     | Namespaced | Planned     |
-| `KubernetesServiceConnection` | Namespaced | Planned     |
-| `DockerServiceConnection`     | Namespaced | Planned     |
+| `Outpost`                     | Namespaced | Implemented |
+| `KubernetesServiceConnection` | Namespaced | Implemented |
+| `DockerServiceConnection`     | Namespaced | Implemented |
 
 `v1alpha1` is unstable: expect breaking changes without conversion webhooks
 until it reaches `v1beta1`.
