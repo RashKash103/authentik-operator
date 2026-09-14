@@ -1,0 +1,33 @@
+# The user-facing half of onboarding Grafana: the Application is what appears
+# in authentik's application list and what a user clicks to launch.
+#
+# It references the OAuth2Provider by Kubernetes resource name, not by anything
+# in authentik. Apply order does not matter - if the provider does not exist
+# yet, this reports ReferenceNotFound and converges once it appears.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+
+  # Immutable: authentik keys applications by slug, so changing it would mean
+  # delete-and-recreate, silently dropping any policy bindings.
+  slug: grafana
+  name: Grafana
+
+  providerRef:
+    kind: OAuth2Provider
+    name: grafana
+
+  metaLaunchUrl: https://grafana.example.com
+  metaDescription: Dashboards and metrics
+  metaPublisher: Platform team
+  # Icons are referenced by URL. Uploading an icon file is out of scope:
+  # carrying binary data through a custom resource is the wrong shape.
+  metaIcon: https://grafana.example.com/public/img/grafana_icon.svg
+
+  group: Observability
+  openInNewTab: true
