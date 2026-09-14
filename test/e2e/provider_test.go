@@ -354,3 +354,92 @@ func TestProxyProviderCreates(t *testing.T) {
 	}
 	t.Logf("proxy provider created as %d", *provider.Status.ProviderID)
 }
+
+// TestProviderDriftIsCorrected mutates the authentik object out of band and
+// checks the operator pulls it back.
+//
+// Drift correction is unit-tested against a fake, but only a real instance
+// proves the update path actually converges rather than, say, failing
+// validation on a field the request builder omits.
+func TestProviderDriftIsCorrected(t *testing.T) {
+	cfg, c := setup(t)
+	ctx := context.Background()
+	ns := newConnection(t, ctx, c, cfg)
+
+	spec := newProviderSpec()
+	spec.Name = utils.UniqueName(ns, "drifting")
+	provider := &authentikv1alpha1.OAuth2Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "drifting", Namespace: ns},
+		Spec:       spec,
+	}
+	if err := c.Create(ctx, provider); err != nil {
+		t.Fatalf("creating provider: %v", err)
+	}
+	utils.WaitForCondition(t, ctx, c, provider,
+		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+
+	akClient := utils.NewAuthentikClient(t, cfg.AuthentikURL, cfg.AuthentikToken)
+	pk := *provider.Status.ProviderID
+
+	// Change the provider behind the operator's back.
+	utils.SetOAuth2SubMode(t, ctx, akClient, pk, "user_email")
+
+	// Changing the spec is what drives the next reconcile; the operator does
+	// not poll authentik for drift on its own.
+	if err := c.Get(ctx, client.ObjectKeyFromObject(provider), provider); err != nil {
+		t.Fatalf("refetching provider: %v", err)
+	}
+	provider.Spec.SubMode = "user_username"
+	if err := c.Update(ctx, provider); err != nil {
+		t.Fatalf("updating provider spec: %v", err)
+	}
+	utils.WaitForGenerationSynced(t, ctx, c, provider, readyTimeout)
+
+	utils.WaitForOAuth2SubMode(t, ctx, akClient, pk, "user_username", readyTimeout)
+	t.Log("out-of-band change was corrected back to the declared spec")
+}
+
+// TestProviderRecreatedWhenDeletedRemotely covers the recovery path when
+// someone removes the authentik object while the resource still exists.
+func TestProviderRecreatedWhenDeletedRemotely(t *testing.T) {
+	cfg, c := setup(t)
+	ctx := context.Background()
+	ns := newConnection(t, ctx, c, cfg)
+
+	spec := newProviderSpec()
+	spec.Name = utils.UniqueName(ns, "vanishing")
+	provider := &authentikv1alpha1.OAuth2Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "vanishing", Namespace: ns},
+		Spec:       spec,
+	}
+	if err := c.Create(ctx, provider); err != nil {
+		t.Fatalf("creating provider: %v", err)
+	}
+	utils.WaitForCondition(t, ctx, c, provider,
+		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+	originalID := *provider.Status.ProviderID
+
+	akClient := utils.NewAuthentikClient(t, cfg.AuthentikURL, cfg.AuthentikToken)
+	utils.DeleteOAuth2Provider(t, ctx, akClient, originalID)
+
+	// Touch the spec to trigger a reconcile.
+	if err := c.Get(ctx, client.ObjectKeyFromObject(provider), provider); err != nil {
+		t.Fatalf("refetching provider: %v", err)
+	}
+	provider.Spec.AccessTokenValidity = "hours=2"
+	if err := c.Update(ctx, provider); err != nil {
+		t.Fatalf("updating provider spec: %v", err)
+	}
+
+	// Ready is still true from the previous reconcile, so waiting on it alone
+	// would read stale status. Wait for the generation to be observed instead.
+	utils.WaitForGenerationSynced(t, ctx, c, provider, readyTimeout)
+
+	if provider.Status.ProviderID == nil {
+		t.Fatal("expected the provider to be recreated with a new primary key")
+	}
+	if *provider.Status.ProviderID == originalID {
+		t.Errorf("status still reports the deleted primary key %d", originalID)
+	}
+	t.Logf("recreated as %d after the original was deleted remotely", *provider.Status.ProviderID)
+}

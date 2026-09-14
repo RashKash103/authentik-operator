@@ -225,3 +225,49 @@ func WaitUntilGone(
 	t.Fatalf("timed out after %s waiting for %s to be deleted; finalizers still set: %v",
 		timeout, key, obj.GetFinalizers())
 }
+
+// WaitForGenerationSynced polls until the object's Ready condition reflects its
+// current generation.
+//
+// Waiting on Ready alone is a race whenever the spec has just been edited: the
+// condition is still true from the previous reconcile, so the wait returns
+// immediately and the test reads stale status. Comparing the condition's
+// observedGeneration against metadata.generation is what makes the wait mean
+// "the operator has seen this version of the spec".
+func WaitForGenerationSynced(
+	t *testing.T,
+	ctx context.Context,
+	c client.Client,
+	obj client.Object,
+	timeout time.Duration,
+) {
+	t.Helper()
+
+	key := client.ObjectKeyFromObject(obj)
+	deadline := time.Now().Add(timeout)
+	var last []metav1.Condition
+
+	for time.Now().Before(deadline) {
+		if err := c.Get(ctx, key, obj); err != nil {
+			if !apierrors.IsNotFound(err) {
+				t.Fatalf("getting %s: %v", key, err)
+			}
+		} else {
+			conds, err := conditionsOf(obj)
+			if err != nil {
+				t.Fatalf("reading conditions of %s: %v", key, err)
+			}
+			last = conds
+			cond := meta.FindStatusCondition(conds, "Ready")
+			if cond != nil &&
+				cond.Status == metav1.ConditionTrue &&
+				cond.ObservedGeneration == obj.GetGeneration() {
+				return
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	t.Fatalf("timed out after %s waiting for %s to reconcile generation %d; observed: %s",
+		timeout, key, obj.GetGeneration(), FormatConditions(last))
+}
