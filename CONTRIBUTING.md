@@ -316,3 +316,26 @@ those privately through GitHub security advisories.
 
 By contributing you agree that your contributions are licensed under the
 Apache License 2.0, the same as the rest of the project. See [LICENSE](LICENSE).
+
+## Documentation site
+
+The site is built with [Zensical](https://zensical.org/) from `docs/` and
+published to GitHub Pages by the `Documentation` workflow on every push to
+`main`.
+
+```sh
+pip install zensical==0.0.62
+make docs        # build into site/ with --strict
+make docs-serve  # live reload
+make verify-docs # fail if derived pages are stale
+```
+
+GitHub Pages has to be enabled **once per repository**, with the source set to
+"GitHub Actions". The workflow cannot do this itself: creating a Pages site
+needs admin rights that `GITHUB_TOKEN` is not granted, so `configure-pages`
+fails with *Resource not accessible by integration*. Enable it in
+**Settings → Pages**, or with:
+
+```sh
+gh api --method POST repos/OWNER/REPO/pages -f build_type=workflow
+```
