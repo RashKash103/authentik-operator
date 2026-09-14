@@ -99,6 +99,10 @@ jobs:
       AUTHENTIK_BOOTSTRAP_TOKEN: authentik-operator-e2e-bootstrap-token
       AUTHENTIK_BOOTSTRAP_PASSWORD: authentik-operator-e2e
       AUTHENTIK_BOOTSTRAP_EMAIL: e2e@authentik-operator.invalid
+      # The bootstrap token is the API token once authentik has started. The
+      # test suite reads AUTHENTIK_TOKEN, and treats it as missing rather than
+      # guessing, so it has to be set explicitly here.
+      AUTHENTIK_TOKEN: authentik-operator-e2e-bootstrap-token
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -211,7 +215,41 @@ jobs:
       - name: Run E2E suite
         env:
           IMG: authentik-operator:e2e
-        run: make test-e2e
+          # The suite refuses to touch a cluster unless explicitly enabled and
+          # told which context to use, so that `go test ./...` on a developer
+          # machine can never create namespaces in whatever cluster happens to
+          # be current.
+          E2E_ENABLED: "true"
+          E2E_KUBECONTEXT: kind-authentik-operator-e2e
+        run: |
+          set -euo pipefail
+          make test-e2e 2>&1 | tee e2e-output.txt
+
+      # A suite where every scenario skips still exits 0. Reporting that as a
+      # green "E2E" is worse than having no job at all, because it looks like
+      # coverage that does not exist. Say plainly what ran.
+      - name: Report scenario coverage
+        if: always()
+        run: |
+          set -uo pipefail
+          if [ ! -f e2e-output.txt ]; then
+            echo "::warning title=E2E::suite produced no output"
+            exit 0
+          fi
+          ran=$(grep -c -- "--- PASS: TestConnection\|--- FAIL: TestConnection" e2e-output.txt || true)
+          skipped=$(grep -c -- "--- SKIP:" e2e-output.txt || true)
+          {
+            echo "### E2E scenario coverage"
+            echo ""
+            echo "- authentik series: \`${{ matrix.authentik.series }}\`"
+            echo "- scenarios executed: ${ran}"
+            echo "- scenarios skipped: ${skipped}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${ran}" -eq 0 ]; then
+            echo "::warning title=E2E scenarios not implemented::This job verified that authentik ${{ matrix.authentik.series }} boots, that the cluster can reach it, and that the image and CRDs install. It did NOT exercise any operator behaviour: every scenario skipped. See EPIC 9."
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **No operator behaviour was exercised.** This job currently covers environment setup only." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Collect diagnostics
         if: failure()
