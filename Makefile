@@ -7,7 +7,7 @@ ENVTEST_K8S_VERSION = 1.34.0
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
 KUSTOMIZE_VERSION ?= v5.7.1
 ENVTEST_VERSION ?= release-0.22
-GOLANGCI_LINT_VERSION ?= v2.6.1
+GOLANGCI_LINT_VERSION ?= v2.13.2
 HELM_DOCS_VERSION ?= v1.14.2
 
 SHELL = /usr/bin/env bash -o pipefail
@@ -80,7 +80,7 @@ verify-versions: ## Fail if the version matrix has drifted out of sync.
 	python3 hack/sync-versions.py --check
 
 .PHONY: verify
-verify: manifests generate verify-versions ## Fail if generated artifacts are out of date.
+verify: manifests generate verify-versions verify-docs ## Fail if generated artifacts are out of date.
 	@if ! git diff --quiet --exit-code; then \
 		echo "ERROR: generated artifacts are out of date. Run 'make manifests generate' and commit."; \
 		git --no-pager diff --stat; \
@@ -106,6 +106,28 @@ test-integration: ## Run client-layer tests against a running local authentik.
 .PHONY: test-e2e
 test-e2e: ## Run the E2E suite against a running local authentik.
 	go test ./test/e2e/... -v -timeout 30m
+
+##@ Documentation
+
+ZENSICAL_VERSION ?= 0.0.62
+
+.PHONY: docs
+docs: ## Build the documentation site into site/.
+	@command -v zensical >/dev/null 2>&1 || { \
+		echo "zensical not found. Install it with: pip install zensical==$(ZENSICAL_VERSION)"; exit 1; }
+	zensical build --clean --strict
+
+.PHONY: docs-serve
+docs-serve: ## Serve the documentation site with live reload.
+	zensical serve
+
+.PHONY: docs-gen
+docs-gen: ## Regenerate the derived documentation pages.
+	python3 hack/gen-docs.py
+
+.PHONY: verify-docs
+verify-docs: ## Fail if the derived documentation pages are stale.
+	python3 hack/gen-docs.py --check
 
 ##@ Build
 

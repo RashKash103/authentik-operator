@@ -264,13 +264,13 @@ func parseErrorBody(body []byte) (detail, code string, fields map[string][]strin
 		case "detail":
 			var s string
 			if json.Unmarshal(value, &s) == nil {
-				detail = truncate(s, maxErrorMessageLength)
+				detail = truncate(s)
 			}
 			continue
 		case "code":
 			var s string
 			if json.Unmarshal(value, &s) == nil {
-				code = truncate(s, maxErrorMessageLength)
+				code = truncate(s)
 			}
 			continue
 		}
@@ -303,7 +303,7 @@ func sanitizeMessages(field string, msgs []string) []string {
 	}
 	out := make([]string, 0, len(msgs))
 	for _, msg := range msgs {
-		out = append(out, truncate(msg, maxErrorMessageLength))
+		out = append(out, truncate(msg))
 	}
 	return out
 }
@@ -319,12 +319,15 @@ func isSensitiveField(field string) bool {
 	return false
 }
 
-func truncate(s string, limit int) string {
+// truncate bounds a message to maxErrorMessageLength. Keeping an authentik
+// error short matters because it ends up in a condition message, and an
+// over-long status update is rejected outright.
+func truncate(s string) string {
 	s = strings.TrimSpace(s)
-	if len(s) <= limit {
+	if len(s) <= maxErrorMessageLength {
 		return s
 	}
-	return s[:limit] + "…"
+	return s[:maxErrorMessageLength] + "…"
 }
 
 // transientError wraps a transport-level failure. The underlying error is not
@@ -334,7 +337,7 @@ func transientError(op string, err error) error {
 	return &APIError{
 		Op:     op,
 		Kind:   ErrTransient,
-		Detail: truncate(err.Error(), maxErrorMessageLength),
+		Detail: truncate(err.Error()),
 	}
 }
 

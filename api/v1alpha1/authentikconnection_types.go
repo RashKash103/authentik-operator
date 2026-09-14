@@ -112,5 +112,5 @@ type AuthentikConnectionList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&AuthentikConnection{}, &AuthentikConnectionList{})
+	registerTypes(&AuthentikConnection{}, &AuthentikConnectionList{})
 }

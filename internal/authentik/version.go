@@ -251,16 +251,17 @@ func (c *client) rawVersion(ctx context.Context) (string, error) {
 		return "", mapResponse(op, resp, err)
 	}
 	if version == nil {
-		return "", transientErrorf(op, "empty version response")
+		return "", transientMessage(op, "empty version response")
 	}
 	return version.GetVersionCurrent(), nil
 }
 
-// transientErrorf builds a transient APIError from a static message.
-func transientErrorf(op, format string, args ...any) error {
+// transientMessage builds a transient APIError from a static message, for the
+// cases where authentik answered but the answer was unusable.
+func transientMessage(op, detail string) error {
 	return &APIError{
 		Op:     op,
 		Kind:   ErrTransient,
-		Detail: fmt.Sprintf(format, args...),
+		Detail: detail,
 	}
 }

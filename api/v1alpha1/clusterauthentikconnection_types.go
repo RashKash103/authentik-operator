@@ -76,5 +76,5 @@ type ClusterAuthentikConnectionList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterAuthentikConnection{}, &ClusterAuthentikConnectionList{})
+	registerTypes(&ClusterAuthentikConnection{}, &ClusterAuthentikConnectionList{})
 }

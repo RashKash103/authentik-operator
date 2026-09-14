@@ -38,7 +38,7 @@ func (c *client) ResolveFlow(ctx context.Context, slug string) (string, error) {
 			return nil, mapResponse(op, resp, err)
 		}
 		if list == nil {
-			return nil, transientErrorf(op, "empty list response")
+			return nil, transientMessage(op, "empty list response")
 		}
 		pks := make([]string, 0, len(list.Results))
 		for _, flow := range list.Results {
@@ -66,7 +66,7 @@ func (c *client) ResolvePropertyMapping(ctx context.Context, name string) (strin
 			return nil, mapResponse(op, resp, err)
 		}
 		if list == nil {
-			return nil, transientErrorf(op, "empty list response")
+			return nil, transientMessage(op, "empty list response")
 		}
 		pks := make([]string, 0, len(list.Results))
 		for _, mapping := range list.Results {
@@ -105,7 +105,7 @@ func (c *client) ResolveCertificateKeyPair(ctx context.Context, name string) (st
 			return nil, mapResponse(op, resp, err)
 		}
 		if list == nil {
-			return nil, transientErrorf(op, "empty list response")
+			return nil, transientMessage(op, "empty list response")
 		}
 		pks := make([]string, 0, len(list.Results))
 		for _, pair := range list.Results {
@@ -131,7 +131,7 @@ func (c *client) ResolveServiceConnection(ctx context.Context, name string) (str
 			return nil, mapResponse(op, resp, err)
 		}
 		if list == nil {
-			return nil, transientErrorf(op, "empty list response")
+			return nil, transientMessage(op, "empty list response")
 		}
 		pks := make([]string, 0, len(list.Results))
 		for _, conn := range list.Results {
@@ -196,7 +196,7 @@ func (c *client) listProviderPKs(ctx context.Context, op, name string) ([]int32,
 		return nil, mapResponse(op, resp, err)
 	}
 	if list == nil {
-		return nil, transientErrorf(op, "empty list response")
+		return nil, transientMessage(op, "empty list response")
 	}
 
 	var matches []int32

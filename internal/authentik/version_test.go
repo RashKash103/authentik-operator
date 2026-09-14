@@ -194,7 +194,7 @@ type supportedVersionsFile struct {
 // MaximumVersion in sync with supported-versions.yaml, the single source of
 // truth for CI and the README.
 //
-// go:embed cannot reach outside the package directory and the file lives at the
+// The go:embed directive cannot reach outside its package directory, and the file lives at the
 // repository root, so the bounds are duplicated as constants and this test is
 // what stops the two from drifting.
 func TestSupportedVersionConstantsMatchYAML(t *testing.T) {
