@@ -94,6 +94,20 @@ func NewNamespace(t *testing.T, ctx context.Context, c client.Client) string {
 	return name
 }
 
+// UniqueName derives a name unique to one test run from its namespace.
+//
+// Namespaces are per-test, but authentik objects are named from the spec and
+// live in an instance that outlives the run. Without a per-run suffix the
+// second run of the suite collides with the first and fails with an adoption
+// conflict - which is what happened before this existed.
+func UniqueName(namespace, base string) string {
+	suffix := namespace
+	if idx := strings.LastIndex(namespace, "-"); idx >= 0 {
+		suffix = namespace[idx+1:]
+	}
+	return base + "-" + suffix
+}
+
 // CreateSecret creates an opaque Secret in the given namespace.
 func CreateSecret(t *testing.T, ctx context.Context, c client.Client, namespace, name string, data map[string]string) {
 	t.Helper()
@@ -171,6 +185,10 @@ func conditionsOf(obj client.Object) ([]metav1.Condition, error) {
 	case *authentikv1alpha1.OAuth2Provider:
 		return o.Status.Conditions, nil
 	case *authentikv1alpha1.Application:
+		return o.Status.Conditions, nil
+	case *authentikv1alpha1.SAMLProvider:
+		return o.Status.Conditions, nil
+	case *authentikv1alpha1.ProxyProvider:
 		return o.Status.Conditions, nil
 	default:
 		return nil, fmt.Errorf("no condition accessor for %T", obj)

@@ -85,6 +85,7 @@ func TestOAuth2ProviderCreatesAndPublishesCredentials(t *testing.T) {
 	ns := newConnection(t, ctx, c, cfg)
 
 	spec := newProviderSpec()
+	spec.Name = utils.UniqueName(ns, "demo-app")
 	spec.WriteCredentialsTo = &authentikv1alpha1.CredentialsSecretRef{Name: "app-oidc"}
 
 	provider := &authentikv1alpha1.OAuth2Provider{
@@ -144,7 +145,7 @@ func TestApplicationWaitsForItsProvider(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "ordered", Namespace: ns},
 		Spec: authentikv1alpha1.ApplicationSpec{
 			ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
-			Slug:          "ordered-app",
+			Slug:          utils.UniqueName(ns, "ordered-app"),
 			Name:          "Ordered App",
 			ProviderRef: &authentikv1alpha1.ProviderReference{
 				Kind: authentikv1alpha1.ProviderKindOAuth2,
@@ -165,9 +166,11 @@ func TestApplicationWaitsForItsProvider(t *testing.T) {
 		t.Fatalf("expected ReferenceNotFound, got %s", utils.FormatConditions(app.Status.Conditions))
 	}
 
+	providerSpec := newProviderSpec()
+	providerSpec.Name = utils.UniqueName(ns, "arrives-later")
 	provider := &authentikv1alpha1.OAuth2Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: "arrives-later", Namespace: ns},
-		Spec:       newProviderSpec(),
+		Spec:       providerSpec,
 	}
 	if err := c.Create(ctx, provider); err != nil {
 		t.Fatalf("creating provider: %v", err)
@@ -186,9 +189,11 @@ func TestProviderDeletionRemovesRemoteObject(t *testing.T) {
 	ctx := context.Background()
 	ns := newConnection(t, ctx, c, cfg)
 
+	ephemeralSpec := newProviderSpec()
+	ephemeralSpec.Name = utils.UniqueName(ns, "ephemeral")
 	provider := &authentikv1alpha1.OAuth2Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: "ephemeral", Namespace: ns},
-		Spec:       newProviderSpec(),
+		Spec:       ephemeralSpec,
 	}
 	if err := c.Create(ctx, provider); err != nil {
 		t.Fatalf("creating provider: %v", err)
@@ -212,7 +217,9 @@ func TestProviderOrphanLeavesRemoteObject(t *testing.T) {
 	ctx := context.Background()
 	ns := newConnection(t, ctx, c, cfg)
 
+	orphanName := utils.UniqueName(ns, "orphaned")
 	spec := newProviderSpec()
+	spec.Name = orphanName
 	spec.Deletion = authentikv1alpha1.DeletionPolicyOrphan
 
 	provider := &authentikv1alpha1.OAuth2Provider{
@@ -235,7 +242,7 @@ func TestProviderOrphanLeavesRemoteObject(t *testing.T) {
 	// and leaves the instance clean for the next run.
 	spec2 := newProviderSpec()
 	spec2.Adoption = authentikv1alpha1.AdoptionPolicyAdoptExisting
-	spec2.Name = "orphaned"
+	spec2.Name = orphanName
 
 	readopted := &authentikv1alpha1.OAuth2Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: "readopt", Namespace: ns},
@@ -261,4 +268,89 @@ func TestProviderOrphanLeavesRemoteObject(t *testing.T) {
 	if err := c.Update(ctx, readopted); err != nil && !apierrors.IsNotFound(err) {
 		t.Logf("could not switch the re-adopted provider to Delete: %v", err)
 	}
+}
+
+// TestSAMLProviderAndApplication covers the second provider kind end to end,
+// including an Application resolving a non-OAuth2 reference.
+func TestSAMLProviderAndApplication(t *testing.T) {
+	cfg, c := setup(t)
+	ctx := context.Background()
+	ns := newConnection(t, ctx, c, cfg)
+
+	provider := &authentikv1alpha1.SAMLProvider{
+		ObjectMeta: metav1.ObjectMeta{Name: "saml-app", Namespace: ns},
+		Spec: authentikv1alpha1.SAMLProviderSpec{
+			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
+				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
+				Name:              utils.UniqueName(ns, "saml-app"),
+				AuthorizationFlow: defaultAuthorizationFlow,
+				InvalidationFlow:  defaultInvalidationFlow,
+			},
+			ACSURL: "https://saml.example.com/acs",
+		},
+	}
+	if err := c.Create(ctx, provider); err != nil {
+		t.Fatalf("creating SAML provider: %v", err)
+	}
+	utils.WaitForCondition(t, ctx, c, provider,
+		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+
+	if provider.Status.ProviderID == nil {
+		t.Fatal("expected status.providerID once Ready")
+	}
+
+	app := &authentikv1alpha1.Application{
+		ObjectMeta: metav1.ObjectMeta{Name: "saml-bound", Namespace: ns},
+		Spec: authentikv1alpha1.ApplicationSpec{
+			ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
+			Slug:          utils.UniqueName(ns, "saml-bound"),
+			Name:          "SAML Bound",
+			ProviderRef: &authentikv1alpha1.ProviderReference{
+				Kind: authentikv1alpha1.ProviderKindSAML,
+				Name: "saml-app",
+			},
+		},
+	}
+	if err := c.Create(ctx, app); err != nil {
+		t.Fatalf("creating application: %v", err)
+	}
+	utils.WaitForCondition(t, ctx, c, app,
+		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+
+	if app.Status.ProviderID == nil || *app.Status.ProviderID != *provider.Status.ProviderID {
+		t.Errorf("application bound to provider %v, want the SAML provider %v",
+			app.Status.ProviderID, provider.Status.ProviderID)
+	}
+	t.Logf("application bound to SAML provider %d", *provider.Status.ProviderID)
+}
+
+// TestProxyProviderCreates covers the third provider kind.
+func TestProxyProviderCreates(t *testing.T) {
+	cfg, c := setup(t)
+	ctx := context.Background()
+	ns := newConnection(t, ctx, c, cfg)
+
+	provider := &authentikv1alpha1.ProxyProvider{
+		ObjectMeta: metav1.ObjectMeta{Name: "proxy-app", Namespace: ns},
+		Spec: authentikv1alpha1.ProxyProviderSpec{
+			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
+				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
+				Name:              utils.UniqueName(ns, "proxy-app"),
+				AuthorizationFlow: defaultAuthorizationFlow,
+				InvalidationFlow:  defaultInvalidationFlow,
+			},
+			ExternalHost: "https://proxied.example.com",
+			Mode:         "forward_single",
+		},
+	}
+	if err := c.Create(ctx, provider); err != nil {
+		t.Fatalf("creating proxy provider: %v", err)
+	}
+	utils.WaitForCondition(t, ctx, c, provider,
+		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+
+	if provider.Status.ProviderID == nil {
+		t.Fatal("expected status.providerID once Ready")
+	}
+	t.Logf("proxy provider created as %d", *provider.Status.ProviderID)
 }

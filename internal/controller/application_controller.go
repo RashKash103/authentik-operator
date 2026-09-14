@@ -211,15 +211,33 @@ func (r *ApplicationReconciler) resolveProviderRef(
 		}
 		return provider.Status.ProviderID, nil
 
-	// TODO(saml,proxy): SAMLProvider and ProxyProvider are being added
-	// separately. Once their Go types exist, give each a case here reading
-	// its own status.providerID; the rest of this controller needs no change,
-	// because everything downstream works from the resolved primary key.
-	case authentikv1alpha1.ProviderKindSAML, authentikv1alpha1.ProviderKindProxy:
-		return nil, fmt.Errorf(
-			"%w: %s: provider kind %q is accepted by the schema but not implemented yet; "+
-				"only %s can be referenced today",
-			authentik.ErrValidation, field, ref.EffectiveKind(), authentikv1alpha1.ProviderKindOAuth2)
+	case authentikv1alpha1.ProviderKindSAML:
+		var provider authentikv1alpha1.SAMLProvider
+		if err := r.Get(ctx, key, &provider); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, providerRefNotReady(field, ref, "does not exist")
+			}
+			return nil, err
+		}
+		if provider.Status.ProviderID == nil {
+			return nil, providerRefNotReady(field, ref,
+				"has not been created in authentik yet")
+		}
+		return provider.Status.ProviderID, nil
+
+	case authentikv1alpha1.ProviderKindProxy:
+		var provider authentikv1alpha1.ProxyProvider
+		if err := r.Get(ctx, key, &provider); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, providerRefNotReady(field, ref, "does not exist")
+			}
+			return nil, err
+		}
+		if provider.Status.ProviderID == nil {
+			return nil, providerRefNotReady(field, ref,
+				"has not been created in authentik yet")
+		}
+		return provider.Status.ProviderID, nil
 
 	default:
 		return nil, fmt.Errorf("%w: %s: unknown provider kind %q",
@@ -296,15 +314,22 @@ func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// wait into a non-event: an Application whose provider does not exist yet
 	// requeues on a backoff, but the provider writing its providerID enqueues
 	// the Application immediately.
-	//
-	// TODO(saml,proxy): add the same Watches clause for SAMLProvider and
-	// ProxyProvider once those types exist.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authentikv1alpha1.Application{}).
 		Watches(
 			&authentikv1alpha1.OAuth2Provider{},
 			handler.EnqueueRequestsFromMapFunc(
 				r.applicationsForProvider(authentikv1alpha1.ProviderKindOAuth2)),
+		).
+		Watches(
+			&authentikv1alpha1.SAMLProvider{},
+			handler.EnqueueRequestsFromMapFunc(
+				r.applicationsForProvider(authentikv1alpha1.ProviderKindSAML)),
+		).
+		Watches(
+			&authentikv1alpha1.ProxyProvider{},
+			handler.EnqueueRequestsFromMapFunc(
+				r.applicationsForProvider(authentikv1alpha1.ProviderKindProxy)),
 		).
 		Named("application").
 		Complete(r)
