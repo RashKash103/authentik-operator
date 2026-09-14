@@ -3,6 +3,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - bases/authentik.k8s.rka.sh_applications.yaml
   - bases/authentik.k8s.rka.sh_authentikconnections.yaml
   - bases/authentik.k8s.rka.sh_clusterauthentikconnections.yaml
   - bases/authentik.k8s.rka.sh_oauth2providers.yaml

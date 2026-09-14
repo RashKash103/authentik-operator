@@ -25,6 +25,7 @@ rules:
 - apiGroups:
   - authentik.k8s.rka.sh
   resources:
+  - applications
   - authentikconnections
   - clusterauthentikconnections
   - oauth2providers
@@ -39,6 +40,7 @@ rules:
 - apiGroups:
   - authentik.k8s.rka.sh
   resources:
+  - applications/finalizers
   - authentikconnections/finalizers
   - clusterauthentikconnections/finalizers
   - oauth2providers/finalizers
@@ -47,6 +49,7 @@ rules:
 - apiGroups:
   - authentik.k8s.rka.sh
   resources:
+  - applications/status
   - authentikconnections/status
   - clusterauthentikconnections/status
   - oauth2providers/status
