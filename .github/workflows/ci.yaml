@@ -34,11 +34,26 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Read the pin out of the Makefile rather than duplicating it here. The
+      # previous copy carried a "keep in sync with the Makefile" comment and
+      # drifted anyway, failing with "the Go language version (go1.25) used to
+      # build golangci-lint is lower than the targeted Go version".
+      - name: Resolve the pinned golangci-lint version
+        id: lint-version
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^GOLANGCI_LINT_VERSION ?= //p' Makefile)"
+          if [ -z "${version}" ]; then
+            echo "could not read GOLANGCI_LINT_VERSION from the Makefile" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "using golangci-lint ${version}"
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          # Keep in sync with GOLANGCI_LINT_VERSION in the Makefile.
-          version: v2.6.1
+          version: ${{ steps.lint-version.outputs.version }}
           args: --timeout=5m
 
   vet:
