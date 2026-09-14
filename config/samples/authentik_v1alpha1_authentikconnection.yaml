@@ -1,0 +1,25 @@
+# A namespaced connection: the operator reads the API token from a Secret in
+# this same namespace. This is the right choice for most deployments.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authentik-api-token
+  namespace: default
+type: Opaque
+stringData:
+  # Create this in authentik under Directory > Tokens, with an identifier you
+  # recognise and the "api" intent.
+  token: "replace-me"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: AuthentikConnection
+metadata:
+  name: primary
+  namespace: default
+spec:
+  url: https://authentik.example.com
+  tokenSecretRef:
+    name: authentik-api-token
+    key: token
+  # How often the instance is re-checked for reachability.
+  probeInterval: 5m

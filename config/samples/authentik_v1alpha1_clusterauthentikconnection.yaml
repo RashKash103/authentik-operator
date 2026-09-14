@@ -1,0 +1,20 @@
+# A cluster-scoped connection, usable from any namespace.
+#
+# SECURITY: this object names the namespace holding its credentials, so it can
+# reference a Secret anywhere in the cluster. Permission to create one is close
+# to a cluster-admin privilege. Restrict who may create it, and prefer
+# allowedNamespaces over leaving it open. See SECURITY.md.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: ClusterAuthentikConnection
+metadata:
+  name: shared
+spec:
+  url: https://authentik.example.com
+  tokenSecretRef:
+    name: authentik-api-token
+    namespace: authentik-operator-system
+    key: token
+  # Omit to allow every namespace; listing them is strongly preferred.
+  allowedNamespaces:
+    - default
+    - platform

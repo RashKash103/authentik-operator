@@ -1,0 +1,46 @@
+# Onboard Grafana to authentik over OpenID Connect.
+#
+# The provider is created in authentik, and the client credentials authentik
+# generates are written into a Secret that the Grafana Deployment can mount.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: OAuth2Provider
+metadata:
+  name: grafana
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+
+  # Flows are referenced by slug, not UUID. These are authentik's shipped
+  # defaults; `kubectl get` them in the authentik UI under Flows & Stages.
+  authorizationFlow: default-provider-authorization-explicit-consent
+  invalidationFlow: default-provider-invalidation-flow
+
+  clientType: confidential
+  grantTypes:
+    - authorization_code
+    - refresh_token
+
+  redirectURIs:
+    - matchingMode: strict
+      url: https://grafana.example.com/login/generic_oauth
+
+  # Durations use authentik's syntax, not Go's. "1h" is rejected at apply time.
+  accessTokenValidity: hours=1
+  refreshTokenValidity: days=30
+
+  propertyMappings:
+    - "authentik default OAuth Mapping: OpenID 'openid'"
+    - "authentik default OAuth Mapping: OpenID 'email'"
+    - "authentik default OAuth Mapping: OpenID 'profile'"
+
+  # The point of the whole resource: the generated credentials land here.
+  writeCredentialsTo:
+    name: grafana-oidc
+    clientIDKey: client-id
+    clientSecretKey: client-secret
+    issuerKey: issuer
+
+  # Refuse to take over a provider already named "grafana" in authentik.
+  adoptionPolicy: FailOnConflict
+  deletionPolicy: Delete
