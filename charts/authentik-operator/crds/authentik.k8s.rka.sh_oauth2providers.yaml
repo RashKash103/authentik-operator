@@ -1,0 +1,400 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: oauth2providers.authentik.k8s.rka.sh
+spec:
+  group: authentik.k8s.rka.sh
+  names:
+    kind: OAuth2Provider
+    listKind: OAuth2ProviderList
+    plural: oauth2providers
+    shortNames:
+    - akoauth2
+    singular: oauth2provider
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.clientID
+      name: Client ID
+      type: string
+    - jsonPath: .status.providerID
+      name: Provider
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: OAuth2Provider manages an OAuth2/OpenID Connect provider in authentik.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: OAuth2ProviderSpec defines an OAuth2/OpenID Connect provider.
+            properties:
+              accessCodeValidity:
+                description: AccessCodeValidity in authentik duration syntax, e.g.
+                  "minutes=1".
+                pattern: ^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\d+);?)+$
+                type: string
+              accessTokenValidity:
+                description: AccessTokenValidity in authentik duration syntax, e.g.
+                  "hours=1".
+                pattern: ^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\d+);?)+$
+                type: string
+              adoptionPolicy:
+                default: FailOnConflict
+                description: |-
+                  AdoptionPolicy controls what happens when a provider with this name
+                  already exists in authentik.
+                enum:
+                - FailOnConflict
+                - AdoptExisting
+                type: string
+              authenticationFlow:
+                description: |-
+                  AuthenticationFlow is the slug of the flow used to authenticate a user
+                  who reaches the application unauthenticated. Leave unset to use
+                  authentik's default.
+                type: string
+              authorizationFlow:
+                description: |-
+                  AuthorizationFlow is the slug of the flow used when authorizing this
+                  provider.
+                minLength: 1
+                type: string
+              clientID:
+                description: ClientID to use. When empty authentik generates one.
+                type: string
+              clientSecretRef:
+                description: |-
+                  ClientSecretRef reads a fixed client secret from a Secret in this
+                  namespace. When unset, authentik generates a secret.
+
+                  A secret is never accepted inline: putting one in a spec field would
+                  store it in plain text in etcd and print it in `kubectl get -o yaml`.
+                properties:
+                  key:
+                    description: Key within the Secret's data.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              clientType:
+                default: confidential
+                description: |-
+                  ClientType is confidential for clients that can keep a secret, public
+                  for those that cannot (SPAs, native apps).
+                enum:
+                - confidential
+                - public
+                type: string
+              connectionRef:
+                description: ConnectionRef selects the authentik instance this provider
+                  lives in.
+                properties:
+                  kind:
+                    default: AuthentikConnection
+                    description: Kind of connection object being referenced.
+                    enum:
+                    - AuthentikConnection
+                    - ClusterAuthentikConnection
+                    type: string
+                  name:
+                    description: Name of the connection object.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              deletionPolicy:
+                default: Delete
+                description: |-
+                  DeletionPolicy controls what happens to the authentik provider when this
+                  resource is deleted.
+                enum:
+                - Delete
+                - Orphan
+                type: string
+              encryptionKey:
+                description: |-
+                  EncryptionKey is the name of the certificate key pair used to encrypt
+                  tokens. When set, tokens are returned as JWEs.
+                type: string
+              grantTypes:
+                description: GrantTypes the provider will issue tokens for.
+                items:
+                  description: |-
+                    OAuth2GrantType is an OAuth2 grant the provider will issue tokens for.
+
+                    This is a named type rather than a marker on the slice field because
+                    controller-gen applies an enum marker to the array itself in that case,
+                    producing a schema that rejects every non-empty list.
+
+                    The urn: values contain colons, which the marker parser reads as argument
+                    separators unless each value is quoted.
+                  enum:
+                  - authorization_code
+                  - implicit
+                  - hybrid
+                  - refresh_token
+                  - client_credentials
+                  - password
+                  - urn:ietf:params:oauth:grant-type:device_code
+                  - urn:ietf:params:oauth:grant-type:token-exchange
+                  type: string
+                type: array
+              includeClaimsInIDToken:
+                description: |-
+                  IncludeClaimsInIDToken embeds scope claims in the id_token, for clients
+                  that never call the userinfo endpoint.
+                type: boolean
+              invalidationFlow:
+                description: InvalidationFlow is the slug of the flow used when ending
+                  a session.
+                minLength: 1
+                type: string
+              issuerMode:
+                description: IssuerMode selects how the issuer field is built.
+                enum:
+                - global
+                - per_provider
+                type: string
+              logoutMethod:
+                description: LogoutMethod selects back-channel or front-channel logout.
+                enum:
+                - backchannel
+                - frontchannel
+                type: string
+              logoutURI:
+                description: LogoutURI is called on logout.
+                type: string
+              name:
+                description: Name is the provider's name in authentik. Defaults to
+                  the resource name.
+                type: string
+              propertyMappings:
+                description: PropertyMappings are the names of property mappings to
+                  attach.
+                items:
+                  type: string
+                type: array
+              redirectURIs:
+                description: RedirectURIs permitted for this client.
+                items:
+                  description: RedirectURI is one permitted OAuth2 redirect target.
+                  properties:
+                    matchingMode:
+                      default: strict
+                      description: MatchingMode selects exact or regular-expression
+                        matching.
+                      enum:
+                      - strict
+                      - regex
+                      type: string
+                    url:
+                      description: URL is the redirect URI, or a regular expression
+                        matching one.
+                      minLength: 1
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
+              refreshTokenValidity:
+                description: RefreshTokenValidity in authentik duration syntax, e.g.
+                  "days=30".
+                pattern: ^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\d+);?)+$
+                type: string
+              signingKey:
+                description: SigningKey is the name of the certificate key pair used
+                  to sign tokens.
+                type: string
+              subMode:
+                description: SubMode selects what the `sub` claim contains.
+                enum:
+                - hashed_user_id
+                - user_id
+                - user_uuid
+                - user_username
+                - user_email
+                - user_upn
+                type: string
+              writeCredentialsTo:
+                description: |-
+                  WriteCredentialsTo creates a Secret holding the client id and secret, so
+                  the workload that needs them can mount it. This is usually the point of
+                  creating the provider in the first place.
+                properties:
+                  clientIDKey:
+                    default: client-id
+                    description: ClientIDKey is the Secret key holding the client
+                      id.
+                    type: string
+                  clientSecretKey:
+                    default: client-secret
+                    description: ClientSecretKey is the Secret key holding the client
+                      secret.
+                    type: string
+                  issuerKey:
+                    default: issuer
+                    description: |-
+                      IssuerKey optionally holds the provider's issuer URL, which most OIDC
+                      clients need alongside the credentials.
+                    type: string
+                  name:
+                    description: Name of the Secret to create in this resource's namespace.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - authorizationFlow
+            - connectionRef
+            - invalidationFlow
+            type: object
+          status:
+            description: OAuth2ProviderStatus reports the provider's state in authentik.
+            properties:
+              adopted:
+                description: |-
+                  Adopted records that this resource took over a pre-existing authentik
+                  object rather than creating it.
+                type: boolean
+              clientID:
+                description: |-
+                  ClientID currently configured in authentik. The client id is not a
+                  credential on its own, so it is safe to surface; the secret never is.
+                type: string
+              conditions:
+                description: Conditions describe the current state of the resource.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              credentialsRotatedAt:
+                description: CredentialsRotatedAt records the last client secret rotation.
+                format: date-time
+                type: string
+              credentialsSecretName:
+                description: CredentialsSecretName is the Secret the credentials were
+                  written to.
+                type: string
+              lastSyncedTime:
+                description: LastSyncedTime is when the resource last reconciled successfully.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the .metadata.generation this status
+                  reflects.
+                format: int64
+                type: integer
+              providerID:
+                description: |-
+                  ProviderID is authentik's numeric primary key for this provider. It is
+                  what an Application or Outpost must reference, so it is surfaced
+                  separately from the generic RemoteID string.
+                format: int32
+                type: integer
+              remoteID:
+                description: |-
+                  RemoteID is authentik's own identifier for the managed object: a numeric
+                  primary key for providers and applications, a UUID elsewhere.
+
+                  Once set this is the authoritative handle for the object. Lookups prefer
+                  it over the name, so that renaming the object on either side does not
+                  cause the operator to lose track of it and create a duplicate.
+                type: string
+              remoteName:
+                description: RemoteName is the name or slug last observed in authentik.
+                  Informational.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

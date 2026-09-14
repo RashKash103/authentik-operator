@@ -7,16 +7,27 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - authentik.k8s.rka.sh
   resources:
   - authentikconnections
   - clusterauthentikconnections
+  - oauth2providers
   verbs:
   - create
   - delete
@@ -30,6 +41,7 @@ rules:
   resources:
   - authentikconnections/finalizers
   - clusterauthentikconnections/finalizers
+  - oauth2providers/finalizers
   verbs:
   - update
 - apiGroups:
@@ -37,6 +49,7 @@ rules:
   resources:
   - authentikconnections/status
   - clusterauthentikconnections/status
+  - oauth2providers/status
   verbs:
   - get
   - patch

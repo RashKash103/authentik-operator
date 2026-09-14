@@ -24,10 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/recorder"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
 	"rka.sh/authentik-operator/internal/authentik"
@@ -87,7 +87,7 @@ type RemoteAdapter interface {
 type SyncRequest struct {
 	Object   ManagedObject
 	Adapter  RemoteAdapter
-	Recorder record.EventRecorder
+	Recorder recorder.EventRecorder
 	Scheme   *runtime.Scheme
 }
 
@@ -262,11 +262,15 @@ func IsAdoptionConflict(err error) bool {
 }
 
 // recordf emits a Kubernetes Event when a recorder is configured.
+//
+// The events API takes a "related" object and an "action" alongside the
+// reason; there is no second object involved here, and the reason doubles as
+// the action because each one already names exactly what was done.
 func (r SyncRequest) recordf(eventType, reason, format string, args ...any) {
 	if r.Recorder == nil {
 		return
 	}
-	r.Recorder.Eventf(r.Object, eventType, reason, format, args...)
+	r.Recorder.Eventf(r.Object, nil, eventType, reason, reason, format, args...)
 }
 
 // ResultFor maps a sync error to the condition reason and requeue behaviour a

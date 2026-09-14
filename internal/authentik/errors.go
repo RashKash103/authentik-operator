@@ -341,6 +341,18 @@ func transientError(op string, err error) error {
 	}
 }
 
+// NotFound builds an ErrNotFound for a reference that resolved to nothing.
+//
+// Exported for resource adapters, which live outside this package but must
+// produce the same classifications the resolvers do, so that callers can keep
+// branching on IsNotFound rather than on error text.
+func NotFound(op, kind, name string) error { return notFoundError(op, kind, name) }
+
+// Ambiguous builds an ErrAmbiguous for a reference that matched repeatedly.
+func Ambiguous(op, kind, name string, matches int) error {
+	return ambiguousError(op, kind, name, matches)
+}
+
 // notFoundError builds an ErrNotFound for a reference that resolved to nothing.
 func notFoundError(op, kind, name string) error {
 	return fmt.Errorf("%w: no %s matches %q (%s)", ErrNotFound, kind, name, op)

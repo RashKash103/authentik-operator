@@ -170,5 +170,14 @@ func setupControllers(mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create ClusterAuthentikConnection controller: %w", err)
 	}
 
+	if err := (&controller.OAuth2ProviderReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("oauth2provider-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create OAuth2Provider controller: %w", err)
+	}
+
 	return nil
 }
