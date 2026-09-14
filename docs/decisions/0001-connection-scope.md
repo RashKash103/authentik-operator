@@ -181,7 +181,7 @@ conveniences:
 
 ## References
 
-- [`SECURITY.md`](../../SECURITY.md) — blast radius of each credential and the
+- [Security](../operations/security.md) — blast radius of each credential and the
   hardening guidance that follows from this decision.
 - [ADR 0002](0002-adoption-policy.md) — the other safety default in the API.
 - Prior art: cert-manager's `Issuer`/`ClusterIssuer` split, and

@@ -74,7 +74,7 @@ default   https://authentik.example.com   2026.8.2   True    12s
 
 ## 2. The OAuth2 provider
 
-```yaml title="provider.yaml"
+```{ .yaml .annotate title="provider.yaml" }
 apiVersion: authentik.k8s.rka.sh/v1alpha1
 kind: OAuth2Provider
 metadata:
@@ -149,7 +149,7 @@ The failure modes get their own condition reasons:
 
 ## 3. The application
 
-```yaml title="application.yaml"
+```{ .yaml .annotate title="application.yaml" }
 apiVersion: authentik.k8s.rka.sh/v1alpha1
 kind: Application
 metadata:

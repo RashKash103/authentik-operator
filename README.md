@@ -277,13 +277,15 @@ a `kind` so a namespaced resource can choose either variant.
 
 ## Documentation
 
+**📖 [rashkash103.github.io/authentik-operator](https://rashkash103.github.io/authentik-operator/)** — installation, usage guides, reference schemas and troubleshooting.
+
+Built with [Zensical](https://zensical.org/) from `docs/`, and published by the
+`Documentation` workflow on every push to `main`.
+
 - [ADR 0001 — Connection scope](docs/decisions/0001-connection-scope.md): why both a namespaced and a cluster-scoped connection kind ship.
 - [ADR 0002 — Adoption policy](docs/decisions/0002-adoption-policy.md): why `FailOnConflict` is the default.
 - [SECURITY.md](SECURITY.md): threat model, credential blast radius, hardening, and how to report a vulnerability.
 - [CONTRIBUTING.md](CONTRIBUTING.md): development setup, test tiers, and the `make verify` contract.
-
-<!-- PLACEHOLDER: no published documentation site exists yet. Add the link here
-     if one is set up. -->
 
 ## Contributing
 

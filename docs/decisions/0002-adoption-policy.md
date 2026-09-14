@@ -202,6 +202,6 @@ Supporting rules:
 
 ## References
 
-- [`SECURITY.md`](../../SECURITY.md) — why overwriting an identity-provider
+- [Security](../operations/security.md) — why overwriting an identity-provider
   object is a higher-consequence failure than the usual reconcile mistake.
 - [ADR 0001](0001-connection-scope.md) — the other safety default in the API.
