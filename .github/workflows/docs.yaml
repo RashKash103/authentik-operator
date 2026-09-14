@@ -44,7 +44,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install Zensical
-        run: pip install "zensical==${ZENSICAL_VERSION}" pyyaml
+        run: pip install "zensical==${ZENSICAL_VERSION}" "pyyaml==6.0.3"
 
       - name: Verify derived pages are up to date
         run: python3 hack/gen-docs.py --check

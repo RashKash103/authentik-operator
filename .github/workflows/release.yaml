@@ -52,6 +52,19 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
+
+          # Git ref names forbid spaces and a few metacharacters but permit
+          # $ ( ) ` ; & | - enough to smuggle a command substitution into any
+          # step that interpolates a derived value into a shell. This job holds
+          # contents/packages/id-token/attestations write and an authenticated
+          # GHCR session, so a crafted tag would be able to push a backdoored
+          # image and sign it with valid provenance. Refuse anything that is not
+          # a plain semver tag.
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "refusing to release from tag '${tag}': expected vMAJOR.MINOR.PATCH[-prerelease]" >&2
+            exit 1
+          fi
+
           version="${tag#v}"
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           {
@@ -129,18 +142,25 @@ jobs:
           upload-release-assets: false
 
       - name: Render install.yaml
+        env:
+          # Pinned by digest, not tag: the provenance attestation covers a
+          # digest, and a tag can be re-pushed by anyone with packages:write,
+          # so a tag-pinned manifest defeats the chain at the point of use.
+          IMAGE_PINNED: ${{ steps.version.outputs.image }}@${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
-          make bundle IMG="${{ steps.version.outputs.image_ref }}"
+          make bundle IMG="${IMAGE_PINNED}"
           test -s dist/install.yaml
-          grep -q "${{ steps.version.outputs.image_ref }}" dist/install.yaml
+          grep -q "${IMAGE_PINNED}" dist/install.yaml
 
       - name: Package the Helm chart
+        env:
+          CHART_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           helm package charts/authentik-operator \
-            --version "${{ steps.version.outputs.version }}" \
-            --app-version "${{ steps.version.outputs.version }}" \
+            --version "${CHART_VERSION}" \
+            --app-version "${CHART_VERSION}" \
             --destination dist
           ls -l dist
 
@@ -148,23 +168,60 @@ jobs:
       # the image is - one registry, one credential, and no separate chart
       # repository to host. Flux and Argo both pull OCI charts natively.
       - name: Push the Helm chart to GHCR as an OCI artifact
+        id: chart_push
+        env:
+          # Through env rather than interpolated: an expanded ${{ }} secret is
+          # materialised into a temp script on the runner for the life of the
+          # step, where any concurrent process can read it.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          CHART_VERSION: ${{ steps.version.outputs.version }}
+          CHART_REPO: ${{ steps.version.outputs.chart_repo }}
         run: |
           set -euo pipefail
-          echo "${{ secrets.GITHUB_TOKEN }}" | \
-            helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
-          helm push \
-            "dist/authentik-operator-${{ steps.version.outputs.version }}.tgz" \
-            "${{ steps.version.outputs.chart_repo }}"
-          helm registry logout ghcr.io
+          printf '%s' "${GHCR_TOKEN}" | \
+            helm registry login ghcr.io --username "${GHCR_USER}" --password-stdin
+          helm push "dist/authentik-operator-${CHART_VERSION}.tgz" "${CHART_REPO}" 2>&1 | tee push.log
+          digest="$(grep -oE 'sha256:[0-9a-f]{64}' push.log | head -1)"
+          test -n "${digest}"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      # Separate and always-run: a failed push must not leave the token sitting
+      # in ~/.config/helm/registry/config.json for the rest of the job.
+      - name: Log out of the chart registry
+        if: always()
+        run: helm registry logout ghcr.io || true
 
       # A push that silently produced something unpullable would only be found
       # by the first person trying to install it.
+      # The image was attested above; without this the chart would ship with no
+      # provenance at all, while the release body invites people to install it.
+      - name: Attest the published chart
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/charts/authentik-operator
+          subject-digest: ${{ steps.chart_push.outputs.digest }}
+          push-to-registry: true
+
       - name: Verify the published chart is pullable
+        env:
+          CHART_REF: ${{ steps.version.outputs.chart_ref }}
+          CHART_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          helm show chart \
-            "${{ steps.version.outputs.chart_ref }}" \
-            --version "${{ steps.version.outputs.version }}"
+          helm show chart "${CHART_REF}" --version "${CHART_VERSION}"
+
+      # install.yaml and the packaged chart are attached as release assets, and
+      # release assets are mutable by anyone with contents:write. Without an
+      # attestation a consumer following the kubectl apply instruction has
+      # nothing to verify.
+      - name: Attest the release assets
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/install.yaml
+            dist/authentik-operator-*.tgz
+            dist/authentik-operator-*.spdx.json
 
       - name: Create the GitHub release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
@@ -205,5 +262,25 @@ jobs:
 
             The packaged chart is also attached to this release as a `.tgz`.
 
-            Provenance and SBOM attestations are attached to the image in GHCR
-            and can be verified with `gh attestation verify`.
+            ## Verifying
+
+            Provenance is attested for the container image, the Helm chart
+            pushed to GHCR, and the file assets attached to this release. An
+            SBOM for the image is attached as `.spdx.json`.
+
+            ```sh
+            # Image
+            gh attestation verify oci://${{ steps.version.outputs.image_ref }} \
+              --repo ${{ github.repository }}
+
+            # Chart
+            gh attestation verify \
+              oci://ghcr.io/${{ github.repository_owner }}/charts/authentik-operator:${{ steps.version.outputs.version }} \
+              --repo ${{ github.repository }}
+
+            # A downloaded release asset
+            gh attestation verify install.yaml --repo ${{ github.repository }}
+            ```
+
+            `install.yaml` pins the operator image by digest, so what it
+            deploys is exactly what was attested above.

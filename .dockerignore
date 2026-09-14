@@ -1,0 +1,30 @@
+# The build context is uploaded in full on every build. Nothing below is copied
+# into the image, but sending it wastes time and hands the daemon a developer's
+# local state - including test/authentik/.env, which holds a live token for
+# whatever local authentik they are running.
+.git
+.github
+.claude
+.epiq
+
+bin/
+dist/
+site/
+.cache/
+testbin/
+
+# Local environment and credentials
+**/.env
+*.local.yaml
+kubeconfig
+cover.out
+coverage.*
+
+# Not needed to build the manager
+docs/
+charts/
+examples/
+config/
+test/
+hack/
+*.md

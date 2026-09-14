@@ -35,7 +35,7 @@ jobs:
         id: gen
         run: |
           set -euo pipefail
-          python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet pyyaml
+          python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet "pyyaml==6.0.3"
           versions="$(python3 - <<'PY'
           import json
           import sys
@@ -113,13 +113,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # No restore-keys on purpose. A prefix match would restore a bin/ built
+      # from the previous tool pins, and the Makefile's `test -x` guard then
+      # skips reinstalling - so bumping a tool version would silently keep
+      # running the old binary, and the stale copy would be re-saved under the
+      # new key. A cache miss just reinstalls, which is cheap.
       - name: Cache pinned build tools
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bin
           key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
-          restore-keys: |
-            ${{ runner.os }}-tools-
 
       # The cluster is created BEFORE authentik so that the `kind` docker
       # bridge exists and its gateway address can be resolved below.

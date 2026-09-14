@@ -6,7 +6,10 @@ ENVTEST_K8S_VERSION = 1.34.0
 # Tool versions - pinned so a clean checkout and CI behave identically.
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
 KUSTOMIZE_VERSION ?= v5.7.1
-ENVTEST_VERSION ?= release-0.22
+# Pinned to a tag, not the release-0.22 branch: a branch resolves to whatever
+# HEAD is today, so the binary gating the whole test suite would be a moving
+# target.
+ENVTEST_VERSION ?= v0.25.1
 GOLANGCI_LINT_VERSION ?= v2.13.2
 HELM_DOCS_VERSION ?= v1.14.2
 
