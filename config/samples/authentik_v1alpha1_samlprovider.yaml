@@ -1,0 +1,21 @@
+# A SAML provider for an application that speaks SAML rather than OIDC.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: SAMLProvider
+metadata:
+  name: jenkins
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  authorizationFlow: default-provider-authorization-explicit-consent
+  invalidationFlow: default-provider-invalidation-flow
+
+  # Where authentik posts the assertion. Required.
+  acsURL: https://jenkins.example.com/securityRealm/finishLogin
+
+  # Also known as EntityID. Leave unset to use authentik's generated issuer.
+  issuerOverride: https://jenkins.example.com
+
+  # Certificate key pairs are referenced by name, not UUID.
+  signingKp: authentik Self-signed Certificate
+  signAssertion: true

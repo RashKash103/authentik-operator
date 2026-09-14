@@ -1,0 +1,23 @@
+# A forward-auth provider, the usual shape when an ingress controller asks
+# authentik whether a request is allowed through.
+#
+# Note there is no internalHost: forward modes have nothing to forward to, and
+# setting one is rejected at apply time by a validation rule on the CRD.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: ProxyProvider
+metadata:
+  name: internal-tools
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  authorizationFlow: default-provider-authorization-explicit-consent
+  invalidationFlow: default-provider-invalidation-flow
+
+  externalHost: https://tools.example.com
+  mode: forward_single
+
+  # Paths that bypass authentication entirely, one regular expression per line.
+  skipPathRegex: |
+    ^/healthz$
+    ^/metrics$

@@ -1,0 +1,16 @@
+# Lets authentik deploy and manage outposts into a Kubernetes cluster.
+#
+# `local: true` means the cluster authentik itself runs in, and needs no
+# credentials. To target another cluster, drop `local` and supply a kubeconfig
+# through kubeconfigSecretRef - never inline, since a kubeconfig is a
+# credential and a spec field would store it in plaintext in etcd.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: KubernetesServiceConnection
+metadata:
+  name: in-cluster
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  local: true
+  verifySSL: true

@@ -1,0 +1,15 @@
+# Lets authentik deploy outposts onto a Docker host.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: DockerServiceConnection
+metadata:
+  name: docker-host
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  url: https://docker.example.com:2376
+
+  # Certificate key pairs referenced by name. tlsVerification checks the
+  # daemon's certificate; tlsAuthentication is the client certificate.
+  tlsVerification: docker-ca
+  tlsAuthentication: docker-client
