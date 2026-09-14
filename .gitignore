@@ -24,6 +24,9 @@ coverage.*
 *.local.yaml
 kubeconfig
 
+# Claude Code agent worktrees; these are separate checkouts, not content
+.claude/
+
 # Editor
 .idea/
 .vscode/
