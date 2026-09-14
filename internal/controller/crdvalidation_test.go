@@ -276,3 +276,102 @@ func assertAdmission(t *testing.T, err error, wantErr string) {
 func objName(prefix string, i int) string {
 	return prefix + "-" + string(rune('a'+i))
 }
+
+// TestProxyProviderModeExclusivity proves the CEL rule is real.
+//
+// A CEL rule is a string in a marker comment: a typo produces a CRD the API
+// server rejects at install time, or worse, a rule that silently never fires.
+// gofmt has also been observed rewriting straight quotes inside nearby
+// comments into typographic ones, which would corrupt a rule without any
+// compiler noticing. Only exercising it against an API server settles it.
+func TestProxyProviderModeExclusivity(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "schema-proxy")
+
+	base := func() authentikv1alpha1.ProxyProviderSpec {
+		return authentikv1alpha1.ProxyProviderSpec{
+			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
+				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
+				AuthorizationFlow: "authz",
+				InvalidationFlow:  "invalidation",
+			},
+			ExternalHost: "https://app.example.com",
+		}
+	}
+
+	cases := []struct {
+		name    string
+		mutate  func(*authentikv1alpha1.ProxyProviderSpec)
+		wantErr string
+	}{
+		{
+			name: "proxy mode with an internal host is accepted",
+			mutate: func(s *authentikv1alpha1.ProxyProviderSpec) {
+				s.Mode = "proxy"
+				s.InternalHost = "http://app.internal:8080"
+			},
+		},
+		{
+			name: "forward_single without an internal host is accepted",
+			mutate: func(s *authentikv1alpha1.ProxyProviderSpec) {
+				s.Mode = "forward_single"
+			},
+		},
+		{
+			// The whole point of the rule: forwarding has no upstream to
+			// forward to, so an internalHost is a configuration mistake.
+			name: "forward_single with an internal host is rejected",
+			mutate: func(s *authentikv1alpha1.ProxyProviderSpec) {
+				s.Mode = "forward_single"
+				s.InternalHost = "http://app.internal:8080"
+			},
+			wantErr: "internalHost",
+		},
+		{
+			name: "forward_domain with an internal host is rejected",
+			mutate: func(s *authentikv1alpha1.ProxyProviderSpec) {
+				s.Mode = "forward_domain"
+				s.InternalHost = "http://app.internal:8080"
+			},
+			wantErr: "internalHost",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := base()
+			tc.mutate(&spec)
+			obj := &authentikv1alpha1.ProxyProvider{
+				ObjectMeta: metav1.ObjectMeta{Name: objName("proxy", i), Namespace: ns},
+				Spec:       spec,
+			}
+			assertAdmission(t, c.Create(ctx, obj), tc.wantErr)
+		})
+	}
+}
+
+// TestApplicationSlugIsImmutable proves the immutability rule fires.
+//
+// Changing a slug would mean delete-and-recreate in authentik, silently
+// dropping the application's policy bindings.
+func TestApplicationSlugIsImmutable(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "schema-slug")
+
+	app := &authentikv1alpha1.Application{
+		ObjectMeta: metav1.ObjectMeta{Name: "fixed-slug", Namespace: ns},
+		Spec: authentikv1alpha1.ApplicationSpec{
+			ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
+			Slug:          "original",
+			Name:          "Original",
+		},
+	}
+	if err := c.Create(ctx, app); err != nil {
+		t.Fatalf("creating application: %v", err)
+	}
+
+	app.Spec.Slug = "renamed"
+	assertAdmission(t, c.Update(ctx, app), "slug")
+}

@@ -188,5 +188,23 @@ func setupControllers(mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create Application controller: %w", err)
 	}
 
+	if err := (&controller.SAMLProviderReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("samlprovider-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create SAMLProvider controller: %w", err)
+	}
+
+	if err := (&controller.ProxyProviderReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("proxyprovider-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create ProxyProvider controller: %w", err)
+	}
+
 	return nil
 }

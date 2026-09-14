@@ -7,3 +7,5 @@ resources:
   - bases/authentik.k8s.rka.sh_authentikconnections.yaml
   - bases/authentik.k8s.rka.sh_clusterauthentikconnections.yaml
   - bases/authentik.k8s.rka.sh_oauth2providers.yaml
+  - bases/authentik.k8s.rka.sh_samlproviders.yaml
+  - bases/authentik.k8s.rka.sh_proxyproviders.yaml

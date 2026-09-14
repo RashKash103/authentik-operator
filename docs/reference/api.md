@@ -74,9 +74,12 @@ guides describe them: [Connections](../guides/connections.md),
 Package v1alpha1 contains API Schema definitions for the authentik v1alpha1 API group.
 
 ### Resource Types
+- [Application](#application)
 - [AuthentikConnection](#authentikconnection)
 - [ClusterAuthentikConnection](#clusterauthentikconnection)
 - [OAuth2Provider](#oauth2provider)
+- [ProxyProvider](#proxyprovider)
+- [SAMLProvider](#samlprovider)
 
 
 
@@ -96,13 +99,104 @@ _Validation:_
 - Enum: [FailOnConflict AdoptExisting]
 
 _Appears in:_
+- [ApplicationSpec](#applicationspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
 - [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
 
 | Field | Description |
 | --- | --- |
 | `FailOnConflict` | AdoptionPolicyFailOnConflict refuses to manage a pre-existing object.<br /> |
 | `AdoptExisting` | AdoptionPolicyAdoptExisting takes ownership of a pre-existing object.<br /> |
+
+
+#### Application
+
+
+
+Application manages an application in authentik.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `Application` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ApplicationSpec](#applicationspec)_ |  |  |  |
+| `status` _[ApplicationStatus](#applicationstatus)_ |  |  |  |
+
+
+#### ApplicationPolicyEngineMode
+
+_Underlying type:_ _string_
+
+ApplicationPolicyEngineMode selects how several policies bound to one
+application are combined.
+
+_Validation:_
+- Enum: [all any]
+
+_Appears in:_
+- [ApplicationSpec](#applicationspec)
+
+
+
+#### ApplicationSpec
+
+
+
+ApplicationSpec defines an application in authentik.
+
+
+
+_Appears in:_
+- [Application](#application)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this application lives in. |  |  |
+| `name` _string_ | Name is the application's display name, shown on the user library page.<br />Defaults to the resource name. |  | Optional: \{\} <br /> |
+| `slug` _string_ | Slug is the application's internal name, used in its URLs.<br />It is immutable. authentik keys an application by its slug, so changing<br />it cannot be an update: the operator would have to delete the old<br />application and create a new one, which silently discards every policy<br />binding attached to it. Create a new Application instead. |  | MaxLength: 50 <br />MinLength: 1 <br />Pattern: `^[-a-zA-Z0-9_]+$` <br /> |
+| `providerRef` _[ProviderReference](#providerreference)_ | ProviderRef is the provider that authenticates users for this<br />application. Leave unset for an application that only appears in the<br />user library and is not itself protected. |  | Optional: \{\} <br /> |
+| `backchannelProviderRefs` _[ProviderReference](#providerreference) array_ | BackchannelProviderRefs are additional providers attached to this<br />application for back-channel use, such as SCIM provisioning or an LDAP<br />bind, alongside the primary provider that handles the login itself. |  | Optional: \{\} <br /> |
+| `openInNewTab` _boolean_ | OpenInNewTab opens the launch URL in a new browser tab or window. |  | Optional: \{\} <br /> |
+| `metaLaunchUrl` _string_ | MetaLaunchURL is the address the library entry links to. Leave unset to<br />let authentik derive it from the provider. |  | Optional: \{\} <br /> |
+| `metaIcon` _string_ | MetaIcon is the URL of the icon shown on the library entry.<br />Only a URL is accepted. authentik can also serve an icon uploaded to its<br />own media storage, and that is out of scope for this resource: the file<br />would have to travel through the custom resource as base64 and be<br />re-uploaded on every reconcile, which does not belong in etcd. Host the<br />image somewhere and point at it. |  | Optional: \{\} <br /> |
+| `metaDescription` _string_ | MetaDescription is the short description shown on the library entry. |  | Optional: \{\} <br /> |
+| `metaPublisher` _string_ | MetaPublisher names the application's publisher on the library entry. |  | Optional: \{\} <br /> |
+| `metaHide` _boolean_ | MetaHide keeps the application off the user's library page while leaving<br />it usable. Useful for an application reached only by a direct link. |  | Optional: \{\} <br /> |
+| `group` _string_ | Group names the section the application is filed under on the library<br />page. Applications sharing a group are shown together. |  | Optional: \{\} <br /> |
+| `policyEngineMode` _[ApplicationPolicyEngineMode](#applicationpolicyenginemode)_ | PolicyEngineMode selects whether every policy bound to this application<br />must pass, or any one of them. | any | Enum: [all any] <br />Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when an application with this slug<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik application when<br />this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+
+
+#### ApplicationStatus
+
+
+
+ApplicationStatus reports the application's state in authentik.
+
+
+
+_Appears in:_
+- [Application](#application)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `providerID` _integer_ | ProviderID is the numeric primary key the primary provider reference<br />resolved to. It is surfaced so a mis-wired reference can be diagnosed<br />without reading the provider resource as well. |  | Optional: \{\} <br /> |
+| `backchannelProviderIDs` _integer array_ | BackchannelProviderIDs are the numeric primary keys the back-channel<br />provider references resolved to, in spec order. |  | Optional: \{\} <br /> |
+| `launchURL` _string_ | LaunchURL is the address authentik currently resolves the library entry<br />to, whether taken from metaLaunchUrl or derived from the provider. |  | Optional: \{\} <br /> |
 
 
 #### AuthentikConnection
@@ -248,8 +342,11 @@ connection genuinely needs to be shared cluster-wide.
 
 
 _Appears in:_
+- [ApplicationSpec](#applicationspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
 - [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -307,8 +404,11 @@ _Validation:_
 - Enum: [Delete Orphan]
 
 _Appears in:_
+- [ApplicationSpec](#applicationspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
 - [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
 
 | Field | Description |
 | --- | --- |
@@ -344,8 +444,11 @@ ManagedResourceStatus is embedded in every authentik-backed resource status.
 
 
 _Appears in:_
+- [ApplicationStatus](#applicationstatus)
 - [OAuth2ProviderStatus](#oauth2providerstatus)
 - [ProviderStatus](#providerstatus)
+- [ProxyProviderStatus](#proxyproviderstatus)
+- [SAMLProviderStatus](#samlproviderstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -459,6 +562,7 @@ _Appears in:_
 | `clientID` _string_ | ClientID currently configured in authentik. The client id is not a<br />credential on its own, so it is safe to surface; the secret never is. |  | Optional: \{\} <br /> |
 | `credentialsSecretName` _string_ | CredentialsSecretName is the Secret the credentials were written to. |  | Optional: \{\} <br /> |
 | `credentialsRotatedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | CredentialsRotatedAt records the last client secret rotation. |  | Optional: \{\} <br /> |
+| `observedRotationToken` _string_ | ObservedRotationToken is the value of the rotation annotation that was<br />last acted on. A rotation happens when the annotation differs from this,<br />which makes the trigger idempotent: re-reconciling the same resource<br />cannot rotate the secret again and break running workloads. |  | Optional: \{\} <br /> |
 
 
 #### ProviderCommonSpec
@@ -477,6 +581,8 @@ form works.
 
 _Appears in:_
 - [OAuth2ProviderSpec](#oauth2providerspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -490,6 +596,52 @@ _Appears in:_
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 
 
+#### ProviderKind
+
+_Underlying type:_ _string_
+
+ProviderKind selects which provider CRD a ProviderReference points at.
+
+_Validation:_
+- Enum: [OAuth2Provider SAMLProvider ProxyProvider]
+
+_Appears in:_
+- [ProviderReference](#providerreference)
+
+| Field | Description |
+| --- | --- |
+| `OAuth2Provider` | ProviderKindOAuth2 refers to an OAuth2Provider.<br /> |
+| `SAMLProvider` | ProviderKindSAML refers to a SAMLProvider.<br /> |
+| `ProxyProvider` | ProviderKindProxy refers to a ProxyProvider.<br /> |
+
+
+#### ProviderReference
+
+
+
+ProviderReference points at a provider resource in the same namespace.
+
+The reference is resolved through the provider resource's own
+status.providerID rather than by looking its name up in authentik, so the
+Kubernetes objects stay the source of truth and renaming a provider inside
+authentik cannot silently repoint an application at something else.
+
+A namespaced provider is always resolved in the application's own namespace.
+Cross-namespace references are deliberately not supported: they would let
+anyone who can create an Application in one namespace attach a provider, and
+therefore credentials, owned by another.
+
+
+
+_Appears in:_
+- [ApplicationSpec](#applicationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `kind` _[ProviderKind](#providerkind)_ | Kind of provider resource being referenced. | OAuth2Provider | Enum: [OAuth2Provider SAMLProvider ProxyProvider] <br />Optional: \{\} <br /> |
+| `name` _string_ | Name of the provider resource. |  | MinLength: 1 <br /> |
+
+
 #### ProviderStatus
 
 
@@ -500,6 +652,8 @@ ProviderStatus is the status shared by every provider kind.
 
 _Appears in:_
 - [OAuth2ProviderStatus](#oauth2providerstatus)
+- [ProxyProviderStatus](#proxyproviderstatus)
+- [SAMLProviderStatus](#samlproviderstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -510,6 +664,112 @@ _Appears in:_
 | `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
 | `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
 | `providerID` _integer_ | ProviderID is authentik's numeric primary key for this provider. It is<br />what an Application or Outpost must reference, so it is surfaced<br />separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
+
+
+#### ProxyMode
+
+_Underlying type:_ _string_
+
+ProxyMode selects how the outpost serves the application.
+
+_Validation:_
+- Enum: [proxy forward_single forward_domain]
+
+_Appears in:_
+- [ProxyProviderSpec](#proxyproviderspec)
+
+| Field | Description |
+| --- | --- |
+| `proxy` | ProxyModeProxy terminates traffic in the outpost and forwards it to an<br />upstream host.<br /> |
+| `forward_single` | ProxyModeForwardSingle authorizes one application behind an existing<br />reverse proxy.<br /> |
+| `forward_domain` | ProxyModeForwardDomain authorizes every application on a domain behind<br />an existing reverse proxy.<br /> |
+
+
+#### ProxyProvider
+
+
+
+ProxyProvider manages a proxy provider in authentik.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `ProxyProvider` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ProxyProviderSpec](#proxyproviderspec)_ |  |  |  |
+| `status` _[ProxyProviderStatus](#proxyproviderstatus)_ |  |  |  |
+
+
+#### ProxyProviderSpec
+
+
+
+ProxyProviderSpec defines a proxy provider served by an authentik outpost.
+
+The forwarding modes have no upstream of their own: an existing reverse
+proxy already holds the connection and only asks authentik whether to allow
+it. Rejecting the combination here turns a silently ignored field into an
+error on apply.
+The emptiness test uses size() rather than a comparison against an empty
+string literal: a pair of adjacent single quotes inside a comment is
+rewritten by gofmt into a typographic quote, which silently corrupts the
+rule.
+
+
+
+_Appears in:_
+- [ProxyProvider](#proxyprovider)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
+| `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
+| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
+| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+| `externalHost` _string_ | ExternalHost is the URL the application is reached on by users, for<br />example "https://grafana.example.com". It is what the outpost matches<br />incoming requests against. |  | MinLength: 1 <br /> |
+| `internalHost` _string_ | InternalHost is the upstream the outpost forwards traffic to, for<br />example "http://grafana.monitoring.svc.cluster.local:3000". Valid only<br />in proxy mode. |  | Optional: \{\} <br /> |
+| `internalHostSSLValidation` _boolean_ | InternalHostSSLValidation verifies the upstream's TLS certificate.<br />Disable it only for an upstream using a self-signed certificate. |  | Optional: \{\} <br /> |
+| `mode` _[ProxyMode](#proxymode)_ | Mode selects how the outpost serves the application: proxy terminates<br />traffic and forwards it upstream, while the forward modes authorize<br />requests for an existing reverse proxy. | proxy | Enum: [proxy forward_single forward_domain] <br />Optional: \{\} <br /> |
+| `certificate` _string_ | Certificate is the name of the certificate key pair the outpost presents<br />for ExternalHost. Leave unset when TLS is terminated ahead of the<br />outpost. |  | Optional: \{\} <br /> |
+| `skipPathRegex` _string_ | SkipPathRegex lists paths that bypass authentication, one regular<br />expression per line. Use it for health checks and public assets.<br />Every request matching one of these expressions reaches the application<br />unauthenticated, so keep the expressions anchored and narrow. |  | Optional: \{\} <br /> |
+| `basicAuthEnabled` _boolean_ | BasicAuthEnabled sends HTTP Basic credentials to the upstream, for<br />applications that cannot read authentication headers. |  | Optional: \{\} <br /> |
+| `basicAuthUserAttribute` _string_ | BasicAuthUserAttribute is the user attribute holding the username sent<br />as HTTP Basic credentials. |  | Optional: \{\} <br /> |
+| `basicAuthPasswordAttribute` _string_ | BasicAuthPasswordAttribute is the user attribute holding the password<br />sent as HTTP Basic credentials. |  | Optional: \{\} <br /> |
+| `interceptHeaderAuth` _boolean_ | InterceptHeaderAuth makes the outpost handle Authorization headers sent<br />by the client instead of passing them through to the application. |  | Optional: \{\} <br /> |
+| `cookieDomain` _string_ | CookieDomain is the domain the session cookie is issued for. Set it in<br />forward_domain mode so one session covers every application on the<br />domain. |  | Optional: \{\} <br /> |
+| `accessTokenValidity` _string_ | AccessTokenValidity in authentik duration syntax, e.g. "hours=24". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
+| `refreshTokenValidity` _string_ | RefreshTokenValidity in authentik duration syntax, e.g. "days=30". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
+
+
+#### ProxyProviderStatus
+
+
+
+ProxyProviderStatus reports the provider's state in authentik.
+
+
+
+_Appears in:_
+- [ProxyProvider](#proxyprovider)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `providerID` _integer_ | ProviderID is authentik's numeric primary key for this provider. It is<br />what an Application or Outpost must reference, so it is surfaced<br />separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
+| `outposts` _string array_ | Outposts names the outposts currently serving this provider. A proxy<br />provider that no outpost serves is unreachable, so an empty list is the<br />usual explanation for an application that cannot be opened. |  | Optional: \{\} <br /> |
 
 
 #### RedirectURI
@@ -540,6 +800,172 @@ _Validation:_
 
 _Appears in:_
 - [RedirectURI](#redirecturi)
+
+
+
+#### SAMLBinding
+
+_Underlying type:_ _string_
+
+SAMLBinding selects how a SAML message is carried over HTTP.
+
+_Validation:_
+- Enum: [redirect post]
+
+_Appears in:_
+- [SAMLProviderSpec](#samlproviderspec)
+
+
+
+#### SAMLDigestAlgorithm
+
+_Underlying type:_ _string_
+
+SAMLDigestAlgorithm identifies the XML digest algorithm by its W3C URI.
+
+SAML carries algorithms as URIs on the wire, so the URI is what this field
+takes; there is no short form.
+
+The values contain colons, which the marker parser reads as argument
+separators unless each value is quoted.
+
+_Validation:_
+- Enum: [http://www.w3.org/2000/09/xmldsig#sha1 http://www.w3.org/2001/04/xmlenc#sha256 http://www.w3.org/2001/04/xmldsig-more#sha384 http://www.w3.org/2001/04/xmlenc#sha512]
+
+_Appears in:_
+- [SAMLProviderSpec](#samlproviderspec)
+
+
+
+#### SAMLLogoutMethod
+
+_Underlying type:_ _string_
+
+SAMLLogoutMethod selects how single logout is delivered.
+
+_Validation:_
+- Enum: [frontchannel_iframe frontchannel_native backchannel]
+
+_Appears in:_
+- [SAMLProviderSpec](#samlproviderspec)
+
+
+
+#### SAMLNameIDPolicy
+
+_Underlying type:_ _string_
+
+SAMLNameIDPolicy is the NameID format requested when a service provider does
+not ask for one itself.
+
+_Validation:_
+- Enum: [urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress urn:oasis:names:tc:SAML:2.0:nameid-format:persistent urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName urn:oasis:names:tc:SAML:2.0:nameid-format:WindowsDomainQualifiedName urn:oasis:names:tc:SAML:2.0:nameid-format:transient urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified]
+
+_Appears in:_
+- [SAMLProviderSpec](#samlproviderspec)
+
+
+
+#### SAMLProvider
+
+
+
+SAMLProvider manages a SAML 2.0 provider in authentik.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `SAMLProvider` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[SAMLProviderSpec](#samlproviderspec)_ |  |  |  |
+| `status` _[SAMLProviderStatus](#samlproviderstatus)_ |  |  |  |
+
+
+#### SAMLProviderSpec
+
+
+
+SAMLProviderSpec defines a SAML 2.0 identity provider.
+
+
+
+_Appears in:_
+- [SAMLProvider](#samlprovider)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
+| `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
+| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
+| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+| `acsURL` _string_ | ACSURL is the service provider's Assertion Consumer Service endpoint,<br />where authentik posts the SAML response. |  | MinLength: 1 <br /> |
+| `slsURL` _string_ | SLSURL is the service provider's Single Logout Service endpoint. Leave<br />unset to disable single logout. |  | Optional: \{\} <br /> |
+| `audience` _string_ | Audience is the intended recipient of the assertion, sent as the<br />AudienceRestriction. Most service providers require it to match their<br />own entity ID. |  | Optional: \{\} <br /> |
+| `issuerOverride` _string_ | IssuerOverride replaces the issuer sent in the assertion. Set it when a<br />service provider expects an entity ID other than the one authentik<br />derives from the provider. |  | Optional: \{\} <br /> |
+| `assertionValidNotBefore` _string_ | AssertionValidNotBefore is how far in the past an assertion becomes<br />valid, in authentik duration syntax, e.g. "minutes=-5". A negative<br />window absorbs clock skew between authentik and the service provider. |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
+| `assertionValidNotOnOrAfter` _string_ | AssertionValidNotOnOrAfter is how long an assertion stays valid, in<br />authentik duration syntax, e.g. "minutes=5". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
+| `sessionValidNotOnOrAfter` _string_ | SessionValidNotOnOrAfter is how long the session the assertion<br />establishes stays valid, in authentik duration syntax, e.g. "hours=8". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
+| `nameIDMapping` _string_ | NameIDMapping is the name of the property mapping that produces the<br />NameID. Leave unset to let the requested NameID policy decide. |  | Optional: \{\} <br /> |
+| `authnContextClassRefMapping` _string_ | AuthnContextClassRefMapping is the name of the property mapping that<br />produces the AuthnContextClassRef sent in the assertion. |  | Optional: \{\} <br /> |
+| `digestAlgorithm` _[SAMLDigestAlgorithm](#samldigestalgorithm)_ | DigestAlgorithm used when signing assertions and responses. |  | Enum: [http://www.w3.org/2000/09/xmldsig#sha1 http://www.w3.org/2001/04/xmlenc#sha256 http://www.w3.org/2001/04/xmldsig-more#sha384 http://www.w3.org/2001/04/xmlenc#sha512] <br />Optional: \{\} <br /> |
+| `signatureAlgorithm` _[SAMLSignatureAlgorithm](#samlsignaturealgorithm)_ | SignatureAlgorithm used when signing assertions and responses. It must<br />match the key type of the signing certificate key pair. |  | Enum: [http://www.w3.org/2000/09/xmldsig#rsa-sha1 http://www.w3.org/2001/04/xmldsig-more#rsa-sha256 http://www.w3.org/2001/04/xmldsig-more#rsa-sha384 http://www.w3.org/2001/04/xmldsig-more#rsa-sha512 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha1 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha384 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha512 http://www.w3.org/2000/09/xmldsig#dsa-sha1] <br />Optional: \{\} <br /> |
+| `signingKeyPair` _string_ | SigningKeyPair is the name of the certificate key pair used to sign<br />assertions and responses. Required for the sign* options to take effect. |  | Optional: \{\} <br /> |
+| `verificationKeyPair` _string_ | VerificationKeyPair is the name of the certificate key pair whose public<br />certificate verifies signed AuthnRequests from the service provider.<br />When set, unsigned requests are rejected. |  | Optional: \{\} <br /> |
+| `encryptionKeyPair` _string_ | EncryptionKeyPair is the name of the certificate key pair used to<br />encrypt assertions. When set, assertions are sent encrypted. |  | Optional: \{\} <br /> |
+| `signAssertion` _boolean_ | SignAssertion signs the assertion element itself. |  | Optional: \{\} <br /> |
+| `signResponse` _boolean_ | SignResponse signs the enclosing SAML response element. |  | Optional: \{\} <br /> |
+| `signLogoutRequest` _boolean_ | SignLogoutRequest signs logout requests sent to the service provider. |  | Optional: \{\} <br /> |
+| `signLogoutResponse` _boolean_ | SignLogoutResponse signs logout responses sent to the service provider. |  | Optional: \{\} <br /> |
+| `spBinding` _[SAMLBinding](#samlbinding)_ | SPBinding is the binding used to deliver the response to the service<br />provider's ACS endpoint. |  | Enum: [redirect post] <br />Optional: \{\} <br /> |
+| `slsBinding` _[SAMLBinding](#samlbinding)_ | SLSBinding is the binding used to deliver logout messages to the service<br />provider's SLS endpoint. |  | Enum: [redirect post] <br />Optional: \{\} <br /> |
+| `logoutMethod` _[SAMLLogoutMethod](#samllogoutmethod)_ | LogoutMethod selects how single logout is delivered. |  | Enum: [frontchannel_iframe frontchannel_native backchannel] <br />Optional: \{\} <br /> |
+| `defaultRelayState` _string_ | DefaultRelayState is sent as RelayState when authentik starts the login<br />itself, for service providers that use it to pick a landing page. |  | Optional: \{\} <br /> |
+| `defaultNameIDPolicy` _[SAMLNameIDPolicy](#samlnameidpolicy)_ | DefaultNameIDPolicy is the NameID format used when the service provider<br />does not request one. |  | Enum: [urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress urn:oasis:names:tc:SAML:2.0:nameid-format:persistent urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName urn:oasis:names:tc:SAML:2.0:nameid-format:WindowsDomainQualifiedName urn:oasis:names:tc:SAML:2.0:nameid-format:transient urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified] <br />Optional: \{\} <br /> |
+
+
+#### SAMLProviderStatus
+
+
+
+SAMLProviderStatus reports the provider's state in authentik.
+
+
+
+_Appears in:_
+- [SAMLProvider](#samlprovider)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `providerID` _integer_ | ProviderID is authentik's numeric primary key for this provider. It is<br />what an Application or Outpost must reference, so it is surfaced<br />separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
+| `metadataURL` _string_ | MetadataURL serves the provider's SAML metadata document, which most<br />service providers can consume directly instead of being configured<br />field by field. |  | Optional: \{\} <br /> |
+| `issuerURL` _string_ | IssuerURL is the entity ID authentik presents as the issuer. |  | Optional: \{\} <br /> |
+
+
+#### SAMLSignatureAlgorithm
+
+_Underlying type:_ _string_
+
+SAMLSignatureAlgorithm identifies the XML signature algorithm by its W3C URI.
+
+_Validation:_
+- Enum: [http://www.w3.org/2000/09/xmldsig#rsa-sha1 http://www.w3.org/2001/04/xmldsig-more#rsa-sha256 http://www.w3.org/2001/04/xmldsig-more#rsa-sha384 http://www.w3.org/2001/04/xmldsig-more#rsa-sha512 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha1 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha384 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha512 http://www.w3.org/2000/09/xmldsig#dsa-sha1]
+
+_Appears in:_
+- [SAMLProviderSpec](#samlproviderspec)
 
 
 

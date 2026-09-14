@@ -346,3 +346,40 @@ fails with *Resource not accessible by integration*. Enable it in
 ```sh
 gh api --method POST repos/OWNER/REPO/pages -f build_type=workflow
 ```
+
+## Writing CRD markers
+
+Two generator behaviours have already produced schemas that were valid YAML and
+completely wrong. `make verify` runs `hack/check-crds.py`, which catches the
+first of them; the rest is on you.
+
+**An enum marker on a slice field constrains the array, not its items.**
+
+```go
+// Wrong: rejects every non-empty list.
+// +kubebuilder:validation:Enum=a;b
+GrantTypes []string
+
+// Right: the marker belongs on a named element type.
+// +kubebuilder:validation:Enum=a;b
+type GrantType string
+GrantTypes []GrantType
+```
+
+**Enum values containing a colon must be quoted individually**, or the marker
+parser reads them as argument separators:
+
+```go
+// +kubebuilder:validation:Enum="authorization_code";"urn:ietf:params:oauth:grant-type:device_code"
+```
+
+**Avoid straight single quotes in CEL rules and in the comment lines around
+them.** `gofmt` has been observed rewriting `''` in an adjacent comment into
+typographic quotes, which silently corrupts the rule — no compiler complains,
+and `golangci-lint` reports it only as a formatting nit. Prefer
+`size(self.field) > 0` over `self.field != ''`.
+
+Every CEL rule and validation marker should have an envtest case in
+`internal/controller/crdvalidation_test.go` asserting **both** acceptance and
+rejection. A rule that never fires looks identical to one that works if you
+only test the rejecting side.
