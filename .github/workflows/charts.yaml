@@ -1,0 +1,184 @@
+name: Charts
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: charts-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CHART_DIR: charts/authentik-operator
+
+jobs:
+  lint:
+    name: lint and template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # chart-testing compares against the target branch.
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: helm lint
+        run: helm lint "${CHART_DIR}" --strict
+
+      - name: helm template (default values)
+        run: |
+          set -euo pipefail
+          helm template authentik-operator "${CHART_DIR}" > /tmp/rendered-default.yaml
+          test -s /tmp/rendered-default.yaml
+          echo "Rendered $(grep -c '^---' /tmp/rendered-default.yaml || true) documents."
+          # Everything the chart renders must be valid, parseable YAML.
+          python3 -c "import sys,yaml; list(yaml.safe_load_all(open('/tmp/rendered-default.yaml')))"
+
+      - name: helm template (namespaced and cluster-scoped install modes)
+        run: |
+          set -euo pipefail
+          # A release name and namespace other than the defaults shakes out
+          # templates that hardcode either one.
+          helm template ak-op "${CHART_DIR}" \
+            --namespace authentik-operator-system \
+            --create-namespace \
+            > /tmp/rendered-named.yaml
+          python3 -c "import sys,yaml; list(yaml.safe_load_all(open('/tmp/rendered-named.yaml')))"
+
+      - name: values.schema.json exists and is valid JSON
+        run: |
+          set -euo pipefail
+          schema="${CHART_DIR}/values.schema.json"
+          if [ ! -f "${schema}" ]; then
+            echo "ERROR: ${schema} is missing." >&2
+            echo "The chart must ship a values schema so a typo in values.yaml fails at" >&2
+            echo "'helm install' time rather than producing a subtly broken deployment." >&2
+            exit 1
+          fi
+          python3 -c "import json,sys; json.load(open('${schema}')); print('values.schema.json parses')"
+
+      - name: invalid values are REJECTED by values.schema.json
+        run: |
+          set -euo pipefail
+          bad=.github/ci/invalid-values.yaml
+          echo "Values under test:"
+          cat "${bad}"
+          echo
+
+          if helm template authentik-operator "${CHART_DIR}" -f "${bad}" \
+               > /dev/null 2> /tmp/schema-error.txt; then
+            echo "ERROR: values.schema.json ACCEPTED ${bad}." >&2
+            echo "The schema is too permissive - it should constrain the types of" >&2
+            echo "replicaCount, image.*, resources.* and reject unknown top-level keys." >&2
+            exit 1
+          fi
+
+          echo "Rejected as expected:"
+          cat /tmp/schema-error.txt
+          # Make sure it failed for the right reason, not because the chart is
+          # simply broken.
+          grep -qiE 'schema|validation' /tmp/schema-error.txt || {
+            echo "ERROR: rendering failed, but not because of schema validation." >&2
+            exit 1
+          }
+
+      - name: ct lint
+        run: ct lint --config .github/ct.yaml
+
+  install:
+    name: ct install on kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: Create kind cluster
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          cluster_name: chart-testing
+
+      - name: Build and load the image the chart defaults to
+        # Rather than guessing the chart's values keys, read back whatever
+        # image the chart actually renders and make that exact reference exist
+        # inside the cluster. `ct install` then works with default values.
+        run: |
+          set -euo pipefail
+          helm template authentik-operator "${CHART_DIR}" > /tmp/rendered.yaml
+          image="$(
+            grep -hoE '^[[:space:]]*image:[[:space:]]*"?[^"[:space:]]+' /tmp/rendered.yaml \
+              | sed -E 's/^[[:space:]]*image:[[:space:]]*"?//' \
+              | grep -i 'authentik-operator' \
+              | sort -u | head -n 1
+          )"
+          if [ -z "${image}" ]; then
+            echo "Chart renders no authentik-operator image; nothing to preload."
+            exit 0
+          fi
+          echo "Chart default image: ${image}"
+          make docker-build IMG="${image}"
+          kind load docker-image "${image}" --name chart-testing
+
+      - name: ct install
+        run: ct install --config .github/ct.yaml
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          set +e
+          mkdir -p chart-logs
+          kubectl get all -A -o wide > chart-logs/all.txt 2>&1
+          kubectl get events -A --sort-by=.lastTimestamp > chart-logs/events.txt 2>&1
+          for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+            for pod in $(kubectl -n "${ns}" get pods -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              kubectl -n "${ns}" describe pod "${pod}" > "chart-logs/${ns}.${pod}.describe.txt" 2>&1
+              kubectl -n "${ns}" logs "${pod}" --all-containers --tail=-1 > "chart-logs/${ns}.${pod}.log" 2>&1
+            done
+          done
+          find chart-logs -type f -empty -delete
+          exit 0
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: chart-install-logs
+          path: chart-logs/
+          if-no-files-found: warn
+          retention-days: 14

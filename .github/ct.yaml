@@ -1,0 +1,20 @@
+# chart-testing configuration (https://github.com/helm/chart-testing)
+target-branch: main
+
+chart-dirs:
+  - charts
+
+# Test every chart on every run. The repo has a single chart, so change
+# detection buys nothing and hides regressions on branches with odd histories.
+all: true
+
+# Maintainers are GitHub handles that ct resolves against the API; that check
+# adds a network dependency without adding safety here.
+validate-maintainers: false
+
+# The release workflow overrides the chart version from the git tag
+# (`helm package --version ${TAG#v}`), so requiring a manual bump in
+# Chart.yaml on every PR would be noise rather than a signal.
+check-version-increment: false
+
+helm-extra-args: --timeout 600s

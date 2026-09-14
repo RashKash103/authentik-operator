@@ -1,0 +1,277 @@
+name: E2E
+
+# Every supported authentik series is exercised against a real authentik
+# instance, not a mock. The matrix is derived from supported-versions.yaml so
+# there is exactly one place to edit when a series is added or dropped.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 03:17 UTC. An upstream authentik patch release that breaks the
+    # operator should be caught here, not by a user.
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  matrix:
+    name: resolve authentik matrix
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.gen.outputs.versions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read supported-versions.yaml
+        id: gen
+        run: |
+          set -euo pipefail
+          python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet pyyaml
+          versions="$(python3 - <<'PY'
+          import json
+          import sys
+
+          import yaml
+
+          with open("supported-versions.yaml", encoding="utf-8") as handle:
+              doc = yaml.safe_load(handle)
+
+          supported = doc.get("supported") or []
+          entries = []
+          for item in supported:
+              image = str(item["image"])
+              if ":" not in image.rsplit("/", 1)[-1]:
+                  sys.exit(f"image {image!r} is not pinned to a tag")
+              entries.append(
+                  {
+                      "series": str(item["series"]),
+                      "image": image,
+                      "tag": image.rsplit(":", 1)[-1],
+                  }
+              )
+
+          if not entries:
+              sys.exit("supported-versions.yaml lists no supported versions")
+
+          print(json.dumps(entries, separators=(",", ":")))
+          PY
+          )"
+          echo "versions=${versions}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### authentik E2E matrix"
+            echo ""
+            echo '```json'
+            echo "${versions}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  e2e:
+    name: e2e (authentik ${{ matrix.authentik.series }})
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # One broken series must not hide the state of the others.
+      fail-fast: false
+      matrix:
+        authentik: ${{ fromJSON(needs.matrix.outputs.versions) }}
+    env:
+      KIND_CLUSTER: authentik-operator-e2e
+      E2E_IMG: authentik-operator:e2e
+      AUTHENTIK_PORT: "9000"
+      # Throwaway credentials for a container that is destroyed with the
+      # runner. They exist so the run is deterministic, not to be secret.
+      AUTHENTIK_BOOTSTRAP_TOKEN: authentik-operator-e2e-bootstrap-token
+      AUTHENTIK_BOOTSTRAP_PASSWORD: authentik-operator-e2e
+      AUTHENTIK_BOOTSTRAP_EMAIL: e2e@authentik-operator.invalid
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache pinned build tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
+
+      # The cluster is created BEFORE authentik so that the `kind` docker
+      # bridge exists and its gateway address can be resolved below.
+      - name: Create kind cluster
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          cluster_name: authentik-operator-e2e
+
+      - name: Resolve a host address reachable from inside the cluster
+        id: hostaddr
+        run: |
+          set -euo pipefail
+          # authentik runs in docker-compose on the runner host and binds
+          # 0.0.0.0. Pods inside kind are SNATed by the node onto the `kind`
+          # docker bridge, so the bridge GATEWAY address is the runner host as
+          # seen from inside the cluster. That same address is also a local
+          # address on the runner, so one URL works from the test process on
+          # the host and from the operator pod in the cluster.
+          host_ip="$(
+            docker network inspect kind \
+              -f '{{ range .IPAM.Config }}{{ .Gateway }} {{ end }}' 2>/dev/null \
+              | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' | head -n 1 || true
+          )"
+          if [ -z "${host_ip}" ]; then
+            # Fallback 1: the default docker bridge gateway.
+            host_ip="$(ip -4 -o addr show docker0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n 1 || true)"
+          fi
+          if [ -z "${host_ip}" ]; then
+            # Fallback 2: whatever address the host uses to leave the box.
+            host_ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}' || true)"
+          fi
+          if [ -z "${host_ip}" ]; then
+            echo "ERROR: could not determine a host address reachable from the kind network" >&2
+            docker network ls >&2
+            exit 1
+          fi
+          echo "Using ${host_ip} as the host address reachable from kind."
+          echo "host_ip=${host_ip}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "AUTHENTIK_HOST_IP=${host_ip}"
+            echo "AUTHENTIK_URL=http://${host_ip}:${AUTHENTIK_PORT}"
+            echo "AUTHENTIK_BIND_ADDRESS=0.0.0.0"
+          } >> "${GITHUB_ENV}"
+
+      - name: Start authentik ${{ matrix.authentik.series }}
+        timeout-minutes: 15
+        env:
+          # test/authentik/docker-compose.yaml takes the image from the
+          # environment so one compose file serves the whole matrix.
+          AUTHENTIK_IMAGE: ${{ matrix.authentik.image }}
+          AUTHENTIK_TAG: ${{ matrix.authentik.tag }}
+          AUTHENTIK_VERSION: ${{ matrix.authentik.series }}
+        run: |
+          set -euo pipefail
+          echo "authentik image: ${AUTHENTIK_IMAGE}"
+          # up.sh blocks until an authenticated API call succeeds.
+          make authentik-up
+
+      - name: Verify the cluster can reach authentik
+        # Turns "the e2e suite timed out for unclear reasons" into "the pod
+        # network cannot reach the host", which is a five-second diagnosis.
+        run: |
+          set -euo pipefail
+          echo "Reachable from the runner host:"
+          curl -sS --fail --max-time 30 "${AUTHENTIK_URL}/-/health/ready/" >/dev/null
+          echo "  ok"
+
+          echo "Reachable from inside the kind cluster:"
+          for attempt in 1 2 3; do
+            if timeout 180 kubectl run "authentik-reachability-${attempt}" \
+                 --rm --attach --restart=Never --quiet \
+                 --image=curlimages/curl:8.11.1 \
+                 --command -- \
+                 curl -sS --fail --max-time 30 "${AUTHENTIK_URL}/-/health/ready/"; then
+              echo "  ok"
+              exit 0
+            fi
+            echo "  attempt ${attempt} failed, retrying..."
+            sleep 10
+          done
+          echo "ERROR: pods in the kind cluster cannot reach ${AUTHENTIK_URL}" >&2
+          exit 1
+
+      - name: Build and load the operator image
+        run: |
+          set -euo pipefail
+          make docker-build IMG="${E2E_IMG}"
+          kind load docker-image "${E2E_IMG}" --name "${KIND_CLUSTER}"
+
+      - name: Install CRDs
+        run: make install
+
+      - name: Run E2E suite
+        env:
+          IMG: authentik-operator:e2e
+        run: make test-e2e
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          # Best effort throughout: a missing log must never mask the real
+          # failure, and an E2E failure with no logs is far more expensive
+          # than the upload.
+          set +e
+          mkdir -p e2e-logs/docker e2e-logs/kube
+
+          docker ps -a > e2e-logs/docker/ps.txt 2>&1
+          docker network inspect kind > e2e-logs/docker/network-kind.json 2>&1
+          # Captures authentik server, worker, postgres, redis and the kind
+          # node, whatever docker-compose named them.
+          for id in $(docker ps -aq); do
+            name="$(docker inspect -f '{{.Name}}' "${id}" | sed 's#^/##')"
+            docker logs --timestamps "${id}" > "e2e-logs/docker/${name}.log" 2>&1
+          done
+
+          kubectl get all -A -o wide            > e2e-logs/kube/all.txt 2>&1
+          kubectl get events -A --sort-by=.lastTimestamp > e2e-logs/kube/events.txt 2>&1
+          kubectl get crd -o wide               > e2e-logs/kube/crds.txt 2>&1
+          kubectl get authentikconnections.authentik.k8s.rka.sh -A -o yaml \
+                                                > e2e-logs/kube/authentikconnections.yaml 2>&1
+          kubectl get clusterauthentikconnections.authentik.k8s.rka.sh -o yaml \
+                                                > e2e-logs/kube/clusterauthentikconnections.yaml 2>&1
+
+          for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+            for pod in $(kubectl -n "${ns}" get pods -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              kubectl -n "${ns}" describe pod "${pod}" \
+                > "e2e-logs/kube/${ns}.${pod}.describe.txt" 2>&1
+              kubectl -n "${ns}" logs "${pod}" --all-containers --tail=-1 \
+                > "e2e-logs/kube/${ns}.${pod}.log" 2>&1
+              kubectl -n "${ns}" logs "${pod}" --all-containers --previous --tail=-1 \
+                > "e2e-logs/kube/${ns}.${pod}.previous.log" 2>&1
+            done
+          done
+
+          # Drop empty files so the artifact is readable.
+          find e2e-logs -type f -empty -delete
+          exit 0
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-logs-authentik-${{ matrix.authentik.series }}
+          path: e2e-logs/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop authentik
+        if: always()
+        run: make authentik-down || true
+
+  e2e-result:
+    # A single required status check that reflects the whole matrix, so branch
+    # protection does not have to enumerate every authentik series.
+    name: e2e result
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check matrix result
+        run: |
+          set -euo pipefail
+          result="${{ needs.e2e.result }}"
+          echo "matrix result: ${result}"
+          [ "${result}" = "success" ] || exit 1

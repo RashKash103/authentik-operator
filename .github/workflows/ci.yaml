@@ -1,0 +1,187 @@
+name: CI
+
+# Fast feedback loop: everything here must pass before a release can be cut
+# (release.yaml calls this workflow via `workflow_call`).
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+# Least privilege: nothing in this workflow writes to the repo or to packages.
+permissions:
+  contents: read
+
+concurrency:
+  # Superseded PR runs are cancelled; pushes to main and release-gating calls
+  # are allowed to finish so the history of main always has a verdict.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # Keep in sync with GOLANGCI_LINT_VERSION in the Makefile.
+          version: v2.6.1
+          args: --timeout=5m
+
+  vet:
+    name: go vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: make vet
+
+  verify:
+    # Stale committed CRDs that no longer match the Go types produce failures
+    # that are very hard to read at the other end (a field silently missing
+    # from the API server). Catch it here instead.
+    name: generated artifacts are current
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache pinned build tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
+
+      - name: Ensure PyYAML is available
+        # `make verify` depends on verify-versions, which runs
+        # hack/sync-versions.py against supported-versions.yaml.
+        run: python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet pyyaml
+
+      - name: Regenerate manifests and DeepCopy, fail if the tree changed
+        run: make verify
+
+      - name: Fail on newly generated but uncommitted files
+        # `make verify` uses `git diff`, which does not see *new* files. A
+        # freshly added API type produces a brand-new CRD, so check that too.
+        run: |
+          set -euo pipefail
+          untracked="$(git status --porcelain --untracked-files=all)"
+          if [ -n "${untracked}" ]; then
+            echo "ERROR: generation produced files that are not committed:"
+            echo "${untracked}"
+            exit 1
+          fi
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache pinned build tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
+
+      - name: Build manager binary
+        run: make build
+
+      - name: Build container image
+        # Not pushed - this only proves the Dockerfile still builds.
+        run: make docker-build IMG=authentik-operator:ci
+
+  test:
+    name: unit tests (race + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache pinned build tools and envtest assets
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
+
+      - name: Run tests
+        # `make test` runs `go test ... -race -coverprofile=cover.out` against
+        # envtest, excluding the E2E suite (see e2e.yaml for that).
+        run: make test
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f cover.out ]; then
+            go tool cover -func=cover.out | tail -n 1 | tee -a "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: cover.out
+          if-no-files-found: warn
+          retention-days: 14
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          go-version-file: go.mod
+          repo-checkout: false
+          go-package: ./...

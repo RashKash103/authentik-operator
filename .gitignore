@@ -10,6 +10,10 @@ dist/
 testbin/
 *.test
 
+# Zensical documentation build output
+site/
+.cache/
+
 # Coverage
 cover.out
 coverage.*

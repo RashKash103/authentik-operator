@@ -1,0 +1,26 @@
+# Deliberately invalid values, used by .github/workflows/charts.yaml to prove
+# that charts/authentik-operator/values.schema.json actually rejects bad input.
+#
+# If CI tells you this file was ACCEPTED, the fix is to tighten the schema, not
+# to change this file. Every entry below is a type or shape error that a user
+# could plausibly make by hand.
+
+# Should be an integer.
+replicaCount: "two"
+
+# Should be an object with string repository/tag.
+image: "ghcr.io/rashkash103/authentik-operator:latest"
+
+# Should be an object (requests/limits), not a string.
+resources: "as much as it needs"
+
+# Should be a boolean.
+rbac:
+  create: "yes"
+
+# Should be an object.
+nodeSelector: []
+
+# Not a key this chart knows about; a strict schema rejects it rather than
+# silently ignoring the user's intent.
+thisKeyDoesNotExistInTheChart: true

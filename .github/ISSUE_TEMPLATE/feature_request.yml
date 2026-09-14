@@ -1,0 +1,70 @@
+name: Feature request
+description: Suggest a capability the operator should have.
+title: "[feat]: "
+labels:
+  - enhancement
+  - triage
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >-
+        Describe the situation, not the solution. What are you doing by hand or
+        with scripts today because the operator cannot do it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like the operator to do?
+      description: >-
+        If this is a new or changed custom resource, sketch the YAML you would
+        want to write.
+      value: |
+        ```yaml
+        apiVersion: authentik.k8s.rka.sh/v1alpha1
+        kind: ...
+        ```
+    validations:
+      required: true
+
+  - type: input
+    id: authentik-api
+    attributes:
+      label: Relevant authentik API
+      description: >-
+        If this maps to an authentik API endpoint, link it - it saves a lot of
+        digging.
+      placeholder: "https://docs.goauthentik.io/docs/developer-docs/api/"
+    validations:
+      required: false
+
+  - type: input
+    id: authentik-version
+    attributes:
+      label: authentik version this applies to
+      description: >-
+        Some APIs only exist in newer series; this determines whether the
+        feature can be unconditional or needs a version gate.
+      placeholder: "2026.8 and later"
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for this idea.
+          required: true
+        - label: I would be willing to help implement this.
+          required: false

@@ -1,0 +1,119 @@
+name: Bug report
+description: Something the operator does is wrong or broken.
+title: "[bug]: "
+labels:
+  - bug
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. The two version fields below are the first thing
+        anyone will need to reproduce this, so they are required.
+
+  - type: input
+    id: authentik-version
+    attributes:
+      label: authentik version
+      description: >-
+        The exact version of the authentik server this operator is talking to.
+        Shown at the bottom of the admin interface, or from
+        `curl -s https://<authentik>/api/v3/admin/version/ -H "Authorization: Bearer <token>"`.
+      placeholder: "2026.8.2"
+    validations:
+      required: true
+
+  - type: input
+    id: operator-version
+    attributes:
+      label: authentik-operator version
+      description: >-
+        The image tag or chart version you are running, e.g. `v0.3.1`, or the
+        commit SHA if you built it yourself.
+      placeholder: "v0.3.1 (ghcr.io/rashkash103/authentik-operator:v0.3.1)"
+    validations:
+      required: true
+
+  - type: input
+    id: kubernetes-version
+    attributes:
+      label: Kubernetes version
+      description: Output of `kubectl version --short` (server version).
+      placeholder: "v1.34.0 (kind / EKS / GKE / k3s ...)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install the operator?
+      options:
+        - Helm chart
+        - install.yaml from a release
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did the operator do, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Please include the custom resource you applied, with secrets redacted.
+      value: |
+        1.
+        2.
+        3.
+
+        <details><summary>Custom resource</summary>
+
+        ```yaml
+        # kubectl get authentikconnection <name> -o yaml
+        ```
+
+        </details>
+    validations:
+      required: true
+
+  - type: textarea
+    id: status
+    attributes:
+      label: Resource status and conditions
+      description: >-
+        `kubectl get <kind> <name> -o jsonpath='{.status}' | jq` - the
+        conditions usually say exactly what the operator is stuck on.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Operator logs
+      description: >-
+        `kubectl logs -n <namespace> deploy/authentik-operator-controller-manager`.
+        Redact tokens before pasting.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: My authentik version is one of the supported series listed in `supported-versions.yaml`.
+          required: false
+        - label: I removed tokens, passwords and other secrets from everything I pasted above.
+          required: true
