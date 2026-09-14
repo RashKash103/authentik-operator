@@ -20,6 +20,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -35,7 +36,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
+	"rka.sh/authentik-operator/internal/authentik"
+	"rka.sh/authentik-operator/internal/controller"
 )
+
+// version is stamped at build time with -ldflags "-X main.version=...".
+var version = "dev"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -131,7 +137,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager", "version", version)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
@@ -139,7 +145,30 @@ func main() {
 }
 
 // setupControllers wires every reconciler into the manager.
+//
+// All controllers share one ConnectionResolver, and therefore one reference
+// cache, so a flow slug resolved for one resource does not have to be looked up
+// again for the next. Entries stay partitioned per authentik instance.
 func setupControllers(mgr ctrl.Manager) error {
-	_ = mgr
+	resolver := &controller.ConnectionResolver{
+		Client:          mgr.GetClient(),
+		Cache:           authentik.NewRefCache(authentik.DefaultCacheTTL),
+		UserAgentSuffix: version,
+	}
+
+	if err := (&controller.AuthentikConnectionReconciler{
+		Client:   mgr.GetClient(),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create AuthentikConnection controller: %w", err)
+	}
+
+	if err := (&controller.ClusterAuthentikConnectionReconciler{
+		Client:   mgr.GetClient(),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create ClusterAuthentikConnection controller: %w", err)
+	}
+
 	return nil
 }

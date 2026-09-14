@@ -1,0 +1,210 @@
+# Installation
+
+Both install paths give you the same thing: the CRDs for the
+`authentik.k8s.rka.sh` API group, plus a single-replica controller-manager
+`Deployment` that runs as non-root with a read-only root filesystem and every
+Linux capability dropped.
+
+!!! info "Installing the operator does not install authentik"
+
+    This chart and these manifests install the operator only. No authentik
+    server, no worker, no PostgreSQL, no Redis. Point the operator at an
+    authentik instance you already run.
+
+## Helm
+
+The chart lives in the repository at `charts/authentik-operator`.
+
+=== "From a checkout"
+
+    ```sh
+    helm install authentik-operator ./charts/authentik-operator \
+      --namespace authentik-operator-system \
+      --create-namespace
+    ```
+
+=== "From a chart repository"
+
+    No chart repository is published yet.
+
+    ```sh
+    # Placeholder — not yet available.
+    helm repo add authentik-operator <chart-repo-url>
+    helm repo update
+    helm install authentik-operator authentik-operator/authentik-operator \
+      --namespace authentik-operator-system --create-namespace
+    ```
+
+A plain install needs no overrides: the defaults are production-sane. The values
+below are the ones people actually reach for; the full list is in
+[Helm values](../reference/helm-values.md).
+
+### Common overrides
+
+| Value | Default | Why you would change it |
+| --- | --- | --- |
+| `image.repository` | the project's GHCR image | Mirroring into a private registry or an air-gapped cluster. |
+| `image.tag` | `""`, meaning the chart's `appVersion` | Pinning the operator independently of the chart. |
+| `image.digest` | `""` | Immutable, supply-chain-verifiable deploys. When set it wins over `image.tag`. |
+| `watchNamespaces` | `[]`, meaning all namespaces | Shrinking cache memory and blast radius. |
+| `log.level` | `info` | `debug` while diagnosing a reconcile. Noisy in steady state. |
+| `log.format` | `json` | `console` for human-readable local debugging. |
+| `metrics.enabled` | `true` | Turning metrics off entirely. |
+| `metrics.secure` | `true` | Leave it on. `false` serves plaintext metrics to anything that can reach the Pod. |
+| `metrics.serviceMonitor.enabled` | `false` | You run Prometheus Operator. Requires the `monitoring.coreos.com/v1` CRDs to exist first. |
+| `leaderElection.enabled` | `true` | Leave it on. Without it, the overlap during a rolling update has two managers fighting. |
+| `rbac.create` | `true` | RBAC is managed out-of-band by a cluster admin. |
+| `resources` | 10m/64Mi requests, 500m/256Mi limits | You manage thousands of resources, or see OOMKills. |
+| `extraArgs` | `[]` | Escape hatch for a manager flag the chart does not yet model. |
+| `extraEnv` | `[]` | `HTTPS_PROXY` for egress to authentik, or `SSL_CERT_FILE` for a mounted CA bundle. |
+| `extraVolumes` / `extraVolumeMounts` | `[]` | Mounting a private CA bundle for the authentik endpoint. |
+
+Restricting the operator to two namespaces:
+
+```sh
+helm install authentik-operator ./charts/authentik-operator \
+  --namespace authentik-operator-system --create-namespace \
+  --set 'watchNamespaces={apps,platform}'
+```
+
+!!! warning "`watchNamespaces` fails silently by design"
+
+    Resources outside the watched set are ignored with no event and no
+    condition — the operator never sees them. If a resource seems inert and its
+    `status` is completely empty, check this value first.
+
+    `ClusterAuthentikConnection` is cluster-scoped and is watched regardless.
+
+### Upgrading the chart: CRDs are your job
+
+!!! danger "Helm never upgrades CRDs"
+
+    Helm applies everything in the chart's `crds/` directory exactly once, on
+    **first install**. On `helm upgrade` it does nothing with them; on
+    `helm uninstall` it leaves them behind.
+
+    The failure mode is silent. The Deployment rolls, the operator starts,
+    nothing logs an error — but the API server still validates against the old
+    schema, so new fields are pruned from objects you apply and the operator
+    sees requests it cannot act on.
+
+Apply the CRDs yourself, **before** `helm upgrade`:
+
+=== "From a packaged chart"
+
+    ```sh
+    helm show crds authentik-operator/authentik-operator --version <new-version> \
+      | kubectl apply --server-side -f -
+    ```
+
+=== "From a checkout"
+
+    ```sh
+    kubectl apply --server-side -f charts/authentik-operator/crds/
+    ```
+
+Use `--server-side`, and add `--force-conflicts` if an earlier client-side apply
+left a large `last-applied-configuration` annotation. Client-side apply can fail
+on these CRDs with `metadata.annotations: Too long`.
+
+The chart's `crds/` directory may be empty in a fresh checkout where
+`make manifests` has not run. That is expected, not an error — Helm treats it as
+"no CRDs to install".
+
+## Raw manifests
+
+Render a single `install.yaml` from the kustomize configuration:
+
+```sh
+make bundle                 # writes dist/install.yaml
+kubectl apply -f dist/install.yaml
+```
+
+Override the image with `IMG`:
+
+```sh
+make bundle IMG=ghcr.io/example/authentik-operator:v0.1.0
+```
+
+!!! note
+
+    `make bundle` and `make deploy` both run `kustomize edit set image` inside
+    `config/manager`, which modifies `config/manager/kustomization.yaml` in your
+    working tree. Check `git status` afterwards.
+
+## From a checkout
+
+```sh
+make install     # CRDs only
+make deploy      # CRDs + controller-manager
+make undeploy    # remove the controller-manager
+make uninstall   # remove the CRDs
+```
+
+`make run` runs the manager outside the cluster against your current kubeconfig,
+which is the fastest loop while developing. Install the CRDs first.
+
+## Manager flags
+
+The `Deployment` runs `/manager`. The Helm chart renders most of these from
+values; the raw manifests set `--leader-elect`,
+`--health-probe-bind-address=:8081` and `--metrics-bind-address=:8443`.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--metrics-bind-address` | `0` | Metrics endpoint address. `:8443` for HTTPS, `:8080` for HTTP, `0` to disable. |
+| `--health-probe-bind-address` | `:8081` | Address for `/healthz` and `/readyz`. |
+| `--leader-elect` | `false` | Enable leader election so only one manager is active. |
+| `--metrics-secure` | `true` | Serve metrics over HTTPS with authn/authz. |
+| `--enable-http2` | `false` | Enable HTTP/2 on the metrics and webhook servers. Off deliberately. |
+| `--watch-namespaces` | `""` | Comma-separated namespaces to watch. Empty means all. |
+
+The controller-runtime zap flags — `--zap-log-level`, `--zap-encoder`,
+`--zap-devel`, `--zap-stacktrace-level`, `--zap-time-encoding` — are registered
+too. The chart drives the first two through `log.level` and `log.format`.
+
+!!! note "Why HTTP/2 is off by default"
+
+    HTTP/2 has a history of denial-of-service CVEs — Rapid Reset and relatives —
+    and the operator's own endpoints gain nothing from it. Turn it on only if a
+    scraper demands it.
+
+## Verifying the install
+
+```sh
+kubectl -n authentik-operator-system rollout status deploy/authentik-operator --timeout=120s
+kubectl -n authentik-operator-system logs deploy/authentik-operator -f
+```
+
+A healthy start logs `starting manager`, and with leader election enabled,
+`successfully acquired lease`. Confirm the CRDs registered:
+
+```sh
+kubectl get crd | grep authentik.k8s.rka.sh
+```
+
+You should see `authentikconnections.authentik.k8s.rka.sh` and
+`clusterauthentikconnections.authentik.k8s.rka.sh`. Both kinds have short names:
+`akconn` and `clakconn`.
+
+## Uninstalling
+
+```sh
+helm uninstall authentik-operator -n authentik-operator-system
+```
+
+CRDs are deliberately left behind. Deleting a CRD deletes every object of that
+kind cluster-wide, with no undo. Remove them only when you are certain:
+
+```sh
+kubectl delete crd authentikconnections.authentik.k8s.rka.sh
+kubectl delete crd clusterauthentikconnections.authentik.k8s.rka.sh
+```
+
+Deleting the operator does **not** delete anything in authentik. Objects it
+created stay exactly as they were.
+
+## Next
+
+[Create an authentik API token](api-token.md) and give the operator something to
+talk to.

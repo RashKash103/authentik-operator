@@ -1,0 +1,5 @@
+# Local overrides for the authentik test stack. Copy .env.example to .env and
+# edit; the copy stays out of git so a developer's port/tag tweaks never land in
+# a commit. CI relies on the committed defaults and environment variables, not
+# on this file.
+.env

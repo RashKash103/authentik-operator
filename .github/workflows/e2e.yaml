@@ -51,10 +51,14 @@ jobs:
               image = str(item["image"])
               if ":" not in image.rsplit("/", 1)[-1]:
                   sys.exit(f"image {image!r} is not pinned to a tag")
+              # The compose file composes repository + tag itself, so emit them
+              # split as well as joined. Passing the full ref as the repository
+              # yields "server:2026.8.2:2026.8.2" and every job fails to pull.
               entries.append(
                   {
                       "series": str(item["series"]),
                       "image": image,
+                      "repository": image.rsplit(":", 1)[0],
                       "tag": image.rsplit(":", 1)[-1],
                   }
               )
@@ -88,6 +92,8 @@ jobs:
       KIND_CLUSTER: authentik-operator-e2e
       E2E_IMG: authentik-operator:e2e
       AUTHENTIK_PORT: "9000"
+      # test/authentik/docker-compose.yaml publishes on AUTHENTIK_HOST_PORT.
+      AUTHENTIK_HOST_PORT: "9000"
       # Throwaway credentials for a container that is destroyed with the
       # runner. They exist so the run is deterministic, not to be secret.
       AUTHENTIK_BOOTSTRAP_TOKEN: authentik-operator-e2e-bootstrap-token
@@ -159,7 +165,7 @@ jobs:
         env:
           # test/authentik/docker-compose.yaml takes the image from the
           # environment so one compose file serves the whole matrix.
-          AUTHENTIK_IMAGE: ${{ matrix.authentik.image }}
+          AUTHENTIK_IMAGE: ${{ matrix.authentik.repository }}
           AUTHENTIK_TAG: ${{ matrix.authentik.tag }}
           AUTHENTIK_VERSION: ${{ matrix.authentik.series }}
         run: |

@@ -1,0 +1,128 @@
+# Local authentik instance for the operator's E2E suite.
+#
+# Topology mirrors the upstream stack published at https://goauthentik.io/compose.yml
+# (PostgreSQL + `server` + `worker`, where server and worker share one image and
+# differ only by their command). Differences from upstream, all deliberate:
+#
+#   * Named volumes instead of ./data, ./certs and ./custom-templates bind mounts,
+#     so `down.sh` can wipe every trace of a run with `down -v`.
+#   * No /var/run/docker.sock mount on the worker. That exists upstream for the
+#     embedded outpost's Docker controller, which the E2E suite never exercises,
+#     and mounting it in CI is an unnecessary privilege.
+#   * AUTHENTIK_BOOTSTRAP_* is set so the instance provisions akadmin and a
+#     non-expiring API token on first boot. Without it authentik would sit on the
+#     browser "out of box experience" flow forever and CI could never authenticate.
+#   * No Redis. authentik dropped its Redis dependency in 2025.10 (cache, channel
+#     layer and task broker all moved to PostgreSQL); there is no `redis:` key left
+#     in authentik/lib/default.yml for any version this operator supports. A Redis
+#     service is still defined below under the `legacy-redis` profile, disabled by
+#     default, for anyone pointing this stack at a pre-2025.10 image.
+#
+# Every value is overridable from the environment or from a sibling `.env` file
+# (see .env.example); `up.sh` resolves the defaults before invoking compose.
+
+name: ${COMPOSE_PROJECT_NAME:-authentik-operator-test}
+
+x-authentik-common: &authentik-common
+  image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.2}
+  restart: unless-stopped
+  shm_size: 512mb
+  depends_on:
+    postgresql:
+      condition: service_healthy
+  # Optional passthrough so any extra AUTHENTIK_* override dropped in .env
+  # reaches the container without having to be named here. Explicit `environment`
+  # keys below win over it.
+  env_file:
+    - path: .env
+      required: false
+  environment: &authentik-env
+    AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-insecure-local-test-secret-key-do-not-use-anywhere-else}
+
+    AUTHENTIK_POSTGRESQL__HOST: postgresql
+    AUTHENTIK_POSTGRESQL__PORT: 5432
+    AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+    AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+    AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-insecure-local-test-password}
+
+    # The whole reason this stack can run unattended: authentik reads these on
+    # first start and applies blueprints/system/bootstrap.yaml, which creates the
+    # akadmin superuser and a non-expiring API token whose key is exactly
+    # AUTHENTIK_BOOTSTRAP_TOKEN. No browser setup flow required.
+    AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-authentik-operator-e2e-bootstrap-token}
+    AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-authentik-operator-e2e-admin-password}
+    AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-akadmin@e2e.localhost}
+
+    AUTHENTIK_LOG_LEVEL: ${AUTHENTIK_LOG_LEVEL:-info}
+    # Keep a throwaway test instance from phoning home or hitting gravatar.
+    AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+    AUTHENTIK_AVATARS: initials
+
+services:
+  postgresql:
+    image: ${POSTGRES_IMAGE:-docker.io/library/postgres:16-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DB:-authentik}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      POSTGRES_PASSWORD: ${PG_PASS:-insecure-local-test-password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  server:
+    <<: *authentik-common
+    command: server
+    ports:
+      # Bound on all interfaces so both the host test binary and a kind node
+      # (via the host gateway address) can reach the API.
+      - "${AUTHENTIK_HOST_PORT:-9000}:9000"
+      - "${AUTHENTIK_HOST_PORT_HTTPS:-9443}:9443"
+    volumes:
+      - media:/media
+      - templates:/templates
+
+  worker:
+    <<: *authentik-common
+    command: worker
+    volumes:
+      - media:/media
+      - certs:/certs
+      - templates:/templates
+
+  # Only for pre-2025.10 authentik images. Not started unless you explicitly ask
+  # for it: `docker compose --profile legacy-redis up -d`. When enabled, also set
+  # AUTHENTIK_REDIS__HOST=redis in your .env.
+  redis:
+    image: ${REDIS_IMAGE:-docker.io/library/redis:alpine}
+    profiles: ["legacy-redis"]
+    restart: unless-stopped
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    volumes:
+      - redis:/data
+
+volumes:
+  database:
+    driver: local
+  media:
+    driver: local
+  certs:
+    driver: local
+  templates:
+    driver: local
+  redis:
+    driver: local
