@@ -170,7 +170,40 @@ func conditionsOf(obj client.Object) ([]metav1.Condition, error) {
 		return o.Status.Conditions, nil
 	case *authentikv1alpha1.OAuth2Provider:
 		return o.Status.Conditions, nil
+	case *authentikv1alpha1.Application:
+		return o.Status.Conditions, nil
 	default:
 		return nil, fmt.Errorf("no condition accessor for %T", obj)
 	}
+}
+
+// WaitUntilGone polls until the object no longer exists.
+//
+// A resource that lingers is usually a finalizer the operator failed to
+// release, which would also block deletion of its namespace, so the failure
+// message reports the finalizers still present.
+func WaitUntilGone(
+	t *testing.T,
+	ctx context.Context,
+	c client.Client,
+	obj client.Object,
+	key client.ObjectKey,
+	timeout time.Duration,
+) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		err := c.Get(ctx, key, obj)
+		if apierrors.IsNotFound(err) {
+			return
+		}
+		if err != nil {
+			t.Fatalf("getting %s: %v", key, err)
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	t.Fatalf("timed out after %s waiting for %s to be deleted; finalizers still set: %v",
+		timeout, key, obj.GetFinalizers())
 }
