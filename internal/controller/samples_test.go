@@ -95,6 +95,66 @@ func TestSamplesAreValid(t *testing.T) {
 	t.Logf("validated %d sample objects", applied)
 }
 
+// TestFluxExamplesAreValid applies the authentik resources from the Flux
+// examples to a real API server.
+//
+// Examples in a README rot silently: nothing compiles them, and a field renamed
+// in the CRD leaves them quietly wrong. Only the authentik kinds are checked -
+// the Flux kinds around them belong to CRDs this cluster does not have.
+func TestFluxExamplesAreValid(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "flux-examples")
+
+	dir := filepath.Join("..", "..", "examples", "flux", "resources")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading flux examples: %v", err)
+	}
+
+	applied := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".yaml") || name == "kustomization.yaml" {
+			continue
+		}
+
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("reading %s: %v", name, err)
+		}
+
+		for i, doc := range splitYAML(string(raw)) {
+			obj := &unstructured.Unstructured{}
+			if err := yaml.Unmarshal([]byte(doc), obj); err != nil {
+				t.Fatalf("%s document %d: parsing: %v", name, i, err)
+			}
+			// Skip Flux kinds and the Secret template, which is deliberately
+			// not a usable manifest.
+			if !strings.HasPrefix(obj.GetAPIVersion(), "authentik.k8s.rka.sh/") {
+				continue
+			}
+
+			obj.SetNamespace(ns)
+			if err := c.Create(ctx, obj); err != nil {
+				t.Errorf("%s document %d (%s/%s) was rejected: %v",
+					name, i, obj.GetKind(), obj.GetName(), err)
+				continue
+			}
+			applied++
+
+			t.Cleanup(func() {
+				_ = c.Delete(context.Background(), obj, client.PropagationPolicy("Background"))
+			})
+		}
+	}
+
+	if applied == 0 {
+		t.Fatal("no authentik resources found in the Flux examples")
+	}
+	t.Logf("validated %d authentik resources from the Flux examples", applied)
+}
+
 // splitYAML splits a multi-document YAML file on its document separators.
 func splitYAML(content string) []string {
 	parts := strings.Split(content, "\n---")

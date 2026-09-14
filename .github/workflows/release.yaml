@@ -59,6 +59,12 @@ jobs:
             echo "version=${version}"
             echo "image=${image}"
             echo "image_ref=${image}:${tag}"
+            # Charts are pushed under the owner, not the repository: helm
+            # appends the chart name to the reference, so pushing to
+            # oci://ghcr.io/<owner>/charts yields
+            # oci://ghcr.io/<owner>/charts/authentik-operator.
+            echo "chart_repo=oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+            echo "chart_ref=oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts/authentik-operator"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Set up QEMU
@@ -138,6 +144,28 @@ jobs:
             --destination dist
           ls -l dist
 
+      # Published as an OCI artifact so the chart can be consumed the same way
+      # the image is - one registry, one credential, and no separate chart
+      # repository to host. Flux and Argo both pull OCI charts natively.
+      - name: Push the Helm chart to GHCR as an OCI artifact
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm push \
+            "dist/authentik-operator-${{ steps.version.outputs.version }}.tgz" \
+            "${{ steps.version.outputs.chart_repo }}"
+          helm registry logout ghcr.io
+
+      # A push that silently produced something unpullable would only be found
+      # by the first person trying to install it.
+      - name: Verify the published chart is pullable
+        run: |
+          set -euo pipefail
+          helm show chart \
+            "${{ steps.version.outputs.chart_ref }}" \
+            --version "${{ steps.version.outputs.version }}"
+
       - name: Create the GitHub release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -166,12 +194,16 @@ jobs:
             kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/install.yaml
             ```
 
-            or with Helm:
+            or with Helm, from the chart published as an OCI artifact:
 
             ```sh
             helm install authentik-operator \
-              https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/authentik-operator-${{ steps.version.outputs.version }}.tgz
+              ${{ steps.version.outputs.chart_ref }} \
+              --version ${{ steps.version.outputs.version }} \
+              --namespace authentik-operator-system --create-namespace
             ```
+
+            The packaged chart is also attached to this release as a `.tgz`.
 
             Provenance and SBOM attestations are attached to the image in GHCR
             and can be verified with `gh attestation verify`.

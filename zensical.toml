@@ -25,6 +25,7 @@ nav = [
     "guides/applications.md",
     "guides/outposts.md",
     "guides/credentials.md",
+    "guides/gitops-flux.md",
   ] },
   { "Reference" = [
     "reference/index.md",

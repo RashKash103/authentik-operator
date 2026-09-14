@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: identity
+resources:
+  - connection.yaml
+  - grafana.yaml
+  # secret.sops.example.yaml is intentionally NOT listed: it is a template, not
+  # a manifest. Add your own encrypted Secret here instead.

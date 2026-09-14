@@ -4,9 +4,45 @@
 for which authentik releases this operator supports. It feeds the CI E2E matrix,
 the table in `README.md`, the table below, and the runtime version gate.
 
-authentik ships CalVer minor series (`YYYY.M`). This project supports the
-**three most recent series** and pins an exact patch tag per series so CI is
-reproducible.
+authentik ships CalVer minor series (`YYYY.M`). **One operator release targets
+one series**, pinned to an exact patch tag so CI is reproducible.
+
+## Version policy
+
+Each operator release is built against a specific authentik series and pinned to
+the API client generated from it. When authentik ships a release that client
+cannot serve, that is not a patch — it is a **new versioned release of the
+operator and its Helm chart**, targeting the new authentik.
+
+- **Track the latest.** The newest operator release always targets the newest
+  supported authentik.
+- **Pin to match your authentik.** Running an older authentik means staying on
+  the operator release built for it. The image and chart are both versioned and
+  immutable, so an older pairing keeps working; it just stops gaining features.
+- **Upgrade in step.** Crossing a boundary means moving the operator with
+  authentik.
+
+| Operator / chart | authentik | Notes                                  |
+| ---------------- | --------- | -------------------------------------- |
+| `0.1.x`          | `2026.8`  | First release. API version `v1alpha1`. |
+
+??? question "Why one version per release rather than a range?"
+
+    `goauthentik.io/api/v3` is generated from a single authentik release and
+    enforces *that* release's required properties when decoding. The pinned
+    client marks `Application.pbm_uuid` and `SAMLProvider.url_issuer` as
+    required, and neither exists in 2026.5 or 2026.2, so every list call against
+    those versions fails outright.
+
+    The E2E matrix found this rather than a user: 2026.8 passed while 2026.5 and
+    2026.2 failed. Connections worked on all three; applications and SAML
+    providers did not.
+
+    Supporting a genuine range would mean pinning a client generated from the
+    *oldest* version to support — a newer authentik returns a superset of
+    fields, so an older client's required set is satisfied — or decoding
+    tolerantly instead of through the generated models. Until one of those is
+    done, pinning per release is the honest arrangement.
 
 ## The matrix
 

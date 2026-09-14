@@ -1,0 +1,16 @@
+# The connection the operator uses to reach authentik.
+#
+# The Secret is referenced but deliberately not created here: an API token in a
+# Git repository is a credential leak. Supply it with SOPS, Sealed Secrets or
+# External Secrets - see secret.sops.example.yaml.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: AuthentikConnection
+metadata:
+  name: primary
+  namespace: identity
+spec:
+  url: https://authentik.example.com
+  tokenSecretRef:
+    name: authentik-api-token
+    key: token
+  probeInterval: 5m

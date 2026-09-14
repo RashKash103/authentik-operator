@@ -1,0 +1,46 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: authentik-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  releaseName: authentik-operator
+  targetNamespace: authentik-operator-system
+  # Flux does not create the target namespace on its own.
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+    # CRDs in the chart's crds/ directory are installed but never upgraded by
+    # Helm itself. CreateReplace lets Flux apply CRD changes on upgrade, which
+    # is what you want for an operator whose API is still v1alpha1.
+    crds: CreateReplace
+  chartRef:
+    kind: OCIRepository
+    name: authentik-operator
+    namespace: flux-system
+  values:
+    replicaCount: 1
+    leaderElection:
+      enabled: true
+    log:
+      level: info
+      format: json
+    metrics:
+      enabled: true
+      secure: true
+      serviceMonitor:
+        # Turn on once the Prometheus Operator CRDs are present; without them
+        # the release fails to render.
+        enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi

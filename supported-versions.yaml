@@ -5,6 +5,14 @@
 #   - README.md                     (supported versions table, verified by CI)
 #   - internal/authentik/version.go (runtime compatibility gate)
 #
+# VERSION POLICY: one operator release targets one authentik series.
+#
+# When authentik ships a release the pinned client cannot serve, that is a NEW
+# versioned release of the operator and its Helm chart - not a patch. Users pin
+# the operator release matching the authentik they run. Adding a series here
+# without cutting a release would claim support that no published artifact
+# provides.
+#
 # ONLY 2026.8 IS SUPPORTED, and that is a property of the generated client
 # rather than a choice.
 #

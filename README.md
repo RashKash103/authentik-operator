@@ -1,8 +1,14 @@
+# authentik-operator
+
+[![CI](https://github.com/RashKash103/authentik-operator/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/RashKash103/authentik-operator/actions/workflows/ci.yaml)
+[![E2E](https://github.com/RashKash103/authentik-operator/actions/workflows/e2e.yaml/badge.svg?branch=main)](https://github.com/RashKash103/authentik-operator/actions/workflows/e2e.yaml)
+[![Charts](https://github.com/RashKash103/authentik-operator/actions/workflows/charts.yaml/badge.svg?branch=main)](https://github.com/RashKash103/authentik-operator/actions/workflows/charts.yaml)
+[![Documentation](https://img.shields.io/badge/docs-rashkash103.github.io-3f51b5?logo=materialformkdocs&logoColor=white)](https://rashkash103.github.io/authentik-operator/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > [!WARNING]
 > **This project is fully AI generated.** Review it carefully before running it
 > against anything you care about, and use it at your own risk.
-
-# authentik-operator
 
 A Kubernetes operator that manages objects **inside an existing
 [authentik](https://goauthentik.io/) instance** — providers, applications and
@@ -43,11 +49,9 @@ over its REST API using a token you supply.
 ## Supported authentik versions
 
 <!--
-  This table is generated from supported-versions.yaml, which is the single
-  source of truth. CI verifies the table below against that file; if you edit
-  one, edit the other. authentik ships CalVer minor series (YYYY.M) and this
-  project supports the three most recent series, pinning an exact patch tag per
-  series so CI is reproducible.
+  The table and bounds below are generated from supported-versions.yaml, which
+  is the single source of truth. `make sync-versions` rewrites them and
+  `make verify` fails if they drift.
 -->
 
 <!-- BEGIN SUPPORTED-VERSIONS -->
@@ -56,22 +60,53 @@ over its REST API using a token you supply.
 | `2026.8`         | `ghcr.io/goauthentik/server:2026.8.2` | Supported |
 <!-- END SUPPORTED-VERSIONS -->
 
-> [!IMPORTANT]
-> **Only 2026.8 is supported, and that is a property of the generated API
-> client rather than a choice.** `goauthentik.io/api/v3` is generated from one
-> authentik release and enforces that release's required properties when
-> decoding. The pinned client marks `Application.pbm_uuid` and
-> `SAMLProvider.url_issuer` as required; neither exists in 2026.5 or 2026.2, so
-> every list call against those versions fails outright.
->
-> The E2E matrix found this: 2026.8 passed while 2026.5 and 2026.2 failed.
-> Connections work on all three; applications and SAML providers do not.
-> Widening the range means pinning a client generated from the oldest version
-> to support, or decoding tolerantly instead of through the generated models.
+<!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->
+- **Minimum:** `2026.8`. The operator refuses to reconcile against anything older, and says so in a condition.
+- **Maximum tested:** `2026.8`. Newer versions still reconcile, but the operator logs a warning that it is running untested.
+<!-- END SUPPORTED-VERSIONS-BOUNDS -->
 
-- **Minimum:** `2026.2`. The operator refuses to reconcile against anything older.
-- **Maximum tested:** `2026.8`. Newer versions still reconcile, but the operator
-  logs a warning that it is running untested.
+### Version policy
+
+**One operator release targets one authentik version.** Each release is built
+against a specific authentik series and pinned to the API client generated from
+it. When authentik ships a release the current client cannot serve, that is not
+a patch — it is a **new versioned release of the operator and its Helm chart**,
+targeting the new authentik.
+
+So:
+
+- **Track the latest.** The newest operator release always targets the newest
+  supported authentik.
+- **Pin to match your authentik.** Running an older authentik means staying on
+  the operator release built for it. Both the image and the chart are versioned
+  and immutable, so an older pairing keeps working; it just stops receiving new
+  features.
+- **Upgrade in step.** Moving authentik across a boundary means moving the
+  operator with it. The compatibility matrix below says which pairs.
+
+<!-- BEGIN COMPATIBILITY-MATRIX -->
+| Operator / chart | authentik | Notes                                    |
+| ---------------- | --------- | ---------------------------------------- |
+| `0.1.x`          | `2026.8`  | First release. API version `v1alpha1`.   |
+<!-- END COMPATIBILITY-MATRIX -->
+
+The operator checks the version it is talking to at runtime. Below the
+supported floor it refuses to reconcile and says so in a condition, rather than
+failing obscurely somewhere inside an API call. Above the tested ceiling it
+proceeds but warns.
+
+> [!NOTE]
+> **Why a release targets one version rather than a range**, in case it looks
+> unnecessarily strict: `goauthentik.io/api/v3` is generated from a single
+> authentik release and enforces *that* release's required properties when
+> decoding. The client pinned here marks `Application.pbm_uuid` and
+> `SAMLProvider.url_issuer` as required, and neither exists in 2026.5 or
+> 2026.2, so every list call against those versions fails outright. The E2E
+> matrix found this the hard way: 2026.8 passed while 2026.5 and 2026.2 failed.
+>
+> Supporting a genuine range would mean pinning a client generated from the
+> *oldest* version to support, or decoding tolerantly instead of through the
+> generated models. Until then, pinning per release is the honest arrangement.
 
 ## Implementation status
 
@@ -103,18 +138,55 @@ Both paths install the CRDs and a single-replica controller-manager `Deployment`
 that runs as non-root with a read-only root filesystem and all capabilities
 dropped.
 
-### Helm
+### Helm (OCI)
 
-The chart lives in this repository at [`charts/authentik-operator`](charts/authentik-operator).
+The chart is published to GHCR as an OCI artifact on every tagged release.
+There is no chart repository to add — Helm pulls it from the registry directly:
 
 ```sh
-helm install authentik-operator ./charts/authentik-operator \
+helm install authentik-operator \
+  oci://ghcr.io/rashkash103/charts/authentik-operator \
+  --version 0.1.0 \
   --namespace authentik-operator-system \
   --create-namespace
 ```
 
-<!-- PLACEHOLDER: no chart repository is published yet. Once one exists, add the
-     `helm repo add` instructions here and replace the local-path example. -->
+Pin `--version` to the release matching your authentik; see
+[Version policy](#version-policy). Inspect before installing with:
+
+```sh
+helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
+helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
+```
+
+The chart is also attached to each GitHub release as a `.tgz`, and the source
+lives at [`charts/authentik-operator`](charts/authentik-operator) if you would
+rather install from a checkout:
+
+```sh
+helm install authentik-operator ./charts/authentik-operator \
+  --namespace authentik-operator-system --create-namespace
+```
+
+> [!IMPORTANT]
+> Helm installs everything in a chart's `crds/` directory but **never upgrades
+> or deletes it**. Upgrading the chart therefore leaves CRDs untouched. Apply
+> them yourself on upgrade:
+>
+> ```sh
+> helm show crds oci://ghcr.io/rashkash103/charts/authentik-operator \
+>   --version <new-version> | kubectl apply --server-side -f -
+> ```
+>
+> Flux handles this for you with `upgrade.crds: CreateReplace`; see
+> [Deploying with Flux](examples/flux).
+
+### GitOps with Flux
+
+Runnable manifests live in [`examples/flux`](examples/flux): an `OCIRepository`
+and `HelmRelease` for the operator, and a `Kustomization` for the authentik
+resources it manages, kept as separate reconciliations so a bad application
+manifest cannot block an operator upgrade.
 
 ### Raw manifests
 

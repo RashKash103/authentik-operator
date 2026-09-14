@@ -1,0 +1,31 @@
+# How the resources above are reconciled by Flux, once they live in a Git
+# repository Flux watches.
+#
+# dependsOn is the important part: without it Flux applies the custom resources
+# before the operator's CRDs exist and the Kustomization fails until the next
+# retry. Naming the dependency turns a transient error into an ordered rollout.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: authentik-resources
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./examples/flux/resources
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: authentik-operator
+  # Needed only if the Secret is SOPS-encrypted.
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  healthChecks:
+    - apiVersion: authentik.k8s.rka.sh/v1alpha1
+      kind: OAuth2Provider
+      name: grafana
+      namespace: identity
+  timeout: 5m

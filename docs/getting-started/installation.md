@@ -13,7 +13,25 @@ Linux capability dropped.
 
 ## Helm
 
-The chart lives in the repository at `charts/authentik-operator`.
+The chart is published to GHCR as an OCI artifact on every tagged release, so
+there is no chart repository to add.
+
+=== "From the registry (recommended)"
+
+    ```sh
+    helm install authentik-operator \
+      oci://ghcr.io/rashkash103/charts/authentik-operator \
+      --version 0.1.0 \
+      --namespace authentik-operator-system \
+      --create-namespace
+    ```
+
+    Inspect it first if you would rather:
+
+    ```sh
+    helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
+    helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
+    ```
 
 === "From a checkout"
 
@@ -23,17 +41,25 @@ The chart lives in the repository at `charts/authentik-operator`.
       --create-namespace
     ```
 
-=== "From a chart repository"
+!!! warning "Pin the version to your authentik"
 
-    No chart repository is published yet.
+    One operator release targets one authentik version. Always pass
+    `--version`, and pick the release matching the authentik you run — see
+    [Supported versions](../operations/supported-versions.md).
+
+!!! danger "Helm never upgrades CRDs"
+
+    Helm installs everything in a chart's `crds/` directory and then leaves it
+    alone forever. `helm upgrade` will not touch your CRDs, so a chart upgrade
+    can silently leave you on a stale API. Apply them yourself:
 
     ```sh
-    # Placeholder — not yet available.
-    helm repo add authentik-operator <chart-repo-url>
-    helm repo update
-    helm install authentik-operator authentik-operator/authentik-operator \
-      --namespace authentik-operator-system --create-namespace
+    helm show crds oci://ghcr.io/rashkash103/charts/authentik-operator \
+      --version <new-version> | kubectl apply --server-side -f -
     ```
+
+    [Flux](../guides/gitops-flux.md) handles this with
+    `upgrade.crds: CreateReplace`.
 
 A plain install needs no overrides: the defaults are production-sane. The values
 below are the ones people actually reach for; the full list is in

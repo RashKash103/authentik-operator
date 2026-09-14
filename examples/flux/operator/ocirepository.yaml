@@ -1,0 +1,18 @@
+# The operator's Helm chart, published to GHCR as an OCI artifact by the
+# release workflow.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: authentik-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: oci://ghcr.io/rashkash103/charts/authentik-operator
+  ref:
+    # Pinned deliberately. A chart release is tied to the authentik version it
+    # was built against, so an automatic bump can land you on a chart that does
+    # not support the authentik you are running. See the version policy.
+    tag: "0.1.0"
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

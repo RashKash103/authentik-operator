@@ -1,0 +1,48 @@
+# Onboarding one application: a provider that issues tokens, and the
+# application users actually see.
+#
+# Apply order does not matter. If the Application reconciles first it reports
+# ReferenceNotFound and converges as soon as the provider has a primary key, so
+# Flux does not need dependsOn between them.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: OAuth2Provider
+metadata:
+  name: grafana
+  namespace: identity
+spec:
+  connectionRef:
+    name: primary
+  authorizationFlow: default-provider-authorization-explicit-consent
+  invalidationFlow: default-provider-invalidation-flow
+  clientType: confidential
+  grantTypes:
+    - authorization_code
+    - refresh_token
+  redirectURIs:
+    - matchingMode: strict
+      url: https://grafana.example.com/login/generic_oauth
+  accessTokenValidity: hours=1
+  refreshTokenValidity: days=30
+  # authentik generates the credentials; the operator writes them here for the
+  # Grafana Deployment to mount.
+  writeCredentialsTo:
+    name: grafana-oidc
+  # Refuse to take over a provider already called "grafana" in authentik.
+  adoptionPolicy: FailOnConflict
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: identity
+spec:
+  connectionRef:
+    name: primary
+  slug: grafana
+  name: Grafana
+  providerRef:
+    kind: OAuth2Provider
+    name: grafana
+  metaLaunchUrl: https://grafana.example.com
+  metaDescription: Dashboards and metrics
+  group: Observability

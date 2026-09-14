@@ -38,10 +38,20 @@ creating an `AuthentikConnection` (namespaced) or `ClusterAuthentikConnection`
 
 ## Install
 
+The chart is published to GHCR as an OCI artifact, so there is no repository to
+add:
+
 ```sh
 helm install authentik-operator oci://ghcr.io/rashkash103/charts/authentik-operator \
-  --namespace authentik-system --create-namespace
+  --version 0.1.0 \
+  --namespace authentik-operator-system --create-namespace
 ```
+
+**Always pass `--version`.** One operator release targets one authentik version,
+so the chart version you install has to match the authentik you run. See the
+version policy in the project README.
+
+For GitOps, `examples/flux` has a ready `OCIRepository` + `HelmRelease` pair.
 
 From a checkout:
 

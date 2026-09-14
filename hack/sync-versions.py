@@ -27,6 +27,8 @@ VERSION_GO = ROOT / "internal" / "authentik" / "version.go"
 
 BEGIN = "<!-- BEGIN SUPPORTED-VERSIONS -->"
 END = "<!-- END SUPPORTED-VERSIONS -->"
+BOUNDS_BEGIN = "<!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->"
+BOUNDS_END = "<!-- END SUPPORTED-VERSIONS-BOUNDS -->"
 
 
 def load() -> dict:
@@ -47,16 +49,37 @@ def render_table(data: dict) -> str:
     return "\n".join(out)
 
 
+def render_bounds(data: dict) -> str:
+    """Render the prose bounds, so they cannot contradict the table above them."""
+    return (
+        f"- **Minimum:** `{data['minimum']}`. The operator refuses to reconcile against "
+        "anything older, and says so in a condition.\n"
+        f"- **Maximum tested:** `{data['maximum']}`. Newer versions still reconcile, but the "
+        "operator logs a warning that it is running untested."
+    )
+
+
 def sync_readme(data: dict, check: bool) -> bool:
     text = README.read_text()
     if BEGIN not in text or END not in text:
         print(f"ERROR: {README.name} is missing the {BEGIN} / {END} markers", file=sys.stderr)
         return False
 
-    desired = f"{BEGIN}\n{render_table(data)}\n{END}"
-    updated = re.sub(
-        re.escape(BEGIN) + r".*?" + re.escape(END), desired, text, flags=re.DOTALL
-    )
+    updated = text
+    for begin, end, body in (
+        (BEGIN, END, render_table(data)),
+        (BOUNDS_BEGIN, BOUNDS_END, render_bounds(data)),
+    ):
+        if begin not in updated:
+            # The bounds block is optional in files that only carry the table.
+            continue
+        desired = f"{begin}\n{body}\n{end}"
+        updated = re.sub(
+            re.escape(begin) + r".*?" + re.escape(end),
+            lambda _, d=desired: d,
+            updated,
+            flags=re.DOTALL,
+        )
 
     if updated == text:
         return True
