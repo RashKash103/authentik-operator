@@ -5,20 +5,32 @@
 #   - README.md                     (supported versions table, verified by CI)
 #   - internal/authentik/version.go (runtime compatibility gate)
 #
-# authentik ships CalVer minor series (YYYY.M). We support the three most
-# recent series and pin an exact patch tag per series so CI is reproducible.
+# ONLY 2026.8 IS SUPPORTED, and that is a property of the generated client
+# rather than a choice.
+#
+# goauthentik.io/api/v3 is generated from one authentik release's OpenAPI
+# schema, and its models enforce that release's required properties when
+# decoding. The pinned v3.2026080.2 client marks Application.pbm_uuid and
+# SAMLProvider.url_issuer as required; neither exists in 2026.5 or 2026.2, so
+# every list call against those versions fails with:
+#
+#   no value given for required property pbm_uuid
+#
+# This was found by the E2E matrix: 2026.8 passed while 2026.5 and 2026.2
+# failed. Connections work on all three; applications and SAML providers do not.
+#
+# Widening the range means either pinning a client generated from the OLDEST
+# version to support (its required set is a subset of what newer releases
+# return) or decoding tolerantly instead of using the generated models. Both are
+# real options; neither is done yet. See the tracking ticket.
 #
 # Changing this file without running `make sync-versions` will fail CI.
 supported:
   - series: "2026.8"
     image: "ghcr.io/goauthentik/server:2026.8.2"
-  - series: "2026.5"
-    image: "ghcr.io/goauthentik/server:2026.5.7"
-  - series: "2026.2"
-    image: "ghcr.io/goauthentik/server:2026.2.7"
 
 # Inclusive lower bound enforced by the runtime version gate.
-minimum: "2026.2"
+minimum: "2026.8"
 
 # Versions above this still reconcile, but the operator logs a warning.
 maximum: "2026.8"

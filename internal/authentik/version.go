@@ -16,7 +16,7 @@ import (
 const (
 	// MinimumVersion is the oldest authentik series this operator reconciles
 	// against. Anything older is reported unsupported.
-	MinimumVersion = "2026.2"
+	MinimumVersion = "2026.8"
 
 	// MaximumVersion is the newest authentik series this operator has been
 	// tested against. Newer versions still reconcile, with a warning.

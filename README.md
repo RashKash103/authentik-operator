@@ -54,9 +54,20 @@ over its REST API using a token you supply.
 | authentik series | Tested image                          | Status    |
 | ---------------- | ------------------------------------- | --------- |
 | `2026.8`         | `ghcr.io/goauthentik/server:2026.8.2` | Supported |
-| `2026.5`         | `ghcr.io/goauthentik/server:2026.5.7` | Supported |
-| `2026.2`         | `ghcr.io/goauthentik/server:2026.2.7` | Supported |
 <!-- END SUPPORTED-VERSIONS -->
+
+> [!IMPORTANT]
+> **Only 2026.8 is supported, and that is a property of the generated API
+> client rather than a choice.** `goauthentik.io/api/v3` is generated from one
+> authentik release and enforces that release's required properties when
+> decoding. The pinned client marks `Application.pbm_uuid` and
+> `SAMLProvider.url_issuer` as required; neither exists in 2026.5 or 2026.2, so
+> every list call against those versions fails outright.
+>
+> The E2E matrix found this: 2026.8 passed while 2026.5 and 2026.2 failed.
+> Connections work on all three; applications and SAML providers do not.
+> Widening the range means pinning a client generated from the oldest version
+> to support, or decoding tolerantly instead of through the generated models.
 
 - **Minimum:** `2026.2`. The operator refuses to reconcile against anything older.
 - **Maximum tested:** `2026.8`. Newer versions still reconcile, but the operator

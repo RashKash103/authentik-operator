@@ -21,12 +21,10 @@ reproducible.
 | authentik series | Tested image                          | Status    |
 | ---------------- | ------------------------------------- | --------- |
 | `2026.8`         | `ghcr.io/goauthentik/server:2026.8.2` | Supported |
-| `2026.5`         | `ghcr.io/goauthentik/server:2026.5.7` | Supported |
-| `2026.2`         | `ghcr.io/goauthentik/server:2026.2.7` | Supported |
 <!-- END SUPPORTED-VERSIONS -->
 
 <!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->
-- **Minimum:** `2026.2` — an inclusive lower bound enforced by the runtime gate.
+- **Minimum:** `2026.8` — an inclusive lower bound enforced by the runtime gate.
 - **Maximum tested:** `2026.8` — newer versions still reconcile, with a warning.
 <!-- END SUPPORTED-VERSIONS-BOUNDS -->
 
