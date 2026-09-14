@@ -6,6 +6,9 @@ resources:
   - bases/authentik.k8s.rka.sh_applications.yaml
   - bases/authentik.k8s.rka.sh_authentikconnections.yaml
   - bases/authentik.k8s.rka.sh_clusterauthentikconnections.yaml
+  - bases/authentik.k8s.rka.sh_dockerserviceconnections.yaml
+  - bases/authentik.k8s.rka.sh_kubernetesserviceconnections.yaml
   - bases/authentik.k8s.rka.sh_oauth2providers.yaml
-  - bases/authentik.k8s.rka.sh_samlproviders.yaml
+  - bases/authentik.k8s.rka.sh_outposts.yaml
   - bases/authentik.k8s.rka.sh_proxyproviders.yaml
+  - bases/authentik.k8s.rka.sh_samlproviders.yaml

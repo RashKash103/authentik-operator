@@ -33,6 +33,10 @@ const (
 
 // ProviderReference points at a provider resource in the same namespace.
 //
+// Declared here but shared with Outpost, which references providers the same
+// way. It lives in this file rather than a shared one only because Application
+// was the first consumer.
+//
 // The reference is resolved through the provider resource's own
 // status.providerID rather than by looking its name up in authentik, so the
 // Kubernetes objects stay the source of truth and renaming a provider inside
@@ -40,8 +44,8 @@ const (
 //
 // A namespaced provider is always resolved in the application's own namespace.
 // Cross-namespace references are deliberately not supported: they would let
-// anyone who can create an Application in one namespace attach a provider, and
-// therefore credentials, owned by another.
+// anyone who can create a referring resource in one namespace attach a
+// provider, and therefore credentials, owned by another.
 type ProviderReference struct {
 	// Kind of provider resource being referenced.
 	// +kubebuilder:default=OAuth2Provider

@@ -206,5 +206,32 @@ func setupControllers(mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create ProxyProvider controller: %w", err)
 	}
 
+	if err := (&controller.OutpostReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("outpost-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create Outpost controller: %w", err)
+	}
+
+	if err := (&controller.KubernetesServiceConnectionReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("kubernetesserviceconnection-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create KubernetesServiceConnection controller: %w", err)
+	}
+
+	if err := (&controller.DockerServiceConnectionReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("dockerserviceconnection-controller"),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create DockerServiceConnection controller: %w", err)
+	}
+
 	return nil
 }

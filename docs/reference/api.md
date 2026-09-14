@@ -77,7 +77,10 @@ Package v1alpha1 contains API Schema definitions for the authentik v1alpha1 API 
 - [Application](#application)
 - [AuthentikConnection](#authentikconnection)
 - [ClusterAuthentikConnection](#clusterauthentikconnection)
+- [DockerServiceConnection](#dockerserviceconnection)
+- [KubernetesServiceConnection](#kubernetesserviceconnection)
 - [OAuth2Provider](#oauth2provider)
+- [Outpost](#outpost)
 - [ProxyProvider](#proxyprovider)
 - [SAMLProvider](#samlprovider)
 
@@ -100,10 +103,14 @@ _Validation:_
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
+- [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
+- [OutpostSpec](#outpostspec)
 - [ProviderCommonSpec](#providercommonspec)
 - [ProxyProviderSpec](#proxyproviderspec)
 - [SAMLProviderSpec](#samlproviderspec)
+- [ServiceConnectionCommonSpec](#serviceconnectioncommonspec)
 
 | Field | Description |
 | --- | --- |
@@ -343,10 +350,14 @@ connection genuinely needs to be shared cluster-wide.
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
+- [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
+- [OutpostSpec](#outpostspec)
 - [ProviderCommonSpec](#providercommonspec)
 - [ProxyProviderSpec](#proxyproviderspec)
 - [SAMLProviderSpec](#samlproviderspec)
+- [ServiceConnectionCommonSpec](#serviceconnectioncommonspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -405,15 +416,158 @@ _Validation:_
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
+- [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
+- [OutpostSpec](#outpostspec)
 - [ProviderCommonSpec](#providercommonspec)
 - [ProxyProviderSpec](#proxyproviderspec)
 - [SAMLProviderSpec](#samlproviderspec)
+- [ServiceConnectionCommonSpec](#serviceconnectioncommonspec)
 
 | Field | Description |
 | --- | --- |
 | `Delete` | DeletionPolicyDelete removes the authentik object along with the resource.<br /> |
 | `Orphan` | DeletionPolicyOrphan leaves the authentik object in place.<br /> |
+
+
+#### DockerServiceConnection
+
+
+
+DockerServiceConnection manages a Docker outpost service connection in
+authentik.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `DockerServiceConnection` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DockerServiceConnectionSpec](#dockerserviceconnectionspec)_ |  |  |  |
+| `status` _[DockerServiceConnectionStatus](#dockerserviceconnectionstatus)_ |  |  |  |
+
+
+#### DockerServiceConnectionSpec
+
+
+
+DockerServiceConnectionSpec defines a Docker service connection.
+
+Either authentik talks to the Docker socket it is mounted with, in which
+case local is set, or it dials an explicit URL. Setting both is rejected,
+because it hides which of the two endpoints is actually in use.
+
+
+
+_Appears in:_
+- [DockerServiceConnection](#dockerserviceconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this service connection<br />lives in. |  |  |
+| `name` _string_ | Name is the service connection's name in authentik. Defaults to the<br />resource name. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a service connection with this<br />name already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik service connection<br />when this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+| `local` _boolean_ | Local makes authentik use the Docker socket mounted into its own<br />container instead of dialling a URL. |  | Optional: \{\} <br /> |
+| `url` _string_ | URL of the Docker daemon, either "unix:///var/run/docker.sock" for a<br />local socket or "https://hostname:2376" for a remote daemon. |  | Optional: \{\} <br /> |
+| `tlsVerification` _string_ | TLSVerification is the name of the certificate key pair holding the CA<br />the daemon's certificate is checked against. Leave unset for no<br />verification. |  | Optional: \{\} <br /> |
+| `tlsAuthentication` _string_ | TLSAuthentication is the name of the certificate key pair used as a<br />client certificate when authenticating to the daemon. Leave unset for no<br />client authentication. |  | Optional: \{\} <br /> |
+
+
+#### DockerServiceConnectionStatus
+
+
+
+DockerServiceConnectionStatus reports the connection's state in authentik.
+
+
+
+_Appears in:_
+- [DockerServiceConnection](#dockerserviceconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `serviceConnectionID` _string_ | ServiceConnectionID is authentik's UUID for this service connection. It<br />is what an Outpost's serviceConnectionRef ultimately resolves to, so it<br />is surfaced separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
+
+
+#### KubernetesServiceConnection
+
+
+
+KubernetesServiceConnection manages a Kubernetes outpost service connection
+in authentik.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `KubernetesServiceConnection` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)_ |  |  |  |
+| `status` _[KubernetesServiceConnectionStatus](#kubernetesserviceconnectionstatus)_ |  |  |  |
+
+
+#### KubernetesServiceConnectionSpec
+
+
+
+KubernetesServiceConnectionSpec defines a Kubernetes service connection.
+
+Either authentik runs inside the cluster it should deploy outposts into, in
+which case local is set and its own service account is used, or it needs a
+kubeconfig for a remote cluster. Setting both is rejected, because it hides
+which of the two credentials is actually in use.
+
+
+
+_Appears in:_
+- [KubernetesServiceConnection](#kubernetesserviceconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this service connection<br />lives in. |  |  |
+| `name` _string_ | Name is the service connection's name in authentik. Defaults to the<br />resource name. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a service connection with this<br />name already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik service connection<br />when this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+| `local` _boolean_ | Local makes authentik use the cluster it is itself running in, through<br />its own service account, instead of a kubeconfig. |  | Optional: \{\} <br /> |
+| `kubeconfigSecretRef` _[LocalSecretKeyReference](#localsecretkeyreference)_ | KubeconfigSecretRef reads the kubeconfig for a remote cluster from a<br />Secret in this resource's namespace.<br />A kubeconfig is never accepted inline: it is a cluster credential, and a<br />spec field would store it in plain text in etcd and print it in<br />`kubectl get -o yaml`. |  | Optional: \{\} <br /> |
+| `verifySSL` _boolean_ | VerifySSL verifies the certificate presented by the Kubernetes API<br />endpoint. Defaults to true in authentik. |  | Optional: \{\} <br /> |
+
+
+#### KubernetesServiceConnectionStatus
+
+
+
+KubernetesServiceConnectionStatus reports the connection's state in
+authentik.
+
+
+
+_Appears in:_
+- [KubernetesServiceConnection](#kubernetesserviceconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `serviceConnectionID` _string_ | ServiceConnectionID is authentik's UUID for this service connection. It<br />is what an Outpost's serviceConnectionRef ultimately resolves to, so it<br />is surfaced separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
 
 
 #### LocalSecretKeyReference
@@ -427,6 +581,7 @@ the referring object.
 
 _Appears in:_
 - [AuthentikConnectionSpec](#authentikconnectionspec)
+- [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
 
 | Field | Description | Default | Validation |
@@ -445,10 +600,14 @@ ManagedResourceStatus is embedded in every authentik-backed resource status.
 
 _Appears in:_
 - [ApplicationStatus](#applicationstatus)
+- [DockerServiceConnectionStatus](#dockerserviceconnectionstatus)
+- [KubernetesServiceConnectionStatus](#kubernetesserviceconnectionstatus)
 - [OAuth2ProviderStatus](#oauth2providerstatus)
+- [OutpostStatus](#outpoststatus)
 - [ProviderStatus](#providerstatus)
 - [ProxyProviderStatus](#proxyproviderstatus)
 - [SAMLProviderStatus](#samlproviderstatus)
+- [ServiceConnectionStatus](#serviceconnectionstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -565,6 +724,113 @@ _Appears in:_
 | `observedRotationToken` _string_ | ObservedRotationToken is the value of the rotation annotation that was<br />last acted on. A rotation happens when the annotation differs from this,<br />which makes the trigger idempotent: re-reconciling the same resource<br />cannot rotate the secret again and break running workloads. |  | Optional: \{\} <br /> |
 
 
+#### Outpost
+
+
+
+Outpost manages an authentik outpost and the set of providers it serves.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `Outpost` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[OutpostSpec](#outpostspec)_ |  |  |  |
+| `status` _[OutpostStatus](#outpoststatus)_ |  |  |  |
+
+
+#### OutpostSpec
+
+
+
+OutpostSpec defines an authentik outpost.
+
+
+
+_Appears in:_
+- [Outpost](#outpost)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this outpost is registered<br />with. |  |  |
+| `name` _string_ | Name is the outpost's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
+| `type` _[OutpostType](#outposttype)_ | Type selects which outpost implementation authentik registers. |  | Enum: [proxy ldap radius rac] <br /> |
+| `providerRefs` _[ProviderReference](#providerreference) array_ | ProviderRefs are the providers this outpost serves. Every reference must<br />resolve before the outpost is registered or updated. |  | Optional: \{\} <br /> |
+| `serviceConnectionRef` _string_ | ServiceConnectionRef is the name, or UUID, of the service connection<br />authentik should use to deploy this outpost. Leave unset to register the<br />outpost without letting authentik manage its deployment, which is what a<br />self-hosted outpost wants. |  | Optional: \{\} <br /> |
+| `config` _object (keys:string, values:[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#json-v1-apiextensions-k8s-io))_ | Config is passed to authentik verbatim as the outpost's configuration.<br />The schema differs per outpost type and per authentik version, so it is<br />deliberately not modelled here.<br />Well-known keys include: "log_level", "authentik_host",<br />"authentik_host_browser", "authentik_host_insecure",<br />"object_naming_template", "refresh_interval", "kubernetes_replicas",<br />"kubernetes_namespace", "kubernetes_service_type",<br />"kubernetes_ingress_class_name", "kubernetes_ingress_annotations",<br />"kubernetes_ingress_secret_name", "kubernetes_image_pull_secrets",<br />"kubernetes_json_patches", "kubernetes_disabled_components",<br />"docker_network", "docker_map_ports", "docker_labels" and "docker_image".<br />Consult the authentik documentation for the set your version accepts. |  | Optional: \{\} <br /> |
+| `writeTokenTo` _[OutpostTokenSecretRef](#outposttokensecretref)_ | WriteTokenTo creates a Secret holding the outpost's API token and the<br />authentik base URL, which is what a self-hosted outpost needs in order to<br />connect back. Leave unset when authentik deploys the outpost itself. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when an outpost with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik outpost when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+
+
+#### OutpostStatus
+
+
+
+OutpostStatus reports the outpost's state in authentik.
+
+
+
+_Appears in:_
+- [Outpost](#outpost)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `outpostID` _string_ | OutpostID is authentik's UUID for this outpost. |  | Optional: \{\} <br /> |
+| `providerIDs` _integer array_ | ProviderIDs are the authentik primary keys every providerRef resolved<br />to, in spec order. It is empty until all of them resolve. |  | Optional: \{\} <br /> |
+| `serviceConnectionID` _string_ | ServiceConnectionID is the UUID serviceConnectionRef resolved to. |  | Optional: \{\} <br /> |
+| `tokenIdentifier` _string_ | TokenIdentifier names the authentik token this outpost authenticates<br />with. It is an identifier, not the token itself, which is never placed<br />in status. |  | Optional: \{\} <br /> |
+| `tokenSecretName` _string_ | TokenSecretName is the Secret the outpost token was written to. |  | Optional: \{\} <br /> |
+
+
+#### OutpostTokenSecretRef
+
+
+
+OutpostTokenSecretRef says where to write the outpost's connection token.
+
+
+
+_Appears in:_
+- [OutpostSpec](#outpostspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the Secret to create in this resource's namespace. |  | MinLength: 1 <br /> |
+| `tokenKey` _string_ | TokenKey is the Secret key holding the outpost API token, which a<br />self-hosted outpost passes as AUTHENTIK_TOKEN. | token | Optional: \{\} <br /> |
+| `hostKey` _string_ | HostKey is the Secret key holding the authentik base URL, which a<br />self-hosted outpost passes as AUTHENTIK_HOST. | authentik-host | Optional: \{\} <br /> |
+
+
+#### OutpostType
+
+_Underlying type:_ _string_
+
+OutpostType selects which authentik outpost implementation to register.
+
+_Validation:_
+- Enum: [proxy ldap radius rac]
+
+_Appears in:_
+- [OutpostSpec](#outpostspec)
+
+| Field | Description |
+| --- | --- |
+| `proxy` | OutpostTypeProxy is a forward-auth / reverse proxy outpost.<br /> |
+| `ldap` | OutpostTypeLDAP is an LDAP outpost.<br /> |
+| `radius` | OutpostTypeRadius is a RADIUS outpost.<br /> |
+| `rac` | OutpostTypeRAC is a Remote Access Control outpost.<br /> |
+
+
 #### ProviderCommonSpec
 
 
@@ -621,6 +887,10 @@ _Appears in:_
 
 ProviderReference points at a provider resource in the same namespace.
 
+Declared here but shared with Outpost, which references providers the same
+way. It lives in this file rather than a shared one only because Application
+was the first consumer.
+
 The reference is resolved through the provider resource's own
 status.providerID rather than by looking its name up in authentik, so the
 Kubernetes objects stay the source of truth and renaming a provider inside
@@ -628,13 +898,14 @@ authentik cannot silently repoint an application at something else.
 
 A namespaced provider is always resolved in the application's own namespace.
 Cross-namespace references are deliberately not supported: they would let
-anyone who can create an Application in one namespace attach a provider, and
-therefore credentials, owned by another.
+anyone who can create a referring resource in one namespace attach a
+provider, and therefore credentials, owned by another.
 
 
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
+- [OutpostSpec](#outpostspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -987,5 +1258,54 @@ _Appears in:_
 | `name` _string_ | Name of the Secret. |  | MinLength: 1 <br /> |
 | `namespace` _string_ | Namespace holding the Secret. |  | MinLength: 1 <br /> |
 | `key` _string_ | Key within the Secret's data. |  | MinLength: 1 <br /> |
+
+
+#### ServiceConnectionCommonSpec
+
+
+
+ServiceConnectionCommonSpec holds the fields every outpost service
+connection shares.
+
+A service connection is what authentik uses to deploy and manage an outpost
+on the caller's behalf. It is not a provider, so it carries none of the flow
+references providers need; only identity and lifecycle policy are shared.
+
+
+
+_Appears in:_
+- [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this service connection<br />lives in. |  |  |
+| `name` _string_ | Name is the service connection's name in authentik. Defaults to the<br />resource name. |  | Optional: \{\} <br /> |
+| `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a service connection with this<br />name already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
+| `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik service connection<br />when this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+
+
+#### ServiceConnectionStatus
+
+
+
+ServiceConnectionStatus is the status shared by every service connection
+kind.
+
+
+
+_Appears in:_
+- [DockerServiceConnectionStatus](#dockerserviceconnectionstatus)
+- [KubernetesServiceConnectionStatus](#kubernetesserviceconnectionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's own identifier for the managed object: a numeric<br />primary key for providers and applications, a UUID elsewhere.<br />Once set this is the authoritative handle for the object. Lookups prefer<br />it over the name, so that renaming the object on either side does not<br />cause the operator to lose track of it and create a duplicate. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. Informational. |  | Optional: \{\} <br /> |
+| `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
+| `serviceConnectionID` _string_ | ServiceConnectionID is authentik's UUID for this service connection. It<br />is what an Outpost's serviceConnectionRef ultimately resolves to, so it<br />is surfaced separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
 
 <!-- END GENERATED: api -->

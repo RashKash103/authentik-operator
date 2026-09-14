@@ -28,7 +28,10 @@ rules:
   - applications
   - authentikconnections
   - clusterauthentikconnections
+  - dockerserviceconnections
+  - kubernetesserviceconnections
   - oauth2providers
+  - outposts
   - proxyproviders
   - samlproviders
   verbs:
@@ -45,7 +48,10 @@ rules:
   - applications/finalizers
   - authentikconnections/finalizers
   - clusterauthentikconnections/finalizers
+  - dockerserviceconnections/finalizers
+  - kubernetesserviceconnections/finalizers
   - oauth2providers/finalizers
+  - outposts/finalizers
   - proxyproviders/finalizers
   - samlproviders/finalizers
   verbs:
@@ -56,7 +62,10 @@ rules:
   - applications/status
   - authentikconnections/status
   - clusterauthentikconnections/status
+  - dockerserviceconnections/status
+  - kubernetesserviceconnections/status
   - oauth2providers/status
+  - outposts/status
   - proxyproviders/status
   - samlproviders/status
   verbs:

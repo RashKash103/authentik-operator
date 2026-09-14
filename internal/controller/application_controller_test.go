@@ -218,8 +218,16 @@ func TestResolveProviderRefsAllowsNoProvider(t *testing.T) {
 // break when they land, but they cannot be resolved yet. That is a spec the
 // operator will never satisfy on its own, so it must not requeue forever: the
 // user has to change the spec or wait for a release.
-func TestResolveProviderRefsRejectsUnimplementedKindsWithoutSpinning(t *testing.T) {
+// TestResolveProviderRefsRequeuesForEveryKind covers all three provider kinds.
+//
+// An absent provider of any kind must requeue rather than fail: applying an
+// Application before its provider is normal, and the reference resolves as soon
+// as the provider reports a primary key. This replaces an earlier test that
+// asserted SAML and Proxy were rejected outright, which was true only while
+// those kinds were unimplemented.
+func TestResolveProviderRefsRequeuesForEveryKind(t *testing.T) {
 	for _, kind := range []authentikv1alpha1.ProviderKind{
+		authentikv1alpha1.ProviderKindOAuth2,
 		authentikv1alpha1.ProviderKindSAML,
 		authentikv1alpha1.ProviderKindProxy,
 	} {
@@ -229,20 +237,42 @@ func TestResolveProviderRefsRejectsUnimplementedKindsWithoutSpinning(t *testing.
 
 			_, _, err := r.resolveProviderRefs(context.Background(), app)
 			if err == nil {
-				t.Fatalf("expected %s to be rejected", kind)
+				t.Fatalf("expected an unresolvable %s reference to fail", kind)
 			}
 
 			reason, requeue := ResultFor(err)
-			if reason != authentikv1alpha1.ReasonInvalidSpec {
-				t.Errorf("reason = %q, want %q", reason, authentikv1alpha1.ReasonInvalidSpec)
+			if reason != authentikv1alpha1.ReasonReferenceNotFound {
+				t.Errorf("reason = %q, want %q", reason, authentikv1alpha1.ReasonReferenceNotFound)
 			}
-			if requeue {
-				t.Error("an unimplemented provider kind will not fix itself, so it must not requeue")
+			if !requeue {
+				t.Error("a missing provider may still be created, so this must requeue")
 			}
-			if !authentik.IsValidation(err) {
-				t.Errorf("error %v should classify as a validation failure", err)
+			if !authentik.IsNotFound(err) {
+				t.Errorf("error %v should classify as not-found", err)
 			}
 		})
+	}
+}
+
+// TestResolveProviderRefsRejectsUnknownKind keeps the non-retrying path
+// covered: a kind the schema does not know will never resolve.
+func TestResolveProviderRefsRejectsUnknownKind(t *testing.T) {
+	r := newReconciler(t)
+	app := newTestApplication(authentikv1alpha1.ProviderReference{
+		Kind: authentikv1alpha1.ProviderKind("TelepathyProvider"), Name: "whatever",
+	})
+
+	_, _, err := r.resolveProviderRefs(context.Background(), app)
+	if err == nil {
+		t.Fatal("expected an unknown provider kind to be rejected")
+	}
+
+	reason, requeue := ResultFor(err)
+	if reason != authentikv1alpha1.ReasonInvalidSpec {
+		t.Errorf("reason = %q, want %q", reason, authentikv1alpha1.ReasonInvalidSpec)
+	}
+	if requeue {
+		t.Error("an unknown provider kind will not fix itself, so it must not requeue")
 	}
 }
 

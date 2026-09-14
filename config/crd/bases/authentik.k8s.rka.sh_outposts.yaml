@@ -4,25 +4,25 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: applications.authentik.k8s.rka.sh
+  name: outposts.authentik.k8s.rka.sh
 spec:
   group: authentik.k8s.rka.sh
   names:
-    kind: Application
-    listKind: ApplicationList
-    plural: applications
+    kind: Outpost
+    listKind: OutpostList
+    plural: outposts
     shortNames:
-    - akapp
-    singular: application
+    - akoutpost
+    singular: outpost
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.slug
-      name: Slug
+    - jsonPath: .spec.type
+      name: Type
       type: string
-    - jsonPath: .status.providerID
-      name: Provider
-      type: integer
+    - jsonPath: .status.outpostID
+      name: Outpost
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -32,7 +32,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Application manages an application in authentik.
+        description: Outpost manages an authentik outpost and the set of providers
+          it serves.
         properties:
           apiVersion:
             description: |-
@@ -52,22 +53,72 @@ spec:
           metadata:
             type: object
           spec:
-            description: ApplicationSpec defines an application in authentik.
+            description: OutpostSpec defines an authentik outpost.
             properties:
               adoptionPolicy:
                 default: FailOnConflict
                 description: |-
-                  AdoptionPolicy controls what happens when an application with this slug
+                  AdoptionPolicy controls what happens when an outpost with this name
                   already exists in authentik.
                 enum:
                 - FailOnConflict
                 - AdoptExisting
                 type: string
-              backchannelProviderRefs:
+              config:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
                 description: |-
-                  BackchannelProviderRefs are additional providers attached to this
-                  application for back-channel use, such as SCIM provisioning or an LDAP
-                  bind, alongside the primary provider that handles the login itself.
+                  Config is passed to authentik verbatim as the outpost's configuration.
+                  The schema differs per outpost type and per authentik version, so it is
+                  deliberately not modelled here.
+
+                  Well-known keys include: "log_level", "authentik_host",
+                  "authentik_host_browser", "authentik_host_insecure",
+                  "object_naming_template", "refresh_interval", "kubernetes_replicas",
+                  "kubernetes_namespace", "kubernetes_service_type",
+                  "kubernetes_ingress_class_name", "kubernetes_ingress_annotations",
+                  "kubernetes_ingress_secret_name", "kubernetes_image_pull_secrets",
+                  "kubernetes_json_patches", "kubernetes_disabled_components",
+                  "docker_network", "docker_map_ports", "docker_labels" and "docker_image".
+                  Consult the authentik documentation for the set your version accepts.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              connectionRef:
+                description: |-
+                  ConnectionRef selects the authentik instance this outpost is registered
+                  with.
+                properties:
+                  kind:
+                    default: AuthentikConnection
+                    description: Kind of connection object being referenced.
+                    enum:
+                    - AuthentikConnection
+                    - ClusterAuthentikConnection
+                    type: string
+                  name:
+                    description: Name of the connection object.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              deletionPolicy:
+                default: Delete
+                description: |-
+                  DeletionPolicy controls what happens to the authentik outpost when this
+                  resource is deleted.
+                enum:
+                - Delete
+                - Orphan
+                type: string
+              name:
+                description: Name is the outpost's name in authentik. Defaults to
+                  the resource name.
+                type: string
+              providerRefs:
+                description: |-
+                  ProviderRefs are the providers this outpost serves. Every reference must
+                  resolve before the outpost is registered or updated.
                 items:
                   description: |-
                     ProviderReference points at a provider resource in the same namespace.
@@ -102,140 +153,58 @@ spec:
                   - name
                   type: object
                 type: array
-              connectionRef:
-                description: ConnectionRef selects the authentik instance this application
-                  lives in.
+              serviceConnectionRef:
+                description: |-
+                  ServiceConnectionRef is the name, or UUID, of the service connection
+                  authentik should use to deploy this outpost. Leave unset to register the
+                  outpost without letting authentik manage its deployment, which is what a
+                  self-hosted outpost wants.
+                type: string
+              type:
+                description: Type selects which outpost implementation authentik registers.
+                enum:
+                - proxy
+                - ldap
+                - radius
+                - rac
+                type: string
+              writeTokenTo:
+                description: |-
+                  WriteTokenTo creates a Secret holding the outpost's API token and the
+                  authentik base URL, which is what a self-hosted outpost needs in order to
+                  connect back. Leave unset when authentik deploys the outpost itself.
                 properties:
-                  kind:
-                    default: AuthentikConnection
-                    description: Kind of connection object being referenced.
-                    enum:
-                    - AuthentikConnection
-                    - ClusterAuthentikConnection
+                  hostKey:
+                    default: authentik-host
+                    description: |-
+                      HostKey is the Secret key holding the authentik base URL, which a
+                      self-hosted outpost passes as AUTHENTIK_HOST.
                     type: string
                   name:
-                    description: Name of the connection object.
+                    description: Name of the Secret to create in this resource's namespace.
                     minLength: 1
+                    type: string
+                  tokenKey:
+                    default: token
+                    description: |-
+                      TokenKey is the Secret key holding the outpost API token, which a
+                      self-hosted outpost passes as AUTHENTIK_TOKEN.
                     type: string
                 required:
                 - name
                 type: object
-              deletionPolicy:
-                default: Delete
-                description: |-
-                  DeletionPolicy controls what happens to the authentik application when
-                  this resource is deleted.
-                enum:
-                - Delete
-                - Orphan
-                type: string
-              group:
-                description: |-
-                  Group names the section the application is filed under on the library
-                  page. Applications sharing a group are shown together.
-                type: string
-              metaDescription:
-                description: MetaDescription is the short description shown on the
-                  library entry.
-                type: string
-              metaHide:
-                description: |-
-                  MetaHide keeps the application off the user's library page while leaving
-                  it usable. Useful for an application reached only by a direct link.
-                type: boolean
-              metaIcon:
-                description: |-
-                  MetaIcon is the URL of the icon shown on the library entry.
-
-                  Only a URL is accepted. authentik can also serve an icon uploaded to its
-                  own media storage, and that is out of scope for this resource: the file
-                  would have to travel through the custom resource as base64 and be
-                  re-uploaded on every reconcile, which does not belong in etcd. Host the
-                  image somewhere and point at it.
-                type: string
-              metaLaunchUrl:
-                description: |-
-                  MetaLaunchURL is the address the library entry links to. Leave unset to
-                  let authentik derive it from the provider.
-                type: string
-              metaPublisher:
-                description: MetaPublisher names the application's publisher on the
-                  library entry.
-                type: string
-              name:
-                description: |-
-                  Name is the application's display name, shown on the user library page.
-                  Defaults to the resource name.
-                type: string
-              openInNewTab:
-                description: OpenInNewTab opens the launch URL in a new browser tab
-                  or window.
-                type: boolean
-              policyEngineMode:
-                default: any
-                description: |-
-                  PolicyEngineMode selects whether every policy bound to this application
-                  must pass, or any one of them.
-                enum:
-                - all
-                - any
-                type: string
-              providerRef:
-                description: |-
-                  ProviderRef is the provider that authenticates users for this
-                  application. Leave unset for an application that only appears in the
-                  user library and is not itself protected.
-                properties:
-                  kind:
-                    default: OAuth2Provider
-                    description: Kind of provider resource being referenced.
-                    enum:
-                    - OAuth2Provider
-                    - SAMLProvider
-                    - ProxyProvider
-                    type: string
-                  name:
-                    description: Name of the provider resource.
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-              slug:
-                description: |-
-                  Slug is the application's internal name, used in its URLs.
-
-                  It is immutable. authentik keys an application by its slug, so changing
-                  it cannot be an update: the operator would have to delete the old
-                  application and create a new one, which silently discards every policy
-                  binding attached to it. Create a new Application instead.
-                maxLength: 50
-                minLength: 1
-                pattern: ^[-a-zA-Z0-9_]+$
-                type: string
-                x-kubernetes-validations:
-                - message: slug is immutable; create a new Application instead
-                  rule: self == oldSelf
             required:
             - connectionRef
-            - slug
+            - type
             type: object
           status:
-            description: ApplicationStatus reports the application's state in authentik.
+            description: OutpostStatus reports the outpost's state in authentik.
             properties:
               adopted:
                 description: |-
                   Adopted records that this resource took over a pre-existing authentik
                   object rather than creating it.
                 type: boolean
-              backchannelProviderIDs:
-                description: |-
-                  BackchannelProviderIDs are the numeric primary keys the back-channel
-                  provider references resolved to, in spec order.
-                items:
-                  format: int32
-                  type: integer
-                type: array
               conditions:
                 description: Conditions describe the current state of the resource.
                 items:
@@ -300,23 +269,22 @@ spec:
                 description: LastSyncedTime is when the resource last reconciled successfully.
                 format: date-time
                 type: string
-              launchURL:
-                description: |-
-                  LaunchURL is the address authentik currently resolves the library entry
-                  to, whether taken from metaLaunchUrl or derived from the provider.
-                type: string
               observedGeneration:
                 description: ObservedGeneration is the .metadata.generation this status
                   reflects.
                 format: int64
                 type: integer
-              providerID:
+              outpostID:
+                description: OutpostID is authentik's UUID for this outpost.
+                type: string
+              providerIDs:
                 description: |-
-                  ProviderID is the numeric primary key the primary provider reference
-                  resolved to. It is surfaced so a mis-wired reference can be diagnosed
-                  without reading the provider resource as well.
-                format: int32
-                type: integer
+                  ProviderIDs are the authentik primary keys every providerRef resolved
+                  to, in spec order. It is empty until all of them resolve.
+                items:
+                  format: int32
+                  type: integer
+                type: array
               remoteID:
                 description: |-
                   RemoteID is authentik's own identifier for the managed object: a numeric
@@ -329,6 +297,20 @@ spec:
               remoteName:
                 description: RemoteName is the name or slug last observed in authentik.
                   Informational.
+                type: string
+              serviceConnectionID:
+                description: ServiceConnectionID is the UUID serviceConnectionRef
+                  resolved to.
+                type: string
+              tokenIdentifier:
+                description: |-
+                  TokenIdentifier names the authentik token this outpost authenticates
+                  with. It is an identifier, not the token itself, which is never placed
+                  in status.
+                type: string
+              tokenSecretName:
+                description: TokenSecretName is the Secret the outpost token was written
+                  to.
                 type: string
             type: object
         type: object
