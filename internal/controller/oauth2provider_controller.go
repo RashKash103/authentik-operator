@@ -18,6 +18,9 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -86,6 +89,20 @@ func (r *OAuth2ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.fail(ctx, &provider, err)
 	}
 
+	rotating := rotationRequested(&provider)
+	if rotating {
+		if provider.Spec.ClientSecretRef != nil {
+			// The secret is caller-supplied, so rotating it here would
+			// immediately be overwritten by the referenced Secret. Rotate that
+			// Secret instead.
+			return r.fail(ctx, &provider, errRotationWithFixedSecret)
+		}
+		clientSecret, err = generateClientSecret()
+		if err != nil {
+			return r.fail(ctx, &provider, err)
+		}
+	}
+
 	adapter := &oauth2Adapter{client: akClient, provider: &provider, clientSecret: clientSecret}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &provider, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
@@ -100,6 +117,13 @@ func (r *OAuth2ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.writeCredentials(ctx, &provider, adapter); err != nil {
 		return r.fail(ctx, &provider, err)
+	}
+
+	if rotating {
+		now := metav1.Now()
+		provider.Status.CredentialsRotatedAt = &now
+		provider.Status.ObservedRotationToken = provider.Annotations[authentikv1alpha1.RotateCredentialsAnnotation]
+		r.recordRotation(&provider)
 	}
 
 	MarkReady(&provider.Status.Conditions, provider.Generation)
@@ -296,4 +320,48 @@ func keyOrDefault(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+// errRotationWithFixedSecret reports a rotation request the operator cannot
+// satisfy.
+var errRotationWithFixedSecret = errors.New(
+	"cannot rotate a client secret supplied through spec.clientSecretRef; " +
+		"rotate the referenced Secret instead, or remove clientSecretRef to let authentik generate one")
+
+// rotationRequested reports whether the rotation annotation carries a value
+// that has not been acted on yet.
+//
+// Comparing against the recorded token rather than simply reacting to the
+// annotation's presence is what makes this idempotent: without it, every
+// reconcile would mint a new secret and break running workloads.
+func rotationRequested(provider *authentikv1alpha1.OAuth2Provider) bool {
+	token, ok := provider.Annotations[authentikv1alpha1.RotateCredentialsAnnotation]
+	if !ok || token == "" {
+		return false
+	}
+	return token != provider.Status.ObservedRotationToken
+}
+
+// generateClientSecret mints a new client secret.
+//
+// The value is generated here rather than left to authentik because the update
+// request has to carry it, and a caller-visible source of randomness keeps the
+// rotation testable.
+func generateClientSecret() (string, error) {
+	buf := make([]byte, 48)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generating client secret: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// recordRotation emits an Event so a rotation is visible in kubectl describe.
+// The new value is never included.
+func (r *OAuth2ProviderReconciler) recordRotation(provider *authentikv1alpha1.OAuth2Provider) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(provider, nil, corev1.EventTypeNormal,
+		"CredentialsRotated", "CredentialsRotated",
+		"Rotated the client secret; consuming workloads must reload to pick it up")
 }

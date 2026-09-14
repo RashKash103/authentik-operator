@@ -68,6 +68,16 @@ type CredentialsSecretRef struct {
 	IssuerKey string `json:"issuerKey,omitempty"`
 }
 
+// RotateCredentialsAnnotation triggers a client secret rotation when its value
+// changes. Any value works; a timestamp is conventional:
+//
+//	kubectl annotate oauth2provider grafana \
+//	  authentik.k8s.rka.sh/rotate-credentials="$(date -Is)" --overwrite
+//
+// Consuming workloads need a restart or a secret reloader to pick up the new
+// value; the operator cannot do that for them.
+const RotateCredentialsAnnotation = "authentik.k8s.rka.sh/rotate-credentials"
+
 // OAuth2ProviderSpec defines an OAuth2/OpenID Connect provider.
 type OAuth2ProviderSpec struct {
 	ProviderCommonSpec `json:",inline"`
@@ -170,6 +180,13 @@ type OAuth2ProviderStatus struct {
 	// CredentialsRotatedAt records the last client secret rotation.
 	// +optional
 	CredentialsRotatedAt *metav1.Time `json:"credentialsRotatedAt,omitempty"`
+
+	// ObservedRotationToken is the value of the rotation annotation that was
+	// last acted on. A rotation happens when the annotation differs from this,
+	// which makes the trigger idempotent: re-reconciling the same resource
+	// cannot rotate the secret again and break running workloads.
+	// +optional
+	ObservedRotationToken string `json:"observedRotationToken,omitempty"`
 }
 
 // +kubebuilder:object:root=true
