@@ -1,110 +1,54 @@
-# Exercises every optional feature the chart models. Used by `helm template`
-# in CI so that no optional branch rots unnoticed.
-replicaCount: 2
-
-image:
-  repository: registry.internal.example.com/mirror/authentik-operator
-  digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  pullPolicy: Always
-
-imagePullSecrets:
-  - name: ghcr-creds
-
-nameOverride: ak-op
-fullnameOverride: ""
-
-serviceAccount:
-  create: true
-  name: authentik-operator-sa
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/authentik-operator
-  automountServiceAccountToken: true
-
-rbac:
-  create: true
+# Exercises the chart's optional features in a configuration that can actually
+# be INSTALLED, because chart-testing installs every values file in ci/.
+#
+# Values that only make sense for rendering - a private registry, a pinned
+# digest, pull secrets, multiple replicas with required anti-affinity - live in
+# test-values/render-full.yaml and are covered by `helm template` instead. They
+# cannot be installed: the image does not exist, and required hostname
+# anti-affinity can never schedule two replicas on a single-node kind cluster.
+replicaCount: 1
 
 podAnnotations:
-  linkerd.io/inject: disabled
+  example.com/purpose: chart-testing
 podLabels:
-  cost-center: platform
-
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 65532
-  runAsGroup: 65532
-  fsGroup: 65532
-  seccompProfile:
-    type: RuntimeDefault
-
-securityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  capabilities:
-    drop:
-      - ALL
+  example.com/tier: platform
 
 resources:
   limits:
-    cpu: "1"
-    memory: 512Mi
+    cpu: 500m
+    memory: 256Mi
   requests:
-    cpu: 50m
-    memory: 128Mi
+    cpu: 10m
+    memory: 64Mi
 
-nodeSelector:
-  kubernetes.io/os: linux
+leaderElection:
+  enabled: true
 
-tolerations:
-  - key: node-role.kubernetes.io/control-plane
-    operator: Exists
-    effect: NoSchedule
+log:
+  level: debug
+  format: json
 
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            app.kubernetes.io/name: ak-op
-
-topologySpreadConstraints:
-  - maxSkew: 1
-    topologyKey: topology.kubernetes.io/zone
-    whenUnsatisfiable: ScheduleAnyway
-    labelSelector:
-      matchLabels:
-        app.kubernetes.io/name: ak-op
-
-priorityClassName: system-cluster-critical
-terminationGracePeriodSeconds: 30
-
-dnsPolicy: ClusterFirst
-dnsConfig:
-  options:
-    - name: ndots
-      value: "2"
-
-hostAliases:
-  - ip: 10.0.0.10
-    hostnames:
-      - authentik.internal
+metrics:
+  enabled: true
+  secure: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
 
 extraEnv:
-  - name: HTTPS_PROXY
-    value: http://proxy.internal:3128
-  - name: OPERATOR_POD_NAME
-    valueFrom:
-      fieldRef:
-        fieldPath: metadata.name
-
-extraArgs:
-  - --kube-api-qps=50
+  - name: EXAMPLE_FLAG
+    value: "true"
 
 extraVolumes:
   - name: custom-ca
     secret:
       secretName: internal-ca
+      # chart-testing installs into a namespace it creates itself, so this
+      # Secret cannot be pre-created. Without optional, the kubelet blocks the
+      # mount indefinitely and the pod never starts - which `helm template`
+      # cannot catch, because only a real install schedules anything.
+      optional: true
   - name: tmp
     emptyDir: {}
 
@@ -114,86 +58,3 @@ extraVolumeMounts:
     readOnly: true
   - name: tmp
     mountPath: /tmp
-
-extraObjects:
-  - apiVersion: policy/v1
-    kind: PodDisruptionBudget
-    metadata:
-      name: authentik-operator-pdb
-    spec:
-      maxUnavailable: 1
-      selector:
-        matchLabels:
-          app.kubernetes.io/name: ak-op
-  - |
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: {{ .Release.Name }}-extra-note
-    data:
-      note: "rendered through tpl"
-
-log:
-  level: debug
-  format: console
-
-leaderElection:
-  enabled: true
-
-watchNamespaces:
-  - apps
-  - platform
-
-health:
-  port: 9081
-
-livenessProbe:
-  initialDelaySeconds: 30
-  periodSeconds: 30
-  timeoutSeconds: 5
-  successThreshold: 1
-  failureThreshold: 5
-
-readinessProbe:
-  initialDelaySeconds: 10
-  periodSeconds: 15
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
-
-enableHTTP2: true
-
-metrics:
-  enabled: true
-  port: 8443
-  secure: true
-  service:
-    enabled: true
-    type: ClusterIP
-    port: 8443
-    annotations:
-      prometheus.io/scrape: "false"
-    labels:
-      release: kube-prometheus-stack
-  serviceMonitor:
-    enabled: true
-    namespace: monitoring
-    labels:
-      release: kube-prometheus-stack
-    annotations:
-      owner: platform
-    interval: 15s
-    scrapeTimeout: 10s
-    path: /metrics
-    scheme: https
-    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    tlsConfig:
-      insecureSkipVerify: true
-    honorLabels: true
-    relabelings:
-      - sourceLabels: [__meta_kubernetes_pod_node_name]
-        targetLabel: node
-    metricRelabelings:
-      - sourceLabels: [__name__]
-        regex: workqueue_work_duration_seconds_bucket
-        action: drop

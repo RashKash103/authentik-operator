@@ -37,10 +37,15 @@ manifests: controller-gen ## Generate CRDs and RBAC.
 	$(MAKE) sync-chart-crds
 
 .PHONY: sync-chart-crds
-sync-chart-crds: ## Copy generated CRDs into the Helm chart.
+sync-chart-crds: ## Copy generated CRDs and RBAC into the Helm chart.
 	@rm -f charts/authentik-operator/crds/*.yaml
 	@cp config/crd/bases/*.yaml charts/authentik-operator/crds/
 	@echo "synced $$(ls config/crd/bases/*.yaml | wc -l) CRDs into the Helm chart"
+	@python3 hack/sync-chart-rbac.py
+
+.PHONY: verify-chart-rbac
+verify-chart-rbac: ## Fail if the chart's RBAC has drifted from the generated role.
+	python3 hack/sync-chart-rbac.py --check
 
 .PHONY: generate
 generate: controller-gen ## Generate DeepCopy methods.
@@ -84,7 +89,7 @@ verify-versions: ## Fail if the version matrix has drifted out of sync.
 	python3 hack/sync-versions.py --check
 
 .PHONY: verify
-verify: manifests generate verify-versions verify-docs verify-api-docs verify-helm-docs check-crds ## Fail if generated artifacts are out of date.
+verify: manifests generate verify-versions verify-docs verify-api-docs verify-helm-docs verify-chart-rbac check-crds ## Fail if generated artifacts are out of date.
 	@if ! git diff --quiet --exit-code; then \
 		echo "ERROR: generated artifacts are out of date. Run 'make manifests generate' and commit."; \
 		git --no-pager diff --stat; \

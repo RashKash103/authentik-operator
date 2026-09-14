@@ -1,0 +1,74 @@
+# GENERATED FILE - DO NOT EDIT.
+#
+# Rendered from config/rbac/role.yaml by hack/sync-chart-rbac.py, which runs as
+# part of `make manifests`. Edit the +kubebuilder:rbac markers on the
+# controllers instead; this file only exists so the chart's ClusterRole cannot
+# drift from the manager's actual requirements.
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authentik.k8s.rka.sh
+  resources:
+  - applications
+  - authentikconnections
+  - clusterauthentikconnections
+  - dockerserviceconnections
+  - kubernetesserviceconnections
+  - oauth2providers
+  - outposts
+  - proxyproviders
+  - samlproviders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authentik.k8s.rka.sh
+  resources:
+  - applications/finalizers
+  - authentikconnections/finalizers
+  - clusterauthentikconnections/finalizers
+  - dockerserviceconnections/finalizers
+  - kubernetesserviceconnections/finalizers
+  - oauth2providers/finalizers
+  - outposts/finalizers
+  - proxyproviders/finalizers
+  - samlproviders/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - authentik.k8s.rka.sh
+  resources:
+  - applications/status
+  - authentikconnections/status
+  - clusterauthentikconnections/status
+  - dockerserviceconnections/status
+  - kubernetesserviceconnections/status
+  - oauth2providers/status
+  - outposts/status
+  - proxyproviders/status
+  - samlproviders/status
+  verbs:
+  - get
+  - patch
+  - update
