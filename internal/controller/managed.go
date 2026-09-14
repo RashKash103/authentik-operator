@@ -286,6 +286,10 @@ func ResultFor(err error) (reason string, requeue bool) {
 		return authentikv1alpha1.ReasonSucceeded, false
 	case IsAdoptionConflict(err):
 		return authentikv1alpha1.ReasonAdoptionConflict, false
+	case IsSecretOwnershipError(err):
+		// The Secret belongs to something else and will not start belonging to
+		// us on its own; retrying would just overwrite it later.
+		return authentikv1alpha1.ReasonSecretConflict, false
 	case authentik.IsAmbiguous(err):
 		return authentikv1alpha1.ReasonReferenceAmbiguous, false
 	case authentik.IsValidation(err):

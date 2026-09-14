@@ -281,8 +281,16 @@ func (r *OutpostReconciler) writeToken(
 		return nil
 	}
 
+	secretKey := types.NamespacedName{Name: target.Name, Namespace: outpost.Namespace}
+
+	// The target name comes from the spec, so it must be checked before it is
+	// written to. See assertSecretWritable.
+	if err := assertSecretWritable(ctx, r.Client, secretKey, outpost); err != nil {
+		return err
+	}
+
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: target.Name, Namespace: outpost.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: secretKey.Name, Namespace: secretKey.Namespace},
 	}
 
 	// Create-or-update rather than delete-and-recreate: recreating the Secret

@@ -251,6 +251,12 @@ func normalizeBaseURL(raw string) (string, error) {
 	parsed.Path = strings.TrimSuffix(strings.TrimRight(parsed.Path, "/"), apiBasePath)
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
+
+	// Drop any userinfo. authentik authenticates with a bearer token, so
+	// credentials in the URL are never meaningful - but url.URL.String()
+	// renders a password in full (unlike Redacted), so a dial failure would
+	// otherwise print it into a condition message.
+	parsed.User = nil
 	return strings.TrimRight(parsed.String(), "/"), nil
 }
 

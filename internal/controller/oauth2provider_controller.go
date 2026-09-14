@@ -220,8 +220,16 @@ func (r *OAuth2ProviderReconciler) writeCredentials(
 	// to read the discovery URLs must not stop them being published.
 	urls := adapter.setupURLs(ctx, provider.Status.ProviderID)
 
+	key := types.NamespacedName{Name: target.Name, Namespace: provider.Namespace}
+
+	// The target name comes from the spec, so it must be checked before it is
+	// written to. See assertSecretWritable.
+	if err := assertSecretWritable(ctx, r.Client, key, provider); err != nil {
+		return err
+	}
+
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: target.Name, Namespace: provider.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
 	}
 
 	// Create-or-update rather than delete-and-recreate: recreating the Secret

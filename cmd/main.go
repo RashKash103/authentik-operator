@@ -24,11 +24,13 @@ import (
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -98,7 +100,14 @@ func main() {
 		metricsOpts.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	cacheOpts := cache.Options{}
+	cacheOpts := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
+			// Hash Secret values in the cache. The watch only needs to notice
+			// that a value changed; holding the plaintext of every Secret in
+			// every watched namespace is blast radius with no benefit.
+			&corev1.Secret{}: {Transform: controller.HashSecretData},
+		},
+	}
 	if watchNamespaces != "" {
 		cacheOpts.DefaultNamespaces = map[string]cache.Config{}
 		for _, ns := range strings.Split(watchNamespaces, ",") {
@@ -109,9 +118,17 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsOpts,
-		Cache:                  cacheOpts,
+		Scheme:  scheme,
+		Metrics: metricsOpts,
+		Cache:   cacheOpts,
+		// Secret reads bypass the cache, because the cached copies are hashed
+		// and carry no usable data. This costs one API call per credential read
+		// and keeps plaintext out of the process for longer than an instant.
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.Secret{}},
+			},
+		},
 		WebhookServer:          webhook.NewServer(webhook.Options{TLSOpts: tlsOpts}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,

@@ -126,6 +126,9 @@ const (
 	ReasonConnectionNotReady = "ConnectionNotReady"
 	// ReasonAdoptionConflict indicates a pre-existing object blocks creation.
 	ReasonAdoptionConflict = "AdoptionConflict"
+	// ReasonSecretConflict indicates a target Secret exists and is owned by
+	// something else, so the operator refused to overwrite it.
+	ReasonSecretConflict = "SecretConflict"
 	// ReasonUnsupportedVersion indicates the authentik version is out of range.
 	ReasonUnsupportedVersion = "UnsupportedVersion"
 	// ReasonInvalidSpec indicates authentik rejected the spec as invalid.

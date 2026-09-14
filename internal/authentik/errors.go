@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -73,6 +74,19 @@ var sensitiveFieldFragments = []string{
 	"api_key",
 	"apikey",
 	"bind_password",
+	// Submitted by this operator and unambiguously credential-bearing:
+	// KubernetesServiceConnection.kubeconfig holds client-key-data and bearer
+	// tokens, and Outpost.config is free-form, so an administrator may have put
+	// anything in it.
+	//
+	// Deliberately NOT here: url, key, cert, auth. Those substrings match
+	// legitimate non-credential fields - acs_url, signing_key, certificate,
+	// authorization_flow - whose messages are exactly what a user needs to
+	// debug a bad spec. Credential-shaped VALUES in those messages are caught
+	// by scrubCredentialLiterals instead, which does not depend on guessing
+	// field names.
+	"kubeconfig",
+	"config",
 }
 
 // APIError is the concrete error type returned for every failed authentik API
@@ -262,9 +276,14 @@ func parseErrorBody(body []byte) (detail, code string, fields map[string][]strin
 	for key, value := range raw {
 		switch key {
 		case "detail":
+			// authentik's top-level detail is usually a short explanation, but
+			// nothing guarantees it does not quote what was submitted. It was
+			// previously passed through unchecked, which left a path for a
+			// kubeconfig or an outpost config value to reach a condition
+			// message - readable by anyone with get on the custom resource.
 			var s string
 			if json.Unmarshal(value, &s) == nil {
-				detail = truncate(s)
+				detail = truncate(scrubCredentialLiterals(s))
 			}
 			continue
 		case "code":
@@ -303,7 +322,11 @@ func sanitizeMessages(field string, msgs []string) []string {
 	}
 	out := make([]string, 0, len(msgs))
 	for _, msg := range msgs {
-		out = append(out, truncate(msg))
+		// The field name did not look sensitive, but the message may still
+		// quote a credential back - authentik echoes submitted values into some
+		// validation errors. Scrubbing by shape covers what a name-based
+		// deny-list cannot.
+		out = append(out, truncate(scrubCredentialLiterals(msg)))
 	}
 	return out
 }
@@ -379,9 +402,15 @@ func mapResponse(op string, resp *http.Response, err error) error {
 		return transientError(op, err)
 	}
 	if resp.StatusCode < 300 {
-		// A 2xx that failed to decode: the server answered but we could not
-		// use the answer. Retrying is the right default.
-		return transientError(op, err)
+		// A 2xx that failed to decode: the server answered but we could not use
+		// the answer. Retrying is the right default.
+		//
+		// The decode error is NOT carried through. A successful provider
+		// response contains client_secret, and a json.SyntaxError quotes the
+		// offending character of the body it failed on. One character is not a
+		// practical leak, but there is no reason to take it when the error adds
+		// nothing a caller can act on.
+		return transientMessage(op, "authentik returned a response that could not be decoded")
 	}
 	return mapError(op, resp.StatusCode, readErrorBody(resp))
 }
@@ -398,4 +427,40 @@ func readErrorBody(resp *http.Response) []byte {
 		return nil
 	}
 	return body
+}
+
+// credentialLiteralPattern matches the shapes a credential takes when it is
+// quoted back inside a prose message: a key-ish label followed by a value.
+//
+// This is a backstop for text that is not attached to a field name, where the
+// field-name deny-list cannot help.
+var credentialLiteralPattern = regexp.MustCompile(
+	`(?i)\b(` + strings.Join([]string{
+		"client[_-]?secret", "client[_-]?id", "token", "password", "passphrase",
+		"secret", "api[_-]?key", "private[_-]?key", "bearer", "authorization",
+		"client-key-data", "client-certificate-data",
+	}, "|") + `)\b\s*[:=]\s*\S+`)
+
+// authSchemePattern matches an HTTP auth scheme and the credential after it.
+//
+// The assignment pattern alone is not enough here: in "authorization: Bearer
+// abc123" the value directly after the separator is the word Bearer, leaving
+// the token itself untouched.
+var authSchemePattern = regexp.MustCompile(`(?i)\b(bearer|basic|token)\s+\S+`)
+
+// scrubCredentialLiterals replaces anything that reads as a credential
+// assignment with a marker, leaving the surrounding prose intact.
+func scrubCredentialLiterals(s string) string {
+	s = authSchemePattern.ReplaceAllStringFunc(s, func(match string) string {
+		scheme := strings.Fields(match)[0]
+		return scheme + " " + redactedPlaceholder
+	})
+	return credentialLiteralPattern.ReplaceAllStringFunc(s, func(match string) string {
+		// Keep the label so the message still says what was wrong.
+		idx := strings.IndexAny(match, ":=")
+		if idx < 0 {
+			return redactedPlaceholder
+		}
+		return match[:idx+1] + " " + redactedPlaceholder
+	})
 }

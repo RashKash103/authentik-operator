@@ -209,9 +209,21 @@ comparatively harmless; connections are not.
 - Keep `--metrics-secure=true` (the default) so the metrics endpoint requires
   authentication and authorisation. Leave `--enable-http2=false` (the default);
   it is off deliberately because of the HTTP/2 denial-of-service CVE family.
-- Do not add RBAC beyond what the generated `manager-role` requests. In
-  particular, resist granting blanket `secrets` `list`/`watch` if a narrower
-  `get` is sufficient for your installation.
+- Do not add RBAC beyond what the generated `manager-role` requests.
+
+  Note plainly what that role *does* request: cluster-wide `get`, `list`,
+  `watch`, `create`, `update` and `patch` on `secrets`. The `list`/`watch` is
+  not incidental — the operator watches Secrets so a rotated API token takes
+  effect without a restart, and a watch requires them. `delete` is deliberately
+  **not** requested; owned Secrets are removed by garbage collection instead.
+
+  The obvious consequence is that a compromise of the operator's ServiceAccount
+  reads every Secret in the namespaces it watches. Two things narrow that:
+  `--watch-namespaces` bounds which namespaces are in scope at all, and the
+  operator hashes Secret values in its informer cache, so the process does not
+  hold their plaintext in memory — credential reads go directly to the API
+  server instead. A heap dump or core file therefore yields digests, not
+  tokens.
 - Run the operator in its own namespace, with no other workloads, so a namespace
   compromise does not hand over its ServiceAccount token.
 

@@ -1,6 +1,7 @@
 package authentik
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -353,5 +354,155 @@ func TestMapErrorTruncatesOversizedMessages(t *testing.T) {
 	}
 	if len(apiErr.Detail) > maxErrorMessageLength+len("…") {
 		t.Errorf("Detail length = %d, want it truncated to %d", len(apiErr.Detail), maxErrorMessageLength)
+	}
+}
+
+// TestErrorRedactsOperatorSubmittedCredentialFields covers a gap a security
+// audit found: the deny-list held authentik's own credential field names but
+// not the ones this operator submits. A kubeconfig carries client-key-data and
+// bearer tokens, and an outpost config is free-form, so either could reach a
+// condition message - readable by anyone with get on the custom resource.
+func TestErrorRedactsOperatorSubmittedCredentialFields(t *testing.T) {
+	t.Parallel()
+
+	secret := "s3cr3t-value-that-must-not-escape"
+
+	for _, field := range []string{"kubeconfig", "config"} {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+
+			body := []byte(`{"` + field + `": ["rejected: ` + secret + `"]}`)
+			err := MapError(http.StatusBadRequest, body)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if strings.Contains(err.Error(), secret) {
+				t.Errorf("field %q leaked its value: %s", field, err.Error())
+			}
+		})
+	}
+}
+
+// TestErrorKeepsMessagesForNonCredentialFields is the other half of the same
+// decision, and the reason the deny-list stayed narrow.
+//
+// Substrings like url, key, cert and auth match acs_url, signing_key,
+// certificate and authorization_flow - fields whose validation messages are
+// exactly what a user needs to fix a bad spec. Blanket-redacting them by name
+// would trade a real diagnostic for an imagined leak; credential-shaped values
+// inside those messages are caught by shape instead.
+func TestErrorKeepsMessagesForNonCredentialFields(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"acs_url":            "Enter a valid URL.",
+		"signing_key":        "Object does not exist.",
+		"certificate":        "Object does not exist.",
+		"authorization_flow": "Object does not exist.",
+	}
+
+	for field, message := range cases {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+
+			body := []byte(`{"` + field + `": ["` + message + `"]}`)
+			err := MapError(http.StatusBadRequest, body)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.Contains(err.Error(), message) {
+				t.Errorf("field %q lost its diagnostic message: %s", field, err.Error())
+			}
+		})
+	}
+}
+
+// A credential quoted inside a message on an innocuous field is still scrubbed,
+// which is what lets the deny-list stay narrow.
+func TestErrorScrubsCredentialShapedValuesInAnyField(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{"acs_url": ["rejected client_secret=hunter2-must-not-appear"]}`)
+	err := MapError(http.StatusBadRequest, body)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if strings.Contains(err.Error(), "hunter2-must-not-appear") {
+		t.Errorf("a credential-shaped value escaped through a non-credential field: %s", err.Error())
+	}
+	if !strings.Contains(err.Error(), "acs_url") {
+		t.Errorf("the field name should survive so the message stays useful: %s", err.Error())
+	}
+}
+
+// TestErrorRedactsCredentialsInDetail covers the second half of that gap: the
+// top-level "detail" string was passed through with no scrubbing at all, so a
+// credential quoted in prose rather than attached to a field name escaped.
+func TestErrorRedactsCredentialsInDetail(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		detail string
+		secret string
+	}{
+		{
+			name:   "client secret in prose",
+			detail: "Validation failed: client_secret=hunter2-should-not-appear",
+			secret: "hunter2-should-not-appear",
+		},
+		{
+			name:   "bearer token",
+			detail: "upstream rejected authorization: Bearer abcdef-leaky-token",
+			secret: "abcdef-leaky-token",
+		},
+		{
+			name:   "kubeconfig key material",
+			detail: "invalid kubeconfig: client-key-data: LS0tLS1CRUdJTlBSSVZBVEU",
+			secret: "LS0tLS1CRUdJTlBSSVZBVEU",
+		},
+		{
+			name:   "password assignment",
+			detail: "could not bind, password = correct-horse-battery",
+			secret: "correct-horse-battery",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			body, marshalErr := json.Marshal(map[string]string{"detail": tc.detail})
+			if marshalErr != nil {
+				t.Fatalf("building body: %v", marshalErr)
+			}
+
+			err := MapError(http.StatusBadRequest, body)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("detail leaked a credential: %s", err.Error())
+			}
+			// The message should still say something useful.
+			if !strings.Contains(err.Error(), redactedPlaceholder) {
+				t.Errorf("expected a redaction marker so the message is not silently gutted: %s", err.Error())
+			}
+		})
+	}
+}
+
+// A detail with nothing credential-shaped in it must survive intact, or the
+// scrubber has made every error message useless.
+func TestErrorKeepsHarmlessDetail(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{"detail": "Flow with slug default-authorization-flow does not exist"}`)
+	err := MapError(http.StatusBadRequest, body)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "default-authorization-flow") {
+		t.Errorf("a harmless detail was scrubbed away: %s", err.Error())
 	}
 }
