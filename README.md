@@ -64,26 +64,28 @@ over its REST API using a token you supply.
 
 ## Implementation status
 
-This project is early. The API group is `authentik.k8s.rka.sh`, the API version is
-`v1alpha1`, and **nothing below is implemented yet** — the table is the plan of
-record, not a feature list. Treat every row marked _Planned_ as design
-documentation.
+This project is early. The API group is `authentik.k8s.rka.sh` and the API
+version is `v1alpha1`, which is unstable: expect breaking changes without
+conversion webhooks until it graduates to `v1beta1`.
 
-| Kind                          | Scope      | Status  |
-| ----------------------------- | ---------- | ------- |
-| `AuthentikConnection`         | Namespaced | Planned |
-| `ClusterAuthentikConnection`  | Cluster    | Planned |
-| `OAuth2Provider`              | Namespaced | Planned |
-| `SAMLProvider`                | Namespaced | Planned |
-| `ProxyProvider`               | Namespaced | Planned |
-| `Application`                 | Namespaced | Planned |
-| `Outpost`                     | Namespaced | Planned |
-| `KubernetesServiceConnection` | Namespaced | Planned |
-| `DockerServiceConnection`     | Namespaced | Planned |
+<!-- BEGIN IMPLEMENTATION-STATUS -->
+| Kind                          | Scope      | Status      |
+| ----------------------------- | ---------- | ----------- |
+| `AuthentikConnection`         | Namespaced | Implemented |
+| `ClusterAuthentikConnection`  | Cluster    | Implemented |
+| `OAuth2Provider`              | Namespaced | Implemented |
+| `Application`                 | Namespaced | Implemented |
+| `SAMLProvider`                | Namespaced | Planned     |
+| `ProxyProvider`               | Namespaced | Planned     |
+| `Outpost`                     | Namespaced | Planned     |
+| `KubernetesServiceConnection` | Namespaced | Planned     |
+| `DockerServiceConnection`     | Namespaced | Planned     |
+<!-- END IMPLEMENTATION-STATUS -->
 
-The manager binary builds and runs today, but it registers no controllers. The
-`v1alpha1` API is unstable: expect breaking changes without conversion webhooks
-until it graduates to `v1beta1`.
+Rows marked _Planned_ are design documentation, not a feature list. An
+`Application` may reference a `SAMLProvider` or `ProxyProvider` in its schema,
+but the operator rejects the reference until those kinds land, rather than
+retrying forever.
 
 ## Installation
 
@@ -150,9 +152,9 @@ registered.
 ## Quickstart
 
 > [!NOTE]
-> The CRDs below are not implemented yet. This section shows the intended shape
-> of the API so the design can be reviewed; the manifests will not reconcile
-> against the current build.
+> `AuthentikConnection`, `OAuth2Provider` and `Application` reconcile today.
+> `SAMLProvider`, `ProxyProvider` and the outpost kinds are still design
+> documentation — see [Implementation status](#implementation-status).
 
 **1. Store an authentik API token.** Create one in authentik under
 _Directory → Tokens and App passwords_, scoped as narrowly as your use case

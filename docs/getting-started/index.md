@@ -8,12 +8,12 @@ in four steps:
 3. Create a connection pointing at your authentik.
 4. [Declare a provider and an application](first-application.md).
 
-!!! warning "Most of this is not implemented yet"
+!!! warning "Partially implemented"
 
-    The connection CRDs exist as Go types; nothing reconciles them, and the
-    provider and application CRDs do not exist at all. Follow these pages to
-    review the intended design — not to run a production login flow. See
-    [Implementation status](#implementation-status) below.
+    Connections, `OAuth2Provider` and `Application` reconcile today and are
+    exercised end-to-end against a real authentik in CI. `SAMLProvider`,
+    `ProxyProvider` and the outpost kinds are still design documentation.
+    See [Implementation status](#implementation-status) below.
 
 ## Prerequisites
 

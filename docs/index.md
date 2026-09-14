@@ -65,21 +65,20 @@ The API group is `authentik.k8s.rka.sh` and the API version is `v1alpha1`.
 else on this site describes an intended design so that it can be reviewed
 before it is built. Pages describing unbuilt features say so at the top.
 
-| Kind                          | Scope      | API types | Controller |
-| ----------------------------- | ---------- | --------- | ---------- |
-| `AuthentikConnection`         | Namespaced | Defined   | Planned    |
-| `ClusterAuthentikConnection`  | Cluster    | Defined   | Planned    |
-| `OAuth2Provider`              | Namespaced | Planned   | Planned    |
-| `SAMLProvider`                | Namespaced | Planned   | Planned    |
-| `ProxyProvider`               | Namespaced | Planned   | Planned    |
-| `Application`                 | Namespaced | Planned   | Planned    |
-| `Outpost`                     | Namespaced | Planned   | Planned    |
-| `KubernetesServiceConnection` | Namespaced | Planned   | Planned    |
-| `DockerServiceConnection`     | Namespaced | Planned   | Planned    |
+| Kind                          | Scope      | Status      |
+| ----------------------------- | ---------- | ----------- |
+| `AuthentikConnection`         | Namespaced | Implemented |
+| `ClusterAuthentikConnection`  | Cluster    | Implemented |
+| `OAuth2Provider`              | Namespaced | Implemented |
+| `Application`                 | Namespaced | Implemented |
+| `SAMLProvider`                | Namespaced | Planned     |
+| `ProxyProvider`               | Namespaced | Planned     |
+| `Outpost`                     | Namespaced | Planned     |
+| `KubernetesServiceConnection` | Namespaced | Planned     |
+| `DockerServiceConnection`     | Namespaced | Planned     |
 
-The manager binary builds and runs, but registers no controllers. `v1alpha1` is
-unstable: expect breaking changes without conversion webhooks until it reaches
-`v1beta1`.
+`v1alpha1` is unstable: expect breaking changes without conversion webhooks
+until it reaches `v1beta1`.
 
 ## Where to go next
 
