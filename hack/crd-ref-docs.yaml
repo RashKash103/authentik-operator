@@ -1,0 +1,15 @@
+# Configuration for crd-ref-docs, which generates docs/reference/api.md from
+# the godoc comments on the API types.
+processor:
+  # Types that are noise in an API reference: Kubernetes machinery a reader
+  # already knows, and our own list wrappers.
+  ignoreTypes:
+    - "(AuthentikConnection|ClusterAuthentikConnection|OAuth2Provider|SAMLProvider|ProxyProvider|Application|Outpost|KubernetesServiceConnection|DockerServiceConnection)List$"
+  # Status is deliberately NOT ignored: readers need the condition and
+  # identity fields. Ignoring it dropped the Status types while leaving the
+  # generated links to them, which broke the strict docs build.
+  ignoreFields:
+    - "TypeMeta$"
+
+render:
+  kubernetesVersion: 1.34

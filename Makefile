@@ -84,7 +84,7 @@ verify-versions: ## Fail if the version matrix has drifted out of sync.
 	python3 hack/sync-versions.py --check
 
 .PHONY: verify
-verify: manifests generate verify-versions verify-docs check-crds ## Fail if generated artifacts are out of date.
+verify: manifests generate verify-versions verify-docs verify-api-docs verify-helm-docs check-crds ## Fail if generated artifacts are out of date.
 	@if ! git diff --quiet --exit-code; then \
 		echo "ERROR: generated artifacts are out of date. Run 'make manifests generate' and commit."; \
 		git --no-pager diff --stat; \
@@ -125,8 +125,35 @@ docs: ## Build the documentation site into site/.
 docs-serve: ## Serve the documentation site with live reload.
 	zensical serve
 
+CRD_REF_DOCS_VERSION ?= v0.3.0
+CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
+
+.PHONY: crd-ref-docs
+crd-ref-docs: $(LOCALBIN)
+	@test -x $(CRD_REF_DOCS) || GOBIN=$(LOCALBIN) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
+
+.PHONY: docs-api
+docs-api: crd-ref-docs ## Regenerate the API reference from the Go types.
+	$(CRD_REF_DOCS) --source-path=./api --config=hack/crd-ref-docs.yaml \
+		--renderer=markdown --output-path=$(LOCALBIN)/api-reference.md
+	python3 hack/gen-api-docs.py $(LOCALBIN)/api-reference.md
+
+.PHONY: docs-helm
+docs-helm: helm-docs ## Regenerate the Helm values reference.
+	python3 hack/gen-helm-docs.py
+
+.PHONY: verify-api-docs
+verify-api-docs: crd-ref-docs ## Fail if the API reference is stale.
+	$(CRD_REF_DOCS) --source-path=./api --config=hack/crd-ref-docs.yaml \
+		--renderer=markdown --output-path=$(LOCALBIN)/api-reference.md
+	python3 hack/gen-api-docs.py $(LOCALBIN)/api-reference.md --check
+
+.PHONY: verify-helm-docs
+verify-helm-docs: helm-docs ## Fail if the Helm values reference is stale.
+	python3 hack/gen-helm-docs.py --check
+
 .PHONY: docs-gen
-docs-gen: ## Regenerate the derived documentation pages.
+docs-gen: docs-api docs-helm ## Regenerate every derived documentation page.
 	python3 hack/gen-docs.py
 
 .PHONY: verify-docs
