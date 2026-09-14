@@ -62,6 +62,27 @@ jobs:
             > /tmp/rendered-named.yaml
           python3 -c "import sys,yaml; list(yaml.safe_load_all(open('/tmp/rendered-named.yaml')))"
 
+      # Values that cannot be installed by chart-testing - a pre-provisioned
+      # ServiceAccount, a private registry, required anti-affinity - still need
+      # to render. They live outside ci/ precisely so ct never tries to install
+      # them; see charts/authentik-operator/ci/README.md.
+      - name: helm template (render-only value sets)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          rendered=0
+          for values in "${CHART_DIR}"/test-values/*.yaml; do
+            echo "rendering $(basename "${values}")"
+            helm template authentik-operator "${CHART_DIR}" -f "${values}" > /tmp/rendered-extra.yaml
+            python3 -c "import yaml; list(yaml.safe_load_all(open('/tmp/rendered-extra.yaml')))"
+            rendered=$((rendered + 1))
+          done
+          if [ "${rendered}" -eq 0 ]; then
+            echo "ERROR: no render-only value sets found; did they move?" >&2
+            exit 1
+          fi
+          echo "rendered ${rendered} render-only value sets"
+
       - name: values.schema.json exists and is valid JSON
         run: |
           set -euo pipefail

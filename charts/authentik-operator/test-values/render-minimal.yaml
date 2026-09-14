@@ -1,0 +1,25 @@
+# Render-only: the other end of the range, with RBAC and the ServiceAccount
+# supplied by a cluster admin rather than the chart.
+#
+# This cannot be installed by chart-testing, which creates its own namespace:
+# the pre-provisioned ServiceAccount does not exist there, so the ReplicaSet is
+# refused with "error looking up service account". Covered by `helm template`
+# instead; ci/minimal-metrics-off-values.yaml covers the installable half.
+serviceAccount:
+  create: false
+  name: preprovisioned-operator-sa
+rbac:
+  create: false
+leaderElection:
+  enabled: false
+watchNamespaces:
+  - authentik
+metrics:
+  enabled: false
+  service:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+log:
+  level: error
+  format: console

@@ -1,10 +1,11 @@
-# The other end of the range: metrics off, RBAC and ServiceAccount supplied by
-# a cluster admin, single namespace watched, no leader election.
-serviceAccount:
-  create: false
-  name: preprovisioned-operator-sa
-rbac:
-  create: false
+# The other end of the range: metrics off entirely, no leader election, a
+# single watched namespace, and terse logging.
+#
+# The chart still creates the ServiceAccount and RBAC. Turning those off is a
+# real configuration, but chart-testing installs into a namespace it creates
+# itself, so a pre-provisioned ServiceAccount cannot exist there and the
+# ReplicaSet is refused. That variant lives in
+# test-values/render-minimal.yaml and is covered by `helm template`.
 leaderElection:
   enabled: false
 watchNamespaces:
