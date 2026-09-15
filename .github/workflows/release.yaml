@@ -71,7 +71,11 @@ jobs:
             echo "tag=${tag}"
             echo "version=${version}"
             echo "image=${image}"
-            echo "image_ref=${image}:${tag}"
+            # The version, not the tag: docker/metadata-action strips the
+            # leading v when it derives semver tags, so the image is published
+            # as :0.1.0 and :v0.1.0 never exists. Using the tag here put a
+            # reference nobody could pull into the release notes.
+            echo "image_ref=${image}:${version}"
             # Charts are pushed under the owner, not the repository: helm
             # appends the chart name to the reference, so pushing to
             # oci://ghcr.io/<owner>/charts yields
@@ -130,6 +134,12 @@ jobs:
           subject-name: ${{ steps.version.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+      # The SBOM is written into dist/, but make bundle - which creates that
+      # directory - runs after this step. Without it the action fails with
+      # ENOENT and nothing downstream publishes.
+      - name: Prepare the artifact directory
+        run: mkdir -p dist
 
       - name: Generate SBOM for the release
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
