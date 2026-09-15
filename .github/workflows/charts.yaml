@@ -11,7 +11,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: charts-${{ github.workflow }}-${{ github.ref }}
+  # Superseded PR runs are cancelled. Pushes are keyed by SHA instead of by ref
+  # so each commit gets its own group: `cancel-in-progress: false` protects a
+  # run that has already started, but GitHub still cancels a *queued* run when a
+  # newer one joins its group, which silently left commits on main with no
+  # verdict. Keying by SHA is what actually delivers one verdict per commit.
+  group: charts-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
