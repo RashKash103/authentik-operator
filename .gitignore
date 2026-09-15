@@ -24,8 +24,11 @@ coverage.*
 *.local.yaml
 kubeconfig
 
-# Claude Code agent worktrees; these are separate checkouts, not content
-.claude/
+# Claude Code local state. The skills under .claude/skills/ are checked in -
+# they are repeatable procedures for this repository, not personal settings -
+# so ignore only the parts that are genuinely local.
+.claude/worktrees/
+.claude/settings.local.json
 
 # Editor
 .idea/
