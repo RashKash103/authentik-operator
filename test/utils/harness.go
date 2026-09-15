@@ -190,6 +190,12 @@ func conditionsOf(obj client.Object) ([]metav1.Condition, error) {
 		return o.Status.Conditions, nil
 	case *authentikv1alpha1.ProxyProvider:
 		return o.Status.Conditions, nil
+	case *authentikv1alpha1.Flow:
+		return o.Status.Conditions, nil
+	case *authentikv1alpha1.PropertyMapping:
+		return o.Status.Conditions, nil
+	case *authentikv1alpha1.CertificateKeyPair:
+		return o.Status.Conditions, nil
 	default:
 		return nil, fmt.Errorf("no condition accessor for %T", obj)
 	}

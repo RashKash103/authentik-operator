@@ -36,6 +36,10 @@ import (
 const (
 	defaultAuthorizationFlow = "default-provider-authorization-explicit-consent"
 	defaultInvalidationFlow  = "default-provider-invalidation-flow"
+
+	// Names of the Flow resources every test namespace declares.
+	flowAuthorization = "authorization"
+	flowInvalidation  = "invalidation"
 )
 
 // newConnection creates a ready-to-use connection in a fresh namespace.
@@ -61,6 +65,27 @@ func newConnection(t *testing.T, ctx context.Context, c client.Client, cfg Confi
 	}
 	utils.WaitForCondition(t, ctx, c, conn,
 		authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+
+	// Providers reference Flow resources rather than naming a slug, so every
+	// namespace needs the two flows its providers point at.
+	for name, slug := range map[string]string{
+		flowAuthorization: defaultAuthorizationFlow,
+		flowInvalidation:  defaultInvalidationFlow,
+	} {
+		flow := &authentikv1alpha1.Flow{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: authentikv1alpha1.FlowSpec{
+				ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
+				ExistingSlug:  slug,
+			},
+		}
+		if err := c.Create(ctx, flow); err != nil {
+			t.Fatalf("creating flow %s: %v", name, err)
+		}
+		utils.WaitForCondition(t, ctx, c, flow,
+			authentikv1alpha1.ConditionReady, metav1.ConditionTrue, readyTimeout)
+	}
+
 	return ns
 }
 
@@ -68,8 +93,8 @@ func newProviderSpec() authentikv1alpha1.OAuth2ProviderSpec {
 	return authentikv1alpha1.OAuth2ProviderSpec{
 		ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 			ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
-			AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
-			InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
+			AuthorizationFlow: authentikv1alpha1.FlowReference{Name: flowAuthorization},
+			InvalidationFlow:  authentikv1alpha1.FlowReference{Name: flowInvalidation},
 		},
 		RedirectURIs: []authentikv1alpha1.RedirectURI{
 			{MatchingMode: "strict", URL: "https://app.example.com/callback"},
@@ -283,8 +308,8 @@ func TestSAMLProviderAndApplication(t *testing.T) {
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
 				Name:              utils.UniqueName(ns, "saml-app"),
-				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
-				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: flowAuthorization},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: flowInvalidation},
 			},
 			ACSURL: "https://saml.example.com/acs",
 		},
@@ -336,8 +361,8 @@ func TestProxyProviderCreates(t *testing.T) {
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
 				Name:              utils.UniqueName(ns, "proxy-app"),
-				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
-				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: flowAuthorization},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: flowInvalidation},
 			},
 			ExternalHost: "https://proxied.example.com",
 			Mode:         "forward_single",
