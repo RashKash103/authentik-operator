@@ -88,3 +88,39 @@ zensical serve                    # live-reloading preview
 
 `CONTRIBUTING.md` in the repository root covers the development workflow and the
 `make verify` contract; [Contributing](../contributing.md) summarises it.
+
+## JSON Schemas for your editor
+
+Every CRD's schema is extracted to `schemas/` as standalone JSON Schema, so an
+editor can validate a manifest before you apply it — which is where a typo is
+cheapest to find.
+
+Point at one with a modeline at the top of the file:
+
+```yaml
+# yaml-language-server: $schema=https://rashkash103.github.io/authentik-operator/schemas/oauth2provider-v1alpha1.json
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: OAuth2Provider
+```
+
+or map them once in `.vscode/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "https://rashkash103.github.io/authentik-operator/schemas/flow-v1alpha1.json": "**/flow*.yaml",
+    "https://rashkash103.github.io/authentik-operator/schemas/oauth2provider-v1alpha1.json": "**/oauth2provider*.yaml"
+  }
+}
+```
+
+`make schemas` regenerates them and `make verify` fails if they are stale.
+
+!!! warning "Editors do not evaluate CEL"
+
+    The schemas carry `x-kubernetes-validations` through unchanged, but a
+    JSON Schema validator ignores keywords it does not know. So an editor will
+    **not** catch a `ProxyProvider` with `mode: forward_single` *and* an
+    `internalHost`, or an exactly-one-of violation on a reference — only the
+    API server evaluates those rules. Green in your editor means the shape and
+    types are right, not that the object will be admitted.
