@@ -272,6 +272,13 @@ jobs:
 
             The packaged chart is also attached to this release as a `.tgz`.
 
+            ## Upgrading
+
+            Helm never upgrades CRDs. Apply them before rolling the operator,
+            and check the migration notes for this release:
+
+            https://rashkash103.github.io/authentik-operator/operations/upgrading/
+
             ## Verifying
 
             Provenance is attested for the container image, the Helm chart

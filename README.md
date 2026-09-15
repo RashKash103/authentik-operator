@@ -149,7 +149,7 @@ There is no chart repository to add — Helm pulls it from the registry directly
 ```sh
 helm install authentik-operator \
   oci://ghcr.io/rashkash103/charts/authentik-operator \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace authentik-operator-system \
   --create-namespace
 ```
@@ -158,8 +158,8 @@ Pin `--version` to the release matching your authentik; see
 [Version policy](#version-policy). Inspect before installing with:
 
 ```sh
-helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
-helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.1.0
+helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
+helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
 ```
 
 The chart is also attached to each GitHub release as a `.tgz`, and the source
@@ -203,7 +203,7 @@ kubectl apply -f dist/install.yaml
 Set a different image with `IMG`:
 
 ```sh
-make bundle IMG=ghcr.io/rashkash103/authentik-operator:v0.1.0
+make bundle IMG=ghcr.io/rashkash103/authentik-operator:v0.2.0
 ```
 
 ### From a checkout

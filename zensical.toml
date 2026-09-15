@@ -35,6 +35,7 @@ nav = [
   ] },
   { "Operations" = [
     "operations/troubleshooting.md",
+    "operations/upgrading.md",
     "operations/security.md",
     "operations/supported-versions.md",
   ] },

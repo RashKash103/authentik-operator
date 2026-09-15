@@ -83,6 +83,10 @@ test-unit: ## Run only the fast unit tests (no envtest, no Docker).
 sync-versions: ## Regenerate files derived from supported-versions.yaml.
 	python3 hack/sync-versions.py
 
+.PHONY: sync-release-version
+sync-release-version: ## Propagate the chart version into every install command.
+	python3 hack/sync-release-version.py
+
 .PHONY: schemas
 schemas: manifests ## Extract JSON Schemas for editor validation of manifests.
 	python3 hack/gen-schemas.py
@@ -99,8 +103,12 @@ check-crds: manifests ## Sanity-check the generated CRD schemas.
 verify-versions: ## Fail if the version matrix has drifted out of sync.
 	python3 hack/sync-versions.py --check
 
+.PHONY: verify-release-version
+verify-release-version: ## Fail if a documented install command quotes the wrong version.
+	python3 hack/sync-release-version.py --check
+
 .PHONY: verify
-verify: manifests generate verify-versions verify-docs verify-api-docs verify-helm-docs verify-chart-rbac verify-schemas check-crds ## Fail if generated artifacts are out of date.
+verify: manifests generate verify-versions verify-release-version verify-docs verify-api-docs verify-helm-docs verify-chart-rbac verify-schemas check-crds ## Fail if generated artifacts are out of date.
 	@if ! git diff --quiet --exit-code; then \
 		echo "ERROR: generated artifacts are out of date. Run 'make manifests generate' and commit."; \
 		git --no-pager diff --stat; \

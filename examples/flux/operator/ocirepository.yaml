@@ -12,7 +12,7 @@ spec:
     # Pinned deliberately. A chart release is tied to the authentik version it
     # was built against, so an automatic bump can land you on a chart that does
     # not support the authentik you are running. See the version policy.
-    tag: "0.1.0"
+    tag: "0.2.0"
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

@@ -30,7 +30,7 @@ If you do want automatic updates within a series, swap `ref.tag` for:
 
 ```yaml
   ref:
-    semver: ">=0.1.0 <0.2.0"
+    semver: ">=0.2.0 <0.3.0"
 ```
 
 ## Registry credentials
