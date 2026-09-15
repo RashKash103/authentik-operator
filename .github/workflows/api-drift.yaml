@@ -60,17 +60,32 @@ jobs:
         run: |
           set -uo pipefail
           candidate="${{ github.event.inputs.candidate || 'main' }}"
+
+          # The checker's exit code is the contract: non-zero means it found a
+          # decode-breaking change. Capture it directly rather than matching its
+          # prose - "no decode-breaking changes found" contains the phrase a
+          # naive grep looks for, so a clean run reported drift.
+          set +e
+          just check-api-drift --candidate "${candidate}" > /tmp/drift.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/drift.txt
+
           {
             echo "report<<DRIFT_EOF"
-            just check-api-drift --candidate "${candidate}" 2>&1 | tee /tmp/drift.txt
+            cat /tmp/drift.txt
             echo "DRIFT_EOF"
           } >> "$GITHUB_OUTPUT"
-          # The recipe exits non-zero on a finding; carry that as data rather
-          # than failing the step, so the issue can still be filed.
-          if grep -q "decode-breaking change" /tmp/drift.txt; then
+
+          # Carried as data rather than failing here, so the issue can be filed
+          # before the run goes red.
+          if [ "${rc}" -eq 0 ]; then
+            echo "broken=false" >> "$GITHUB_OUTPUT"
+          elif [ "${rc}" -eq 1 ]; then
             echo "broken=true" >> "$GITHUB_OUTPUT"
           else
-            echo "broken=false" >> "$GITHUB_OUTPUT"
+            echo "::error::check-api-drift failed to run (exit ${rc})"
+            exit "${rc}"
           fi
 
       # A scheduled run has nobody watching its log, so a finding becomes an
@@ -83,6 +98,12 @@ jobs:
         run: |
           set -euo pipefail
           title="authentik API drift: the pinned client cannot serve the newer schema"
+
+          # Idempotent: the label does not exist on a fresh repository, and
+          # `gh issue create --label` fails outright rather than creating it.
+          gh label create api-drift \
+            --description "The pinned authentik client cannot decode a newer schema" \
+            --color D93F0B 2>/dev/null || true
           body=$(printf '%s\n\n---\n\nFound by `%s` on %s.\nRun `just check-api-drift` locally to reproduce.\n' \
             "${REPORT}" "${GITHUB_WORKFLOW}" "$(date -u +%Y-%m-%d)")
 

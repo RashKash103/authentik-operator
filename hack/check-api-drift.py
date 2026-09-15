@@ -25,6 +25,11 @@ Usage:
     hack/check-api-drift.py --candidate 2026.9   # pinned series vs a named series
     hack/check-api-drift.py --baseline 2026.2 --candidate 2026.8
     hack/check-api-drift.py --list-schemas       # what is considered in scope
+
+Exit codes:
+    0   the schemas in scope are compatible
+    1   a decode-breaking change was found
+    2   the check could not run (unknown series, network failure, bad usage)
 """
 
 from __future__ import annotations
@@ -71,8 +76,13 @@ def load_spec(source: str) -> dict:
                 cached.write_bytes(resp.read())
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
-                sys.exit(f"ERROR: no schema at {url}\n"
-                         f"       {source!r} is not a published authentik series")
+                print(f"ERROR: no schema at {url}\n"
+                      f"       {source!r} is not a published authentik series",
+                      file=sys.stderr)
+                # 2, not 1: callers distinguish "the check could not run" from
+                # "the check ran and found a break". Reporting a network fault
+                # as a finding would file a drift issue for a typo.
+                sys.exit(2)
             raise
     with cached.open() as fh:
         return yaml.safe_load(fh)
