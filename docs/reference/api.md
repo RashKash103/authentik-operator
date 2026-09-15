@@ -19,40 +19,33 @@ API group.
 make docs-api
 ```
 
-!!! note "Generated, never hand-written"
+`make verify` fails if the generated block is stale, so this page cannot drift
+from the types. The types themselves are short and thoroughly commented, and
+the cluster serves the same schema:
 
-    `make docs-api` regenerates the block below from the Go types, and
-    `make verify` fails if it is stale. A hand-written API reference is wrong
-    within a week of the types changing, and a wrong reference is worse than a
-    missing one.
+```sh
+kubectl explain oauth2provider.spec --recursive
+kubectl explain authentikconnection.spec.tokenSecretRef
+```
 
-    Until the target lands, read the types directly. They are short, thoroughly
-    commented, and are the actual source of truth:
+## Kinds
 
-    - `api/v1alpha1/authentikconnection_types.go`
-    - `api/v1alpha1/clusterauthentikconnection_types.go`
-    - `api/v1alpha1/common_types.go`
-
-    Or ask the cluster, which serves the generated OpenAPI schema:
-
-    ```sh
-    kubectl explain authentikconnection.spec --recursive
-    kubectl explain clusterauthentikconnection.spec.tokenSecretRef
-    ```
-
-## What exists today
-
-| Kind | Scope | Short name | API types |
-| --- | --- | --- | --- |
-| `AuthentikConnection` | Namespaced | `akconn` | Defined |
-| `ClusterAuthentikConnection` | Cluster | `clakconn` | Defined |
-| `OAuth2Provider` | Namespaced | — | Planned |
-| `SAMLProvider` | Namespaced | — | Planned |
-| `ProxyProvider` | Namespaced | — | Planned |
-| `Application` | Namespaced | — | Planned |
-| `Outpost` | Namespaced | — | Planned |
-| `KubernetesServiceConnection` | Namespaced | — | Planned |
-| `DockerServiceConnection` | Namespaced | — | Planned |
+<!-- BEGIN IMPLEMENTATION-STATUS -->
+| Kind                          | Scope      | Short names  |
+| ----------------------------- | ---------- | ------------ |
+| `ClusterAuthentikConnection`  | Cluster    | `clakconn`   |
+| `Application`                 | Namespaced | `akapp`      |
+| `AuthentikConnection`         | Namespaced | `akconn`     |
+| `CertificateKeyPair`          | Namespaced | `akkeypair`  |
+| `DockerServiceConnection`     | Namespaced | `akdockersc` |
+| `Flow`                        | Namespaced | `akflow`     |
+| `KubernetesServiceConnection` | Namespaced | `akk8ssc`    |
+| `OAuth2Provider`              | Namespaced | `akoauth2`   |
+| `Outpost`                     | Namespaced | `akoutpost`  |
+| `PropertyMapping`             | Namespaced | `akmapping`  |
+| `ProxyProvider`               | Namespaced | `akproxy`    |
+| `SAMLProvider`                | Namespaced | `aksaml`     |
+<!-- END IMPLEMENTATION-STATUS -->
 
 Shared types used across kinds — `ConnectionReference`, `LocalSecretKeyReference`,
 `SecretKeyReference`, `AdoptionPolicy`, `DeletionPolicy` and

@@ -3,12 +3,6 @@
 Symptom first, then cause, then fix. If you already have a condition reason,
 [Conditions](../reference/conditions.md) explains each one in depth.
 
-!!! note "Status"
-
-    No controller is wired up yet, so today *every* resource sits with an empty
-    `status`. That is [the first symptom below](#nothing-happens-status-is-empty),
-    and it is expected rather than a misconfiguration.
-
 ## Start here
 
 Three commands, in this order. Most problems are identified by the second.
@@ -38,7 +32,7 @@ then ignored.
 
 | Cause | Check | Fix |
 | --- | --- | --- |
-| **No controller is running for this kind** | Is the kind implemented? | Only the two connection kinds have API types today, and nothing reconciles them. This is expected. |
+| **The operator predates this kind** | `kubectl -n authentik-operator-system logs deploy/authentik-operator \| grep 'Starting Controller'` | Every kind in the [API reference](../reference/api.md#kinds) has a controller. An older operator image will not start one for a newer CRD. |
 | **The namespace is not watched** | `helm get values authentik-operator -n authentik-operator-system` | Add the namespace to `watchNamespaces`, or set it to `[]` for all. |
 | **The operator is not running** | `kubectl -n authentik-operator-system get pods` | `CrashLoopBackOff` or `ImagePullBackOff` — read the logs. |
 | **Leader election has no leader** | Logs for `successfully acquired lease` | Check the Pod can write `coordination.k8s.io` leases. |

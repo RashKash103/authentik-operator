@@ -7,12 +7,6 @@ carries a `spec.connectionRef` selecting one, and nothing reconciles without it.
 There are two kinds, and the choice between them is the most consequential
 security decision in this API.
 
-!!! note "Status"
-
-    Both kinds exist as Go types in `api/v1alpha1` and generate real CRDs. **No
-    controller reconciles them yet**, so `status` stays empty. The spec fields
-    described here are accurate; the behaviour is the intended design.
-
 ## The two kinds
 
 | | `AuthentikConnection` | `ClusterAuthentikConnection` |

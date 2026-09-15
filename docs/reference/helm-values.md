@@ -16,27 +16,19 @@ Complete reference for every value accepted by the `authentik-operator` chart.
 ## Regenerating
 
 ```sh
-bin/helm-docs --chart-search-root charts
+make docs-helm
 ```
 
-The `helm-docs` binary is installed into `bin/` by:
+It installs `helm-docs` into `bin/` if it is missing, then rewrites the block
+below.
+
+The block below is generated from the chart's `values.yaml`, where every key is
+documented inline, and `make verify` fails if it is stale. To see the same thing
+from a chart you already have:
 
 ```sh
-make helm-docs
+helm show values ./charts/authentik-operator
 ```
-
-!!! warning "No Makefile target runs helm-docs yet"
-
-    `make helm-docs` installs the tool; it does not generate anything. No target
-    wires its output into this page, so the generated block below is empty.
-
-    Until that lands, the authoritative reference is `values.yaml` itself —
-    every key is documented inline — and the chart's own generated
-    `charts/authentik-operator/README.md`. You can also ask Helm:
-
-    ```sh
-    helm show values ./charts/authentik-operator
-    ```
 
 ## The values you will actually set
 

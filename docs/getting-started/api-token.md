@@ -164,12 +164,6 @@ kubectl -n my-apps describe authentikconnection default
 A healthy connection reports `Ready=True` with reason `Succeeded`, populates
 `status.authentikVersion`, and sets `status.versionSupported: true`.
 
-!!! note "Nothing reconciles yet"
-
-    The connection CRDs exist as Go types, but no controller is wired up, so
-    `status` stays empty today. The rest of this page describes the intended
-    behaviour.
-
 ### When it does not
 
 | Symptom | Likely cause |

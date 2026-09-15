@@ -38,6 +38,7 @@ SOURCE = ROOT / "supported-versions.yaml"
 VERSIONS_PAGE = DOCS / "operations" / "supported-versions.md"
 CRD_DIR = ROOT / "config" / "crd" / "bases"
 INDEX_PAGE = DOCS / "index.md"
+API_PAGE = DOCS / "reference" / "api.md"
 README = ROOT / "README.md"
 
 
@@ -223,6 +224,7 @@ def main() -> int:
     kinds = render_kinds()
     ok = sync_page(INDEX_PAGE, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
     ok = sync_page(README, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
+    ok = sync_page(API_PAGE, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
     ok = check_nav_pages() and ok
     check_orphan_pages()
 
