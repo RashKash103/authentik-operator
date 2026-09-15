@@ -4,11 +4,6 @@ An `Application` is what a user sees and clicks in the authentik library. It
 carries a slug, a display name, some presentation metadata, and a reference to
 exactly one [provider](providers.md). On its own it authenticates nobody.
 
-!!! warning "Planned design — nothing here exists yet"
-
-    `Application` has no Go type, no CRD and no controller. This page describes
-    the intended design so it can be reviewed before it is built.
-
 ## Shape
 
 ```yaml
@@ -26,18 +21,17 @@ spec:
   deletionPolicy: Delete           # default
 
   slug: grafana
-  displayName: Grafana
+  name: Grafana
   group: Observability
 
   providerRef:
     kind: OAuth2Provider
     name: grafana
 
-  meta:
-    description: Dashboards and alerting
-    launchURL: https://grafana.example.com
-    publisher: Platform team
-    icon: https://grafana.example.com/public/img/grafana_icon.svg
+  metaDescription: Dashboards and alerting
+  metaLaunchUrl: https://grafana.example.com
+  metaPublisher: Platform team
+  metaIcon: https://grafana.example.com/public/img/grafana_icon.svg
 
   policyEngineMode: any            # any | all
   openInNewTab: false
@@ -142,9 +136,11 @@ providerRef:
   name: grafana
 ```
 
-The reference is always within the `Application`'s own namespace. There is no
-cross-namespace form, for the same reason connections have none: it would let a
-resource in one namespace attach to another's provider.
+The reference resolves in the `Application`'s own namespace unless it names a
+`namespace`, which the operator refuses unless it was started with
+[cross-namespace references](references.md#namespaces) enabled. It is gated
+because attaching to another namespace's provider makes that namespace's
+configuration yours to break.
 
 !!! note "One provider, one application"
 

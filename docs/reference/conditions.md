@@ -92,21 +92,26 @@ No action needed.
 | Referenced thing | Where it is looked for |
 | --- | --- |
 | Token or CA `Secret` | The connection's own namespace, or `tokenSecretRef.namespace` for the cluster kind |
-| Connection | The referring resource's own namespace |
-| Provider (from an `Application` or `Outpost`) | The referring resource's own namespace |
-| Flow (by slug) | In authentik, via the connection |
-| Property mapping (by name) | In authentik, via the connection |
-| Certificate keypair (by name) | In authentik, via the connection |
+| Connection | The referring resource's own namespace, always |
+| Provider (from an `Application` or `Outpost`) | The referring resource's own namespace, or `namespace` where cross-namespace references are enabled |
+| Flow | The `Flow` resource's `status.remoteID` |
+| Property mapping | The `PropertyMapping` resource's `status.remoteID` |
+| Certificate keypair | The `CertificateKeyPair` resource's `status.remoteID` |
 
 **Common causes**
 
 - A typo in a name, slug or key.
 - The `Secret` key is wrong — the `Secret` exists, `key: token` does not.
-- A flow that exists in staging but was never created in production.
+- A `Flow`, `PropertyMapping` or `CertificateKeyPair` resource that has not
+  resolved yet, or whose `existingSlug` names something that only exists in
+  staging.
 - **Ordering.** An `Application` applied before its provider. This is expected
   and self-healing; see below.
-- A cross-namespace reference. There are none in this API — every reference
-  resolves within the referring resource's own namespace.
+- A reference naming another namespace while the operator runs without
+  `--allow-cross-namespace-references`. It is refused rather than resolved in
+  the local namespace, which would silently pick a different object.
+- A reference to a resource wired to a *different* authentik instance. The UUID
+  it resolved to means nothing on the referring resource's instance.
 
 **Fix**
 

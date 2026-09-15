@@ -36,6 +36,9 @@ DOCS = ROOT / "docs"
 SOURCE = ROOT / "supported-versions.yaml"
 
 VERSIONS_PAGE = DOCS / "operations" / "supported-versions.md"
+CRD_DIR = ROOT / "config" / "crd" / "bases"
+INDEX_PAGE = DOCS / "index.md"
+README = ROOT / "README.md"
 
 
 def marker(name: str) -> tuple[str, str]:
@@ -56,6 +59,38 @@ def render_table(data: dict) -> str:
     headers = ("authentik series", "Tested image", "Status")
     rows = [(f"`{e['series']}`", f"`{e['image']}`", "Supported") for e in data["supported"]]
 
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+
+    def line(cells: tuple[str, ...]) -> str:
+        return "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
+
+    out = [line(headers), "| " + " | ".join("-" * w for w in widths) + " |"]
+    out.extend(line(r) for r in rows)
+    return "\n".join(out)
+
+
+def render_kinds() -> str:
+    """Render the table of CRDs from the CRDs themselves.
+
+    Hand-maintained, this table went stale three kinds ago and claimed nothing
+    was implemented while every kind reconciled. A CRD on disk is the same
+    evidence a reader would go looking for, so deriving it means the table
+    cannot disagree with the operator again.
+    """
+    rows = []
+    for path in sorted(CRD_DIR.glob("*.yaml")):
+        with path.open() as fh:
+            crd = yaml.safe_load(fh)
+        names = crd["spec"]["names"]
+        scope = "Cluster" if crd["spec"]["scope"] == "Cluster" else "Namespaced"
+        short = ", ".join(f"`{s}`" for s in names.get("shortNames", [])) or "—"
+        rows.append((f"`{names['kind']}`", scope, short))
+
+    # Cluster-scoped kinds first, then alphabetically: it groups the two
+    # connection kinds together, which is the comparison readers come for.
+    rows.sort(key=lambda r: (r[1] != "Cluster", r[0]))
+
+    headers = ("Kind", "Scope", "Short names")
     widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
 
     def line(cells: tuple[str, ...]) -> str:
@@ -185,6 +220,9 @@ def main() -> int:
         },
         args.check,
     )
+    kinds = render_kinds()
+    ok = sync_page(INDEX_PAGE, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
+    ok = sync_page(README, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
     ok = check_nav_pages() and ok
     check_orphan_pages()
 

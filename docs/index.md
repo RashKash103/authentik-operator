@@ -61,21 +61,26 @@ URL and a reference to a `Secret` containing an API token. See
 
 The API group is `authentik.k8s.rka.sh` and the API version is `v1alpha1`.
 
-**Two CRDs exist today, and no controller reconciles them yet.** Everything
-else on this site describes an intended design so that it can be reviewed
-before it is built. Pages describing unbuilt features say so at the top.
+Every kind below has a CRD and a controller, and the whole set is exercised
+against a real authentik in CI on every push. What is still thin is coverage of
+the less common fields on each kind.
 
-| Kind                          | Scope      | Status      |
-| ----------------------------- | ---------- | ----------- |
-| `AuthentikConnection`         | Namespaced | Implemented |
-| `ClusterAuthentikConnection`  | Cluster    | Implemented |
-| `OAuth2Provider`              | Namespaced | Implemented |
-| `SAMLProvider`                | Namespaced | Implemented |
-| `ProxyProvider`               | Namespaced | Implemented |
-| `Application`                 | Namespaced | Implemented |
-| `Outpost`                     | Namespaced | Implemented |
-| `KubernetesServiceConnection` | Namespaced | Implemented |
-| `DockerServiceConnection`     | Namespaced | Implemented |
+<!-- BEGIN IMPLEMENTATION-STATUS -->
+| Kind                          | Scope      | Short names  |
+| ----------------------------- | ---------- | ------------ |
+| `ClusterAuthentikConnection`  | Cluster    | `clakconn`   |
+| `Application`                 | Namespaced | `akapp`      |
+| `AuthentikConnection`         | Namespaced | `akconn`     |
+| `CertificateKeyPair`          | Namespaced | `akkeypair`  |
+| `DockerServiceConnection`     | Namespaced | `akdockersc` |
+| `Flow`                        | Namespaced | `akflow`     |
+| `KubernetesServiceConnection` | Namespaced | `akk8ssc`    |
+| `OAuth2Provider`              | Namespaced | `akoauth2`   |
+| `Outpost`                     | Namespaced | `akoutpost`  |
+| `PropertyMapping`             | Namespaced | `akmapping`  |
+| `ProxyProvider`               | Namespaced | `akproxy`    |
+| `SAMLProvider`                | Namespaced | `aksaml`     |
+<!-- END IMPLEMENTATION-STATUS -->
 
 `v1alpha1` is unstable: expect breaking changes without conversion webhooks
 until it reaches `v1beta1`.

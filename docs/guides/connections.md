@@ -319,12 +319,6 @@ See [Security](../operations/security.md) for the full model.
 
 More at [Troubleshooting](../operations/troubleshooting.md).
 
-## See also
-
-- [ADR 0001 — Connection scope](../decisions/0001-connection-scope.md)
-- [Creating an API token](../getting-started/api-token.md)
-- [Security](../operations/security.md)
-
 ## Several operators, one authentik
 
 More than one operator can point at the same authentik — one per Kubernetes
@@ -409,3 +403,9 @@ Two things to know:
   another. The operator records which instance each object resolved against and
   refuses a reference that disagrees, rather than sending a UUID the target
   instance has never seen.
+
+## See also
+
+- [ADR 0001 — Connection scope](../decisions/0001-connection-scope.md)
+- [Creating an API token](../getting-started/api-token.md)
+- [Security](../operations/security.md)

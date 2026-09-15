@@ -31,3 +31,6 @@ kubeconfig
 .idea/
 .vscode/
 *.swp
+
+# Python bytecode from the hack/ generators.
+__pycache__/

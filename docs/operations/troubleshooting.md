@@ -166,10 +166,22 @@ The message names what was missing. Match it to the table:
 | Missing | Resolved where |
 | --- | --- |
 | A `Secret` | The connection's own namespace, or `tokenSecretRef.namespace` for the cluster kind |
-| A connection, provider or service connection | The referring resource's **own namespace** — there are no cross-namespace references |
-| A flow | In authentik, **by slug** |
-| A property mapping | In authentik, **by name** |
-| A certificate keypair | In authentik, **by name** |
+| A connection | The referring resource's **own namespace**, always — `connectionRef` never crosses one |
+| A provider or service connection | The referring resource's own namespace, or `namespace` if cross-namespace references are enabled |
+| A flow, property mapping or certificate keypair | The `Flow`, `PropertyMapping` or `CertificateKeyPair` **resource**, through its `status.remoteID` — never by looking the name up in authentik |
+
+!!! tip "A reference naming another namespace"
+
+    `spec.authorizationFlow: names namespace "platform", but the operator was
+    started without --allow-cross-namespace-references` means exactly that:
+    either drop the `namespace`, or set the chart value
+    `allowCrossNamespaceReferences`. It is refused rather than resolved locally,
+    because resolving locally would pick a different object than the manifest
+    names.
+
+    A reference that resolves but reports *"a reference must point at the same
+    authentik instance"* is a different fault: the two namespaces are wired to
+    different authentiks, and a UUID from one means nothing to the other.
 
 !!! success "Ordering resolves itself"
 

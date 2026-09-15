@@ -5,11 +5,6 @@ confidential clients, a client secret. Those values exist only inside authentik
 until something copies them out — and copying them out safely is the whole job
 of this page.
 
-!!! warning "Planned design — nothing here exists yet"
-
-    `OAuth2Provider` has no Go type, no CRD and no controller. This page
-    describes the intended design so it can be reviewed before it is built.
-
 ## The problem
 
 A workload needs the client secret. The obvious ways to get it there are all
@@ -36,8 +31,12 @@ metadata:
 spec:
   connectionRef:
     name: default
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
   clientType: confidential
-  credentialsSecretRef:
+  writeCredentialsTo:
     name: grafana-oidc
 ```
 
@@ -46,16 +45,21 @@ On a successful reconcile the operator creates or updates `grafana-oidc` in
 
 | Key | Present when | Contents |
 | --- | --- | --- |
-| `clientID` | Always | The OAuth2 client ID authentik generated. |
-| `clientSecret` | `clientType: confidential` | The OAuth2 client secret. Absent entirely for public clients. |
+| `client-id` | Always | The OAuth2 client ID authentik generated. |
+| `client-secret` | `clientType: confidential` | The OAuth2 client secret. Absent entirely for public clients. |
+| `issuer` | Always | The issuer URL, so an OIDC client can discover the rest. |
 
 ```sh
 $ kubectl -n my-apps get secret grafana-oidc -o jsonpath='{.data}' | jq 'keys'
 [
-  "clientID",
-  "clientSecret"
+  "client-id",
+  "client-secret",
+  "issuer"
 ]
 ```
+
+Rename any of them with `clientIDKey`, `clientSecretKey` and `issuerKey` under
+`writeCredentialsTo` — useful when a chart expects particular key names.
 
 ### Rules the operator follows
 

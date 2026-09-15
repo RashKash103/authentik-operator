@@ -18,6 +18,7 @@ spec:
   # Also known as EntityID. Leave unset to use authentik's generated issuer.
   issuerOverride: https://jenkins.example.com
 
-  # Certificate key pairs are referenced by name, not UUID.
-  signingKp: authentik Self-signed Certificate
+  # Certificate key pairs are referenced through a CertificateKeyPair resource.
+  signingKeyPair:
+    name: self-signed
   signAssertion: true

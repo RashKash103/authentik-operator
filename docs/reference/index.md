@@ -47,16 +47,18 @@ hack/gen-docs.py --check    # exit non-zero if anything is stale
 `--check` is what CI runs. It prints which page drifted and what to run, and
 writes nothing.
 
-!!! note "Some generators do not exist yet"
+Three other generators produce the rest, each with its own `make` target and a
+`--check` counterpart that `make verify` runs:
 
-    `hack/gen-docs.py` handles the supported-versions table and the pages that
-    mirror root-level markdown files today.
+| Target | Produces |
+| --- | --- |
+| `make docs-api` | `reference/api.md`, from the Go types via `crd-ref-docs` |
+| `make docs-helm` | `reference/helm-values.md`, from the chart via `helm-docs` |
+| `make schemas` | `schemas/*.json`, from the CRDs |
 
-    The API reference and Helm values generators are **not yet wired into the
-    Makefile** — there is no `docs-api` target, and no target that runs
-    `helm-docs` (the `helm-docs` target installs the binary into `bin/` but does
-    not invoke it). Those two pages currently carry an empty generated block and
-    a note saying so.
+`hack/gen-docs.py` itself derives the supported-versions table from
+`supported-versions.yaml` and the kinds table from the CRDs in
+`config/crd/bases`.
 
 ## Building this site
 

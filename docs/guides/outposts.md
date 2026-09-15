@@ -5,12 +5,6 @@ authentication where authentik cannot reach directly — a forward-auth proxy in
 front of an application, a LDAP or RADIUS endpoint. It sits off to the side of
 the connection → provider → application chain rather than in it.
 
-!!! warning "Planned design — nothing here exists yet"
-
-    `Outpost`, `KubernetesServiceConnection` and `DockerServiceConnection` have
-    no Go types, no CRDs and no controller. This page describes the intended
-    design so it can be reviewed before it is built.
-
 ## Where outposts sit
 
 ```text
@@ -61,8 +55,7 @@ spec:
       name: tool-c
 
   serviceConnectionRef:           # (2)!
-    kind: KubernetesServiceConnection
-    name: in-cluster
+    kubernetesServiceConnectionName: in-cluster
 
   config:                         # (3)!
     authentik_host: https://authentik.example.com
@@ -74,7 +67,9 @@ spec:
 
 1. A **list**. One outpost serves many providers, and this is the only place in
    the API where a resource fans out like this.
-2. Optional. Omit it for a manually deployed outpost — see
+2. Optional, and it names the kind by which field is set:
+   `kubernetesServiceConnectionName` or `dockerServiceConnectionName`, never
+   both. Omit it entirely for a manually deployed outpost — see
    [Embedded and manual outposts](#embedded-and-manual-outposts).
 3. Passed through to authentik. The accepted keys are authentik's, not this
    operator's.
@@ -191,11 +186,15 @@ spec:
 
   url: tcp://docker.internal:2376
 
-  tlsAuthenticationSecretRef:     # client certificate
+  tlsAuthentication:              # client certificate
     name: docker-client-cert
-  tlsVerificationSecretRef:       # CA bundle for the daemon
+  tlsVerification:                # the daemon's CA
     name: docker-ca
 ```
+
+Both name `CertificateKeyPair` resources, not `Secret`s: the certificate has to
+exist in authentik for authentik to use it, so it is an authentik object this
+operator references like any other.
 
 !!! danger "Docker daemon access is usually root on the host"
 

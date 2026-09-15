@@ -107,16 +107,12 @@ Steps 5 and 6 are where most surprises live. See
 
 ## Implementation status
 
-| Kind | API types | Controller |
-| --- | --- | --- |
-| `AuthentikConnection` | Defined in `api/v1alpha1` | Planned |
-| `ClusterAuthentikConnection` | Defined in `api/v1alpha1` | Planned |
-| `OAuth2Provider`, `SAMLProvider`, `ProxyProvider` | Planned | Planned |
-| `Application` | Planned | Planned |
-| `Outpost`, `KubernetesServiceConnection`, `DockerServiceConnection` | Planned | Planned |
-
 Every kind reconciles, and the operator is exercised end-to-end against a real
-authentik in CI on every push.
+authentik in CI on every push. The full list is on the
+[home page](../index.md#implementation-status).
+
+`v1alpha1` is unstable: expect breaking changes without conversion webhooks
+until it reaches `v1beta1`.
 
 Design decisions already settled are recorded as ADRs:
 

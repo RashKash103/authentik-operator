@@ -4,16 +4,6 @@ An end-to-end example: a connection, an OAuth2 provider, an application, and a
 workload consuming the generated credentials. We will use Grafana, because its
 OIDC configuration is short enough to fit on a page.
 
-!!! warning "This is a design document, not a tutorial"
-
-    `OAuth2Provider` and `Application` **do not exist yet** — no Go types, no
-    CRDs, no controller. The manifests below will be rejected by the API server
-    today.
-
-    They are published so the API shape can be reviewed before it is built. The
-    two connection kinds do exist as Go types, but nothing reconciles them
-    either. See [Implementation status](index.md#implementation-status).
-
 ## What we are building
 
 ```text
@@ -24,8 +14,8 @@ OIDC configuration is short enough to fit on a page.
         │
         ▼
   OAuth2Provider/grafana  ──────────▶  Secret: grafana-oidc
-        │                                 (clientID, clientSecret — written by
-        ▼                                  the operator, consumed by Grafana)
+        │                                 (client-id, client-secret — written
+        ▼                                  by the operator, read by Grafana)
   Application/grafana                  what users click in the authentik library
 ```
 
@@ -72,7 +62,83 @@ NAME      URL                             VERSION    READY   AGE
 default   https://authentik.example.com   2026.8.2   True    12s
 ```
 
-## 2. The OAuth2 provider
+## 2. What the provider references
+
+A provider does not name a flow by slug. It references a `Flow` **resource**,
+and that resource says which authentik flow is meant. Same for property mappings
+and certificate key pairs.
+
+```yaml title="references.yaml"
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-authorization
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingSlug: default-provider-authorization-implicit-consent
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-invalidation
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingSlug: default-provider-invalidation-flow
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-openid
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'openid'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-email
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'email'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-profile
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'profile'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: CertificateKeyPair
+metadata:
+  name: self-signed
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: authentik Self-signed Certificate
+```
+
+This is one level of indirection more than writing the slug inline, and it buys
+two things. Changing which flow every provider authorises against becomes one
+edit instead of one per provider. And when the operator learns to *create*
+flows, that capability lands in the `Flow` manifest — nothing referencing it
+has to change.
+
+More in [References between resources](../guides/references.md).
+
+## 3. The OAuth2 provider
 
 ```{ .yaml .annotate title="provider.yaml" }
 apiVersion: authentik.k8s.rka.sh/v1alpha1
@@ -88,8 +154,10 @@ spec:
   adoptionPolicy: FailOnConflict   # (2)!
   deletionPolicy: Delete
 
-  authorizationFlow: default-provider-authorization-implicit-consent  # (3)!
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:               # (3)!
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
   clientType: confidential
   redirectURIs:
@@ -97,16 +165,17 @@ spec:
       url: https://grafana.example.com/login/generic_oauth
 
   propertyMappings:                # (4)!
-    - goauthentik.io/providers/oauth2/scope-openid
-    - goauthentik.io/providers/oauth2/scope-email
-    - goauthentik.io/providers/oauth2/scope-profile
+    - name: oidc-openid
+    - name: oidc-email
+    - name: oidc-profile
 
-  signingKey: authentik Self-signed Certificate   # (5)!
+  signingKeyPair:                  # (5)!
+    name: self-signed
 
   accessTokenValidity: hours=1
   refreshTokenValidity: days=30
 
-  credentialsSecretRef:            # (6)!
+  writeCredentialsTo:              # (6)!
     name: grafana-oidc
 ```
 
@@ -115,39 +184,33 @@ spec:
 2. The default. The reconcile fails rather than taking over a pre-existing
    authentik provider named `grafana`. See
    [ADR 0002](../decisions/0002-adoption-policy.md).
-3. Flows are referenced by **slug**, not by UUID. The operator resolves the slug
-   against the connection's authentik on every reconcile.
-4. Property mappings are referenced by **name**. The operator resolves each to
-   its UUID.
-5. The signing keypair is referenced by **name**.
-6. Where the operator writes the generated `clientID` and `clientSecret`. The
-   `Secret` is created in this resource's own namespace.
+3. A reference to a `Flow` **resource**, declared below — not to a slug and not
+   to a UUID.
+4. References to `PropertyMapping` resources, in order.
+5. A reference to a `CertificateKeyPair` resource.
+6. Where the operator writes the generated client credentials. The `Secret` is
+   created in this resource's own namespace.
 
-### Names and slugs, not UUIDs
+### When a reference does not resolve
 
-authentik's API identifies flows, property mappings and certificate keypairs by
-UUID. Those UUIDs are generated per-instance, so a manifest containing one is
-not portable between your staging and production authentik — and is unreadable
-in review.
+The provider reports `Ready=False` with reason `ReferenceNotFound`, naming the
+field and the resource:
 
-So the CRDs reference these by the human identifier and the operator resolves it
-on each reconcile:
+```
+spec.authorizationFlow: Flow "provider-authorization" has not resolved in authentik yet
+```
 
-| Referenced by | Resolved to |
-| --- | --- |
-| Flow — by **slug** | Flow UUID |
-| Property mapping — by **name** | Mapping UUID |
-| Certificate keypair — by **name** | Keypair UUID |
+Two things produce it. The `Flow` resource is missing — a typo in the reference.
+Or it exists but has not resolved its own `existingSlug` yet, which is what you
+see for a few seconds after applying everything at once, and which clears
+itself. A slug that exists in staging but was never created in production stays
+there, and the `Flow` is the resource to describe.
 
-The failure modes get their own condition reasons:
+`ReferenceAmbiguous` is the other outcome: property mapping names are not unique
+in authentik, so a `PropertyMapping` whose `existingName` matches several is
+refused rather than bound to an arbitrary one.
 
-- No match — `ReferenceNotFound`. Usually a typo, or a flow that exists in
-  staging but was never created in production.
-- More than one match — `ReferenceAmbiguous`. Property mapping names are not
-  unique in authentik, so this is a real possibility. The operator refuses to
-  guess rather than picking one and silently binding the wrong mapping.
-
-## 3. The application
+## 4. The application
 
 ```{ .yaml .annotate title="application.yaml" }
 apiVersion: authentik.k8s.rka.sh/v1alpha1
@@ -163,17 +226,16 @@ spec:
   deletionPolicy: Delete
 
   slug: grafana                    # (1)!
-  displayName: Grafana
+  name: Grafana
   group: Observability             # (2)!
 
   providerRef:                     # (3)!
     kind: OAuth2Provider
     name: grafana
 
-  meta:
-    description: Dashboards and alerting
-    launchURL: https://grafana.example.com
-    publisher: Platform team
+  metaDescription: Dashboards and alerting
+  metaLaunchUrl: https://grafana.example.com
+  metaPublisher: Platform team
 
   policyEngineMode: any
 ```
@@ -203,7 +265,7 @@ whatever order the tool chose. `kubectl apply -f .` converges; it does not
 require you to sequence the files.
 
 ```sh
-kubectl apply -f provider.yaml -f application.yaml
+kubectl apply -f references.yaml -f provider.yaml -f application.yaml
 kubectl -n my-apps wait --for=condition=Ready application/grafana --timeout=120s
 ```
 
@@ -217,14 +279,18 @@ kubectl -n my-apps wait --for=condition=Ready application/grafana --timeout=120s
     Seeing it for minutes means the provider itself is not becoming ready —
     check the provider, not the application.
 
-## 4. Consume the credentials
+## 5. Consume the credentials
 
 The operator creates `grafana-oidc` in `my-apps` with two keys:
 
 | Key | Contents |
 | --- | --- |
-| `clientID` | The OAuth2 client ID authentik generated |
-| `clientSecret` | The OAuth2 client secret authentik generated |
+| `client-id` | The OAuth2 client ID authentik generated |
+| `client-secret` | The OAuth2 client secret authentik generated |
+| `issuer` | The issuer URL, so an OIDC client can discover the rest |
+
+Rename any of them with `writeCredentialsTo.clientIDKey`, `clientSecretKey` and
+`issuerKey`.
 
 ```yaml title="grafana-deployment.yaml"
 env:
@@ -234,12 +300,12 @@ env:
     valueFrom:
       secretKeyRef:
         name: grafana-oidc
-        key: clientID
+        key: client-id
   - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         name: grafana-oidc
-        key: clientSecret
+        key: client-secret
   - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
     value: https://authentik.example.com/application/o/authorize/
   - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
@@ -254,7 +320,7 @@ env:
     ever regenerated, the Pod keeps the stale value until it restarts. See
     [Credentials](../guides/credentials.md) for the rotation procedure.
 
-## 5. Verify
+## 6. Verify
 
 ```sh
 kubectl -n my-apps get akconn,oauth2provider,application
@@ -279,7 +345,7 @@ above, and chasing the symptom rather than the cause wastes time.
 ## Cleaning up
 
 ```sh
-kubectl delete -f application.yaml -f provider.yaml
+kubectl delete -f application.yaml -f provider.yaml -f references.yaml
 ```
 
 With `deletionPolicy: Delete` (the default) the authentik objects go too. Set

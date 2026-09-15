@@ -73,7 +73,11 @@ func TestSamplesAreValid(t *testing.T) {
 					obj.SetNamespace(ns)
 				}
 
-				if err := c.Create(ctx, obj); err != nil {
+				// Strict field validation, because that is what `kubectl
+				// apply` does. The default prunes an unknown field silently,
+				// which let a sample naming a field that no longer exists pass
+				// this test while failing for every user who copied it.
+				if err := c.Create(ctx, obj, client.FieldValidation("Strict")); err != nil {
 					t.Errorf("%s document %d (%s/%s) was rejected: %v",
 						name, i, obj.GetKind(), obj.GetName(), err)
 					continue

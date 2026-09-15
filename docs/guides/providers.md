@@ -4,13 +4,6 @@ A provider is *how* authentication happens: an OAuth2/OIDC client, a SAML
 service provider, or a proxy provider fronted by an outpost. An
 [Application](applications.md) points at exactly one.
 
-!!! warning "Planned design — nothing here exists yet"
-
-    `OAuth2Provider`, `SAMLProvider` and `ProxyProvider` have no Go types, no
-    CRDs and no controller. This page describes the intended design so it can be
-    reviewed before it is built. Manifests here will be rejected by the API
-    server today.
-
 ## The three kinds
 
 | Kind | For | Needs an outpost |
@@ -30,47 +23,45 @@ spec:
   deletionPolicy: Delete           # default
 ```
 
-## References are resolved by name, not UUID
+## References point at other resources
 
-This is the part of the design most worth reviewing, because it is where the
-Kubernetes model and authentik's model genuinely disagree.
+authentik identifies flows, property mappings and certificate key pairs by
+**UUID**, generated per instance. A manifest carrying one is not portable
+between your staging and production authentik, tells a reviewer nothing, and
+breaks silently when the object is recreated under a new UUID.
 
-authentik's API identifies flows, property mappings and certificate keypairs by
-**UUID**. Those UUIDs are generated per instance. A manifest containing one is
-therefore:
+So a provider does not name any of them directly. It references a `Flow`,
+`PropertyMapping` or `CertificateKeyPair` **resource**, and that resource says
+which authentik object is meant:
 
-- **not portable** — the same flow has different UUIDs in your staging and
-  production authentik, so the same manifest cannot be applied to both;
-- **unreviewable** — `ba7ded7b-...` in a pull request tells a reviewer nothing;
-- **fragile** — recreating a flow changes its UUID and silently breaks every
-  manifest referencing it.
+```yaml
+authorizationFlow:
+  name: provider-authorization    # a Flow resource in this namespace
+```
 
-So the CRDs reference the human identifier and the operator resolves it on every
-reconcile:
-
-| Reference | Written as | Resolved to | Example |
-| --- | --- | --- | --- |
-| Flow | **slug** | Flow UUID | `default-provider-authorization-implicit-consent` |
-| Property mapping | **name** | Mapping UUID | `goauthentik.io/providers/oauth2/scope-email` |
-| Certificate keypair | **name** | Keypair UUID | `authentik Self-signed Certificate` |
+Resolution reads that resource's `status.remoteID` — it never looks the name up
+in authentik. Kubernetes stays the source of truth, so renaming something inside
+authentik cannot silently repoint a provider at a different object. See
+[References between resources](references.md) for the full model, including
+sharing one `Flow` across namespaces.
 
 ### Resolution failures
 
-Resolution happens before anything is written, so a failure never leaves a
+Every reference resolves before anything is written, so a failure never leaves a
 half-configured provider in authentik.
 
 `ReferenceNotFound`
 
-:   Nothing in authentik matched. Usually a typo, or a flow that exists in
-    staging but was never created in production. The condition message names
-    what was being looked for. The resource requeues with backoff, so creating
-    the missing flow fixes it without re-applying anything.
+:   The referenced resource does not exist, or exists but has not resolved its
+    own authentik object yet. The second is ordinary right after a bulk apply
+    and clears itself; the first is a typo. The condition message names the
+    field and the resource.
 
 `ReferenceAmbiguous`
 
-:   More than one object matched. **Property mapping names are not unique in
-    authentik**, so two mappings can legitimately share a name. The operator
-    refuses to guess.
+:   The referenced resource matched more than one authentik object. **Property
+    mapping names are not unique in authentik**, so this is a real possibility.
+    It surfaces on the `PropertyMapping`, not on the provider.
 
 !!! danger "Why ambiguity is a hard failure"
 
@@ -81,13 +72,6 @@ half-configured provider in authentik.
 
     Fix it by renaming one of the mappings in authentik so the reference is
     unambiguous.
-
-!!! note "Resolution costs API calls"
-
-    Every reconcile resolves every reference. With many providers sharing the
-    same flows this is repetitive, so resolution results are cached per
-    connection for the duration of a reconcile. A flow renamed in authentik is
-    picked up on the next reconcile, not instantly.
 
 ## `OAuth2Provider`
 
@@ -101,8 +85,10 @@ spec:
   connectionRef:
     name: default
 
-  authorizationFlow: default-provider-authorization-implicit-consent
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
   clientType: confidential          # or public
   redirectURIs:
@@ -110,11 +96,12 @@ spec:
       url: https://grafana.example.com/login/generic_oauth
 
   propertyMappings:
-    - goauthentik.io/providers/oauth2/scope-openid
-    - goauthentik.io/providers/oauth2/scope-email
-    - goauthentik.io/providers/oauth2/scope-profile
+    - name: oidc-openid
+    - name: oidc-email
+    - name: oidc-profile
 
-  signingKey: authentik Self-signed Certificate
+  signingKeyPair:
+    name: self-signed
 
   subMode: hashed_user_id
   issuerMode: per_provider
@@ -124,7 +111,7 @@ spec:
   accessTokenValidity: hours=1
   refreshTokenValidity: days=30
 
-  credentialsSecretRef:
+  writeCredentialsTo:
     name: grafana-oidc
 ```
 
@@ -134,12 +121,12 @@ spec:
 
 :   The client can keep a secret — a server-side application. authentik
     generates both a client ID and a client secret, and the operator writes both
-    to `credentialsSecretRef`.
+    to the `Secret` named by `writeCredentialsTo`.
 
 `public`
 
 :   The client cannot keep a secret — a browser SPA or a mobile app. Only a
-    client ID is generated. The written `Secret` contains `clientID` alone, with
+    client ID is generated. The written `Secret` contains `client-id` alone, with
     no `clientSecret` key.
 
 !!! warning "Changing `clientType` is not a small edit"
@@ -187,21 +174,26 @@ spec:
   connectionRef:
     name: default
 
-  authorizationFlow: default-provider-authorization-implicit-consent
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
   acsURL: https://signin.aws.amazon.com/saml
   audience: urn:amazon:webservices
-  issuer: https://authentik.example.com
+  issuerOverride: https://authentik.example.com   # optional; EntityID
 
-  signingKey: authentik Self-signed Certificate     # resolved by name
-  verificationKP: ""                                 # optional, for signed AuthnRequests
+  signingKeyPair:
+    name: self-signed
+  verificationKeyPair:              # optional, for signed AuthnRequests
+    name: sp-verification
 
   propertyMappings:
-    - authentik default SAML Mapping: Username
-    - authentik default SAML Mapping: Groups
+    - name: saml-username
+    - name: saml-groups
 
-  nameIDMapping: authentik default SAML Mapping: Email
+  nameIDMapping:
+    name: saml-email
   digestAlgorithm: http://www.w3.org/2001/04/xmlenc#sha256
   signatureAlgorithm: http://www.w3.org/2001/04/xmldsig-more#rsa-sha256
 
@@ -212,21 +204,26 @@ spec:
 
 !!! danger "The signing key is the whole trust relationship"
 
-    Anything holding the private half of `signingKey` can forge assertions for
-    every service provider trusting it — sign in as any user, anywhere. The
-    operator references the keypair by name and never reads its private material
+    Anything holding the private half of `signingKeyPair` can forge assertions
+    for every service provider trusting it — sign in as any user, anywhere. The
+    operator references the key pair and never reads its private material
     through the API, but the authentik token it holds may be able to. Scope the
     token accordingly.
 
 !!! note "Colons in property mapping names"
 
-    authentik's default SAML mapping names contain a colon
-    (`authentik default SAML Mapping: Username`). In YAML that must be quoted
-    when it appears as a scalar that could be read as a mapping key. Prefer:
+    authentik's default SAML mapping names contain a colon, and that name now
+    lives on the `PropertyMapping` resource. Quote it, or YAML reads it as a
+    mapping key:
 
     ```yaml
-    propertyMappings:
-      - "authentik default SAML Mapping: Username"
+    kind: PropertyMapping
+    metadata:
+      name: saml-username
+    spec:
+      connectionRef:
+        name: default
+      existingName: "authentik default SAML Mapping: Username"
     ```
 
 ## `ProxyProvider`
@@ -245,10 +242,12 @@ spec:
   connectionRef:
     name: default
 
-  authorizationFlow: default-provider-authorization-implicit-consent
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
-  mode: forward_single            # proxy | forward_single | forward_domain
+  mode: proxy                     # proxy | forward_single | forward_domain
   externalHost: https://tool.example.com
   internalHost: http://internal-tool.my-apps.svc.cluster.local:8080
   internalHostSSLValidation: true

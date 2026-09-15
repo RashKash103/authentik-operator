@@ -15,6 +15,15 @@ spec:
   existingSlug: default-provider-authorization-explicit-consent
 ---
 apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-invalidation
+spec:
+  connectionRef:
+    name: primary
+  existingSlug: default-provider-invalidation-flow
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
 kind: OAuth2Provider
 metadata:
   name: grafana
@@ -23,6 +32,8 @@ spec:
     name: primary
   authorizationFlow:
     name: provider-authorization   # the Flow above
+  invalidationFlow:
+    name: provider-invalidation
 ```
 
 ## Why not just write the slug?
@@ -67,11 +78,41 @@ order; it settles.
 
 ## Namespaces
 
-References resolve in the referring resource's own namespace, with no way to
-express a cross-namespace reference. That is deliberate and matches every other
-reference in this API: a cross-namespace reference would let anyone who can
-create a provider in one namespace borrow configuration — and through it,
-credentials — from another.
+A reference with no `namespace` resolves in the referring resource's own
+namespace. That is the default and, unless the operator has been told otherwise,
+the only thing that works — two namespaces needing the same flow each declare a
+`Flow`. They are cheap: a name and a slug.
 
-If two namespaces need the same flow, declare a `Flow` in each. They are cheap:
-each one is a name and a slug.
+Naming a namespace makes it a **cross-namespace reference**, which the operator
+refuses unless it was started with `--allow-cross-namespace-references` (chart
+value `allowCrossNamespaceReferences`):
+
+```yaml
+authorizationFlow:
+  name: provider-authorization
+  namespace: platform          # refused unless the operator allows it
+```
+
+The refusal is an error, not a quiet fall back to the local namespace: falling
+back would resolve a *different object* than the manifest names.
+
+It is off by default because it makes one namespace's configuration another's
+dependency — the platform team can now break an application namespace by editing
+a `Flow`. That is a reasonable thing to want, and a reasonable thing to want to
+forbid, so it is a cluster-level decision rather than one a manifest author
+makes for themselves.
+
+Two limits apply even when it is enabled:
+
+- **`connectionRef` never crosses a namespace.** Credentials are not
+  configuration. Sharing a connection is the
+  [`ClusterAuthentikConnection`](connections.md#clusterauthentikconnection)'s
+  job, where the connection's *owner* grants access through `allowedNamespaces`
+  rather than the consumer helping itself.
+- **Both sides must talk to the same authentik.** A `Flow` resolves its slug to
+  a UUID against one specific instance, and that UUID means nothing on another.
+  A reference that crosses instances is rejected with a message saying so.
+
+See [Several operators, one
+authentik](connections.md#several-operators-one-authentik) for the related case:
+several operators sharing one instance.

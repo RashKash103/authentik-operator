@@ -115,17 +115,20 @@ version is `v1alpha1`, which is unstable: expect breaking changes without
 conversion webhooks until it graduates to `v1beta1`.
 
 <!-- BEGIN IMPLEMENTATION-STATUS -->
-| Kind                          | Scope      | Status      |
-| ----------------------------- | ---------- | ----------- |
-| `AuthentikConnection`         | Namespaced | Implemented |
-| `ClusterAuthentikConnection`  | Cluster    | Implemented |
-| `OAuth2Provider`              | Namespaced | Implemented |
-| `SAMLProvider`                | Namespaced | Implemented |
-| `ProxyProvider`               | Namespaced | Implemented |
-| `Application`                 | Namespaced | Implemented |
-| `Outpost`                     | Namespaced | Implemented |
-| `KubernetesServiceConnection` | Namespaced | Implemented |
-| `DockerServiceConnection`     | Namespaced | Implemented |
+| Kind                          | Scope      | Short names  |
+| ----------------------------- | ---------- | ------------ |
+| `ClusterAuthentikConnection`  | Cluster    | `clakconn`   |
+| `Application`                 | Namespaced | `akapp`      |
+| `AuthentikConnection`         | Namespaced | `akconn`     |
+| `CertificateKeyPair`          | Namespaced | `akkeypair`  |
+| `DockerServiceConnection`     | Namespaced | `akdockersc` |
+| `Flow`                        | Namespaced | `akflow`     |
+| `KubernetesServiceConnection` | Namespaced | `akk8ssc`    |
+| `OAuth2Provider`              | Namespaced | `akoauth2`   |
+| `Outpost`                     | Namespaced | `akoutpost`  |
+| `PropertyMapping`             | Namespaced | `akmapping`  |
+| `ProxyProvider`               | Namespaced | `akproxy`    |
+| `SAMLProvider`                | Namespaced | `aksaml`     |
 <!-- END IMPLEMENTATION-STATUS -->
 
 Every kind reconciles and is exercised against a real authentik in CI. What is
@@ -260,9 +263,33 @@ spec:
     key: token
 ```
 
-**3. Declare a provider and an application.**
+**3. Declare the flows a provider needs, then the provider and application.**
+
+A provider references `Flow` resources rather than naming slugs inline, so that
+swapping which flow every provider authorises against is one edit. See
+[References between resources](https://rashkash103.github.io/authentik-operator/guides/references/).
 
 ```yaml
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-authorization
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingSlug: default-provider-authorization-implicit-consent
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-invalidation
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingSlug: default-provider-invalidation-flow
+---
 apiVersion: authentik.k8s.rka.sh/v1alpha1
 kind: OAuth2Provider
 metadata:
@@ -273,10 +300,15 @@ spec:
     kind: AuthentikConnection
     name: default
   adoptionPolicy: FailOnConflict
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
   redirectURIs:
-    - https://grafana.example.com/login/generic_oauth
+    - matchingMode: strict
+      url: https://grafana.example.com/login/generic_oauth
   # The operator writes the generated client ID and secret here.
-  credentialsSecretRef:
+  writeCredentialsTo:
     name: grafana-oidc
 ---
 apiVersion: authentik.k8s.rka.sh/v1alpha1
@@ -289,7 +321,7 @@ spec:
     kind: AuthentikConnection
     name: default
   slug: grafana
-  displayName: Grafana
+  name: Grafana
   providerRef:
     kind: OAuth2Provider
     name: grafana
