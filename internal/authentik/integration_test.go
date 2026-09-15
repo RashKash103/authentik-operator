@@ -26,7 +26,7 @@ import (
 )
 
 // These tests run against a real authentik. Start one with
-// `make authentik-up`, then:
+// `just authentik-up`, then:
 //
 //	export AUTHENTIK_URL=http://localhost:9000
 //	export AUTHENTIK_TOKEN=authentik-operator-e2e-bootstrap-token

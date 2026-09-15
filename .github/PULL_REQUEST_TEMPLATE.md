@@ -17,8 +17,8 @@
 
 <!-- Delete this section if you did not touch api/ or supported-versions.yaml. -->
 
-- [ ] CRD types changed. `make manifests generate` was run and the regenerated files are committed.
-- [ ] `supported-versions.yaml` changed. `make sync-versions` was run and the derived files are committed.
+- [ ] CRD types changed. `just manifests generate` was run and the regenerated files are committed.
+- [ ] `supported-versions.yaml` changed. `just sync-versions` was run and the derived files are committed.
 - [ ] This is safe to apply on top of the previous release without manual steps. If not, upgrade notes are included below.
 
 ## Testing
@@ -28,10 +28,10 @@ Which authentik versions did you actually run against? The E2E matrix covers
 every series in supported-versions.yaml, but say what you verified locally.
 -->
 
-- [ ] `make test` passes
-- [ ] `make lint` passes
-- [ ] `make verify` passes (generated artifacts are current)
-- [ ] `make test-e2e` passes against a local authentik (`make authentik-up`)
+- [ ] `just test` passes
+- [ ] `just lint` passes
+- [ ] `just verify` passes (generated artifacts are current)
+- [ ] `just test-e2e` passes against a local authentik (`just authentik-up`)
 
 authentik version(s) tested against:
 

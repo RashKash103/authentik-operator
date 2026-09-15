@@ -81,7 +81,7 @@ def rules(version: str) -> list[tuple[pathlib.Path, str, str]]:
         (ROOT / "charts" / "authentik-operator" / "README.md",
          rf"AppVersion-{SEMVER}-informational", f"AppVersion-{version}-informational"),
 
-        # `make bundle IMG=...:vX`
+        # `IMG=...:vX` just bundle
         (ROOT / "README.md", rf"{re.escape(image)}:v{SEMVER}", f"{image}:v{version}"),
         (ROOT / "docs" / "getting-started" / "installation.md",
          rf"authentik-operator:v{SEMVER}", f"authentik-operator:v{version}"),

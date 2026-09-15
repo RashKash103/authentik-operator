@@ -67,11 +67,11 @@ They are generated from the Go types by controller-gen and copied here — the
 directory is not hand-maintained:
 
 ```sh
-make manifests
+just manifests
 cp config/crd/bases/*.yaml charts/authentik-operator/crds/
 ```
 
-**This directory may be empty in a working tree where `make manifests` has not
+**This directory may be empty in a working tree where `just manifests` has not
 run yet.** That is expected and is not an error: Helm treats an empty (or
 README-only) `crds/` directory as "no CRDs to install", so `helm lint`,
 `helm template` and `helm install` all succeed. Non-YAML files such as this

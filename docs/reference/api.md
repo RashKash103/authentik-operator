@@ -16,10 +16,10 @@ API group.
 ## Regenerating
 
 ```sh
-make docs-api
+just docs-api
 ```
 
-`make verify` fails if the generated block is stale, so this page cannot drift
+`just verify` fails if the generated block is stale, so this page cannot drift
 from the types. The types themselves are short and thoroughly commented, and
 the cluster serves the same schema:
 

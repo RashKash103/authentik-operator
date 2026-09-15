@@ -144,6 +144,9 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
         with:
           python-version: "3.13"
 
@@ -189,7 +192,7 @@ jobs:
             exit 0
           fi
           echo "Chart default image: ${image}"
-          make docker-build IMG="${image}"
+          IMG="${image}" just docker-build
           kind load docker-image "${image}" --name chart-testing
 
       - name: ct install

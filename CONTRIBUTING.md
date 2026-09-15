@@ -6,52 +6,52 @@
 > [`docs/decisions/`](docs/decisions/) count just as much as code.
 
 Thanks for taking a look. This document covers the development environment, the
-Makefile targets that actually exist, how to run each tier of tests, and the
-`make verify` contract that CI enforces.
+`just` recipes that actually exist, how to run each tier of tests, and the
+`just verify` contract that CI enforces.
 
 ## Prerequisites
 
 | Tool       | Needed for                                        | Notes                                                     |
 | ---------- | ------------------------------------------------- | --------------------------------------------------------- |
 | Go         | Everything                                        | Version per [`go.mod`](go.mod).                            |
-| `make`     | Everything                                        | GNU make. The Makefile uses `bash -o pipefail`.            |
+| `just`     | Everything                                        | [just](https://just.systems). Recipes run under `bash -euo pipefail`. |
 | Docker     | E2E tests, image builds                           | Or a compatible runtime for `docker build`/`docker push`.  |
-| `kubectl`  | `make install`, `make deploy`                     | Pointed at whatever cluster you want to target.            |
+| `kubectl`  | `just install`, `just deploy`                     | Pointed at whatever cluster you want to target.            |
 | A cluster  | envtest is self-contained; `deploy` is not        | kind, k3d, minikube — anything.                            |
 
 Everything else is bootstrapped into `./bin` on first use and pinned in the
-Makefile: `controller-gen`, `kustomize`, `setup-envtest`, `golangci-lint` and
-`helm-docs`. You do not install those by hand, and you should not upgrade them
-by hand either — bump the `*_VERSION` variable at the top of the Makefile so a
-clean checkout and CI stay identical.
+justfile: `controller-gen`, `kustomize`, `setup-envtest`, `golangci-lint`,
+`helm-docs` and `crd-ref-docs`. You do not install those by hand, and you should
+not upgrade them by hand either — bump the `*_VERSION` variable at the top of the
+justfile so a clean checkout and CI stay identical.
 
 ## Getting started
 
 ```sh
 git clone <repository-url>
 cd authentik-operator
-make build            # generates, formats, vets, and builds bin/manager
-make test             # unit + envtest
+just build            # generates, formats, vets, and builds bin/manager
+just test             # unit + envtest
 ```
 
-`make help` prints every target with its description; it is generated from the
-Makefile itself, so it never goes stale.
+`just` on its own prints every recipe with its description, grouped by area.
+The list comes from the justfile's own doc comments, so it never goes stale.
 
 ### Running the manager locally
 
-`make run` runs the manager against whatever your current kubeconfig points at,
+`just run` runs the manager against whatever your current kubeconfig points at,
 outside the cluster. Install the CRDs first:
 
 ```sh
-make install
-make run
+just install
+just run
 ```
 
-`make run` passes no flags of its own. To run the manager with flags, build it
+`just run` passes no flags of its own. To run the manager with flags, build it
 and run the binary directly:
 
 ```sh
-make build
+just build
 ./bin/manager --leader-elect=false --metrics-bind-address=0 --zap-devel=true
 ```
 
@@ -66,66 +66,66 @@ avoids a port conflict.
 ### Deploying to a cluster
 
 ```sh
-make docker-build IMG=<your-registry>/authentik-operator:dev
-make docker-push  IMG=<your-registry>/authentik-operator:dev
-make deploy       IMG=<your-registry>/authentik-operator:dev
+IMG=<your-registry>/authentik-operator:dev just docker-build
+just docker-push  IMG=<your-registry>/authentik-operator:dev
+just deploy       IMG=<your-registry>/authentik-operator:dev
 ```
 
-`make undeploy` removes the controller-manager; `make uninstall` removes the
-CRDs. `make bundle` renders the whole thing into `dist/install.yaml` without
+`just undeploy` removes the controller-manager; `just uninstall` removes the
+CRDs. `just bundle` renders the whole thing into `dist/install.yaml` without
 applying it — useful for reviewing exactly what `deploy` would do.
 
 > [!NOTE]
-> `make deploy` and `make bundle` both run `kustomize edit set image` inside
+> `just deploy` and `just bundle` both run `kustomize edit set image` inside
 > `config/manager`, which **modifies `config/manager/kustomization.yaml` in your
 > working tree**. Check `git status` before committing after running either.
 
-## Makefile targets
+## Recipes
 
-These are the real targets. If you find one referenced in documentation that is
+These are the real recipes. If you find one referenced in documentation that is
 not in this list, the documentation is wrong — please fix it or open an issue.
 
 ### Development
 
-| Target          | What it does                                                        |
+| Recipe          | What it does                                                        |
 | --------------- | ------------------------------------------------------------------- |
-| `make help`     | Print every target with its description.                             |
-| `make manifests`| Regenerate CRDs and RBAC into `config/`.                             |
-| `make generate` | Regenerate `DeepCopy` methods.                                       |
-| `make fmt`      | `go fmt ./...`                                                       |
-| `make vet`      | `go vet ./...`                                                       |
-| `make lint`     | Run `golangci-lint`.                                                 |
-| `make lint-fix` | Run `golangci-lint --fix`.                                           |
-| `make test`     | Unit + envtest tests with `-race` and coverage into `cover.out`.     |
-| `make test-unit`| Fast unit tests only — no envtest, no Docker.                        |
-| `make verify`   | Fail if generated artifacts are out of date.                         |
+| `just`          | Print every recipe with its description.                             |
+| `just manifests`| Regenerate CRDs and RBAC into `config/`.                             |
+| `just generate` | Regenerate `DeepCopy` methods.                                       |
+| `just fmt`      | `go fmt ./...`                                                       |
+| `just vet`      | `go vet ./...`                                                       |
+| `just lint`     | Run `golangci-lint`.                                                 |
+| `just lint-fix` | Run `golangci-lint --fix`.                                           |
+| `just test`     | Unit + envtest tests with `-race` and coverage into `cover.out`.     |
+| `just test-unit`| Fast unit tests only — no envtest, no Docker.                        |
+| `just verify`   | Fail if generated artifacts are out of date.                         |
 
 ### authentik test instance
 
 | Target                | What it does                                                 |
 | --------------------- | ------------------------------------------------------------ |
-| `make authentik-up`   | Start a local authentik for E2E tests.                        |
-| `make authentik-down` | Stop the local authentik and remove its volumes.              |
-| `make test-e2e`       | Run the E2E suite against a running local authentik.          |
+| `just authentik-up`   | Start a local authentik for E2E tests.                        |
+| `just authentik-down` | Stop the local authentik and remove its volumes.              |
+| `just test-e2e`       | Run the E2E suite against a running local authentik.          |
 
 ### Build
 
 | Target              | What it does                                    |
 | ------------------- | ----------------------------------------------- |
-| `make build`        | Build `bin/manager`.                             |
-| `make run`          | Run the manager against the current kubeconfig.  |
-| `make docker-build` | Build the container image as `$(IMG)`.           |
-| `make docker-push`  | Push `$(IMG)`.                                   |
-| `make bundle`       | Render `dist/install.yaml`.                      |
+| `just build`        | Build `bin/manager`.                             |
+| `just run`          | Run the manager against the current kubeconfig.  |
+| `just docker-build` | Build the container image as `$(IMG)`.           |
+| `just docker-push`  | Push `$(IMG)`.                                   |
+| `just bundle`       | Render `dist/install.yaml`.                      |
 
 ### Deployment
 
 | Target           | What it does                            |
 | ---------------- | --------------------------------------- |
-| `make install`   | Apply the CRDs to the current cluster.   |
-| `make uninstall` | Delete the CRDs.                         |
-| `make deploy`    | Apply CRDs + controller-manager.         |
-| `make undeploy`  | Delete the controller-manager.           |
+| `just install`   | Apply the CRDs to the current cluster.   |
+| `just uninstall` | Delete the CRDs.                         |
+| `just deploy`    | Apply CRDs + controller-manager.         |
+| `just undeploy`  | Delete the controller-manager.           |
 
 ### Variables
 
@@ -142,7 +142,7 @@ cheapest one that can catch your mistake.
 ### Unit tests
 
 ```sh
-make test-unit
+just test-unit
 ```
 
 Runs `go test ./internal/... -race -short`. No envtest binaries, no Docker, no
@@ -154,7 +154,7 @@ itself with `testing.Short()` and skip.
 ### envtest
 
 ```sh
-make test
+just test
 ```
 
 Runs the full suite except `test/e2e`, against a real `kube-apiserver` and
@@ -179,14 +179,14 @@ Reconciler behaviour — conditions, finalizers, ownership, the cross-namespace
 E2E runs against a **real authentik**, started locally.
 
 ```sh
-make authentik-up     # start local authentik (Docker)
-make test-e2e         # go test ./test/e2e/... -v -timeout 30m
-make authentik-down   # stop it and delete its volumes
+just authentik-up     # start local authentik (Docker)
+just test-e2e         # go test ./test/e2e/... -v -timeout 30m
+just authentik-down   # stop it and delete its volumes
 ```
 
-`make test-e2e` does not start authentik for you — it assumes one is already
+`just test-e2e` does not start authentik for you — it assumes one is already
 running, so that you can iterate on the suite without paying the startup cost
-each time. It also does not tear anything down; run `make authentik-down` when
+each time. It also does not tear anything down; run `just authentik-down` when
 you are finished, since it removes the volumes and gives you a clean instance
 next time.
 
@@ -203,24 +203,24 @@ E2E is for things only a real authentik can prove: API compatibility across the
 behaviour from [ADR 0002](docs/decisions/0002-adoption-policy.md), and the shape
 of the credentials written back into `Secret`s.
 
-## `make verify` must pass
+## `just verify` must pass
 
 This repository commits its generated artifacts — CRD YAML, RBAC, `DeepCopy`
-methods. `make verify` runs `manifests` and `generate` and then fails if the
+methods. `just verify` runs `manifests` and `generate` and then fails if the
 working tree changed, which means **generated output must be committed along
 with the source change that produced it**.
 
 If CI tells you artifacts are out of date:
 
 ```sh
-make manifests generate
+just manifests generate
 git add -A
 git commit --amend --no-edit   # or a new commit
 ```
 
 Anything that touches `api/` will move generated files. That is expected; commit
 them. Do not hand-edit files under `config/crd/bases/` or any `zz_generated.*`
-file — the next `make manifests` will silently discard your changes.
+file — the next `just manifests` will silently discard your changes.
 
 ## Supported authentik versions
 
@@ -233,11 +233,11 @@ verifies the two agree.
 To change the supported set, edit `supported-versions.yaml` and then run:
 
 ```sh
-make sync-versions   # rewrites the README table from that file
-make verify-versions # fails if anything is still out of step
+just sync-versions   # rewrites the README table from that file
+just verify-versions # fails if anything is still out of step
 ```
 
-`make verify` runs the check, so a stale README cannot reach `main`. The Go
+`just verify` runs the check, so a stale README cannot reach `main`. The Go
 version gate in `internal/authentik/version.go` is checked but never rewritten:
 a regex rewrite of the gate would be more dangerous than useful, so if its
 constants disagree the check tells you and you edit them by hand.
@@ -293,9 +293,9 @@ trailing full stop, imperative mood ("add", not "added" or "adds").
 Before opening one:
 
 ```sh
-make lint
-make test
-make verify
+just lint
+just test
+just verify
 ```
 
 In the PR itself:
@@ -308,7 +308,7 @@ In the PR itself:
   for anything touching credentials or RBAC.
 - If the change reflects a design decision with real trade-offs, add an ADR to
   `docs/decisions/` — next number, same structure as the existing two.
-- Commit generated artifacts. See [`make verify` must pass](#make-verify-must-pass).
+- Commit generated artifacts. See [`just verify` must pass](#make-verify-must-pass).
 
 Rebase on `main` rather than merging it in; keep history linear.
 
@@ -332,9 +332,9 @@ published to GitHub Pages by the `Documentation` workflow on every push to
 
 ```sh
 pip install zensical==0.0.62
-make docs        # build into site/ with --strict
-make docs-serve  # live reload
-make verify-docs # fail if derived pages are stale
+just docs        # build into site/ with --strict
+just docs-serve  # live reload
+just verify-docs # fail if derived pages are stale
 ```
 
 GitHub Pages has to be enabled **once per repository**, with the source set to
@@ -350,7 +350,7 @@ gh api --method POST repos/OWNER/REPO/pages -f build_type=workflow
 ## Writing CRD markers
 
 Two generator behaviours have already produced schemas that were valid YAML and
-completely wrong. `make verify` runs `hack/check-crds.py`, which catches the
+completely wrong. `just verify` runs `hack/check-crds.py`, which catches the
 first of them; the rest is on you.
 
 **An enum marker on a slice field constrains the array, not its items.**

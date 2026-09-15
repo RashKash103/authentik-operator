@@ -14,22 +14,22 @@ instance** over its REST API. It does not deploy authentik.
 | `charts/authentik-operator/` | Helm chart. CRDs and RBAC inside it are generated. |
 | `test/e2e/`, `test/utils/` | End-to-end suite and its harness. |
 | `test/authentik/` | Docker Compose authentik for local and CI testing. |
-| `hack/` | Generators and consistency checks wired into `make verify`. |
+| `hack/` | Generators and consistency checks wired into `just verify`. |
 | `docs/` | Zensical documentation site sources. |
 
 ## Commands
 
 ```sh
-make test          # unit + envtest. Needs no Docker.
-make test-unit     # fast subset, no envtest binaries
-make verify        # regenerate everything and fail if the tree is dirty
-make lint          # golangci-lint
-make authentik-up  # local authentik on :9000
-make test-e2e      # E2E suite (see the opt-in below)
-make docs          # build the docs site
+just test          # unit + envtest. Needs no Docker.
+just test-unit     # fast subset, no envtest binaries
+just verify        # regenerate everything and fail if the tree is dirty
+just lint          # golangci-lint
+just authentik-up  # local authentik on :9000
+just test-e2e      # E2E suite (see the opt-in below)
+just docs          # build the docs site
 ```
 
-`make verify` is the contract. It regenerates CRDs, deepcopy, RBAC, the chart's
+`just verify` is the contract. It regenerates CRDs, deepcopy, RBAC, the chart's
 copies of both, the README version table, and the docs, then fails if anything
 changed. If CI says "generated artifacts are current" failed, run it and commit.
 

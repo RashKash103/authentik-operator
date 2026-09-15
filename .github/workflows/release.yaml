@@ -47,6 +47,9 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
       - name: Derive version
         id: version
         run: |
@@ -135,7 +138,7 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      # The SBOM is written into dist/, but make bundle - which creates that
+      # The SBOM is written into dist/, but just bundle - which creates that
       # directory - runs after this step. Without it the action fails with
       # ENOENT and nothing downstream publishes.
       - name: Prepare the artifact directory
@@ -159,7 +162,7 @@ jobs:
           IMAGE_PINNED: ${{ steps.version.outputs.image }}@${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
-          make bundle IMG="${IMAGE_PINNED}"
+          IMG="${IMAGE_PINNED}" just bundle
           test -s dist/install.yaml
           grep -q "${IMAGE_PINNED}" dist/install.yaml
 

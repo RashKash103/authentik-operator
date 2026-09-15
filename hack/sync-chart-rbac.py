@@ -29,7 +29,7 @@ TARGET = ROOT / "charts" / "authentik-operator" / "rbac-rules.yaml"
 HEADER = """# GENERATED FILE - DO NOT EDIT.
 #
 # Rendered from config/rbac/role.yaml by hack/sync-chart-rbac.py, which runs as
-# part of `make manifests`. Edit the +kubebuilder:rbac markers on the
+# part of `just manifests`. Edit the +kubebuilder:rbac markers on the
 # controllers instead; this file only exists so the chart's ClusterRole cannot
 # drift from the manager's actual requirements.
 """
@@ -60,7 +60,7 @@ def main() -> int:
         print(f"{TARGET.name} is up to date")
         return 0
     if args.check:
-        print(f"ERROR: {TARGET.name} is out of date; run 'make manifests' and commit", file=sys.stderr)
+        print(f"ERROR: {TARGET.name} is out of date; run 'just manifests' and commit", file=sys.stderr)
         return 1
 
     TARGET.write_text(desired)

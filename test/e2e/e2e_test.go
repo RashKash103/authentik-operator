@@ -25,12 +25,12 @@ limitations under the License.
 // Requiring an explicit opt-in means `go test ./...` can never accidentally
 // write to production.
 //
-//	make authentik-up
+//	just authentik-up
 //	export E2E_ENABLED=true
 //	export E2E_KUBECONTEXT=kind-authentik-operator-e2e
 //	export AUTHENTIK_URL=http://localhost:9000
 //	export AUTHENTIK_TOKEN=authentik-operator-e2e-bootstrap-token
-//	make test-e2e
+//	just test-e2e
 package e2e
 
 import (

@@ -65,7 +65,7 @@ The sharpest edge in the design.
 - Read `config/rbac/role.yaml` and the `+kubebuilder:rbac` markers it is
   generated from. Is Secret access broader than needed?
 - `charts/authentik-operator/rbac-rules.yaml` is generated from the same source;
-  confirm it has not drifted (`make verify` checks this).
+  confirm it has not drifted (`just verify` checks this).
 - Check the metrics endpoint's authn/authz wiring and the leader-election role.
 
 ### 4. Supply chain
@@ -77,7 +77,7 @@ The sharpest edge in the design.
 - No `pull_request_target` granting fork PRs secrets or write access.
 - `go.mod` / `go.sum`: unexpected sources, `replace` directives, pseudo-versions
   where a release exists.
-- `Makefile` and `hack/`: pinned tool versions, nothing piping a download to a
+- `justfile` and `hack/`: pinned tool versions, nothing piping a download to a
   shell, nothing over plain HTTP.
 - `Dockerfile`: pinned base, non-root final image, no build secrets in layers.
 
@@ -104,7 +104,7 @@ anything real — not merely whether they exist.
   seccomp `RuntimeDefault`.
 - TLS: `insecureSkipTLSVerify` must never be the default, and a custom CA bundle
   should behave as documented.
-- `govulncheck` clean (`make lint` does not run it; CI does).
+- `govulncheck` clean (`just lint` does not run it; CI does).
 
 ## Reporting
 
@@ -126,7 +126,7 @@ After reporting, fix confirmed findings. For each:
 1. Add or extend a test that fails before the fix. Security fixes without a
    regression test tend to be re-broken.
 2. Make the change.
-3. Run `make test`, `make lint`, and `make verify`.
+3. Run `just test`, `just lint`, and `just verify`.
 4. Commit separately from unrelated work, explaining the impact in the message.
 
 Leave theoretical findings unfixed unless they are cheap; record them instead.

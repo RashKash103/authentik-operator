@@ -50,8 +50,8 @@ over its REST API using a token you supply.
 
 <!--
   The table and bounds below are generated from supported-versions.yaml, which
-  is the single source of truth. `make sync-versions` rewrites them and
-  `make verify` fails if they drift.
+  is the single source of truth. `just sync-versions` rewrites them and
+  `just verify` fails if they drift.
 -->
 
 <!-- BEGIN SUPPORTED-VERSIONS -->
@@ -196,23 +196,23 @@ manifest cannot block an operator upgrade.
 Render a single `install.yaml` from the kustomize configuration and apply it:
 
 ```sh
-make bundle          # writes dist/install.yaml
+just bundle          # writes dist/install.yaml
 kubectl apply -f dist/install.yaml
 ```
 
 Set a different image with `IMG`:
 
 ```sh
-make bundle IMG=ghcr.io/rashkash103/authentik-operator:v0.2.0
+IMG=ghcr.io/rashkash103/authentik-operator:v0.2.0 just bundle
 ```
 
 ### From a checkout
 
 ```sh
-make install         # CRDs only
-make deploy          # CRDs + controller-manager
-make undeploy        # remove the controller-manager
-make uninstall       # remove the CRDs
+just install         # CRDs only
+just deploy          # CRDs + controller-manager
+just undeploy        # remove the controller-manager
+just uninstall       # remove the CRDs
 ```
 
 ### Manager flags
@@ -398,13 +398,13 @@ Built with [Zensical](https://zensical.org/) from `docs/`, and published by the
 - [ADR 0001 — Connection scope](docs/decisions/0001-connection-scope.md): why both a namespaced and a cluster-scoped connection kind ship.
 - [ADR 0002 — Adoption policy](docs/decisions/0002-adoption-policy.md): why `FailOnConflict` is the default.
 - [SECURITY.md](SECURITY.md): threat model, credential blast radius, hardening, and how to report a vulnerability.
-- [CONTRIBUTING.md](CONTRIBUTING.md): development setup, test tiers, and the `make verify` contract.
+- [CONTRIBUTING.md](CONTRIBUTING.md): development setup, test tiers, and the `just verify` contract.
 
 ## Contributing
 
 Bug reports, design feedback and pull requests are welcome. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md) — it covers the development environment, the
-real Makefile targets, and the three test tiers (unit, envtest, E2E).
+real `just` recipes, and the three test tiers (unit, envtest, E2E).
 
 Because every line of this project was AI generated, careful human review is the
 most valuable contribution available. Reviews of the design documents in

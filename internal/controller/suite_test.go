@@ -99,7 +99,7 @@ func envtestClient(t *testing.T) client.Client {
 		t.Skip("envtest does not run under -short")
 	}
 	if testConfig == nil {
-		t.Skip("KUBEBUILDER_ASSETS is unset; run via `make test`")
+		t.Skip("KUBEBUILDER_ASSETS is unset; run via `just test`")
 	}
 
 	c, err := client.New(testConfig, client.Options{Scheme: testScheme})

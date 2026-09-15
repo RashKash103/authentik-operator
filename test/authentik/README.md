@@ -1,7 +1,7 @@
 # Local authentik test instance
 
 A disposable authentik stack for developing and testing the operator. The same
-compose file backs both `make authentik-up` on a laptop and the E2E job in CI.
+compose file backs both `just authentik-up` on a laptop and the E2E job in CI.
 
 The point of this directory is that authentik comes up **fully provisioned and
 API-authenticable without anyone touching a browser**. A stock authentik boots
@@ -26,9 +26,9 @@ E2E suite can therefore hard-code a token it already knows.
 ## Quick start
 
 ```shell
-make authentik-up      # or: ./test/authentik/up.sh
-make test-e2e
-make authentik-down    # or: ./test/authentik/down.sh
+just authentik-up      # or: ./test/authentik/up.sh
+just test-e2e
+just authentik-down    # or: ./test/authentik/down.sh
 ```
 
 `up.sh` prints the resolved URL, the admin credentials and the API token when it

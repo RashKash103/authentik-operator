@@ -83,7 +83,7 @@ This is the real work. For each compile error and each field the operator maps:
 `minimum` and `maximum` to the new series, then:
 
 ```sh
-make sync-versions   # rewrites the README table and bounds
+just sync-versions   # rewrites the README table and bounds
 ```
 
 Update the Go gate constants in `internal/authentik/version.go` (`MinimumVersion`,
@@ -98,20 +98,20 @@ on an older operator release, and the matrix is how they find it.
 ### 5. Regenerate everything
 
 ```sh
-make manifests generate
-make docs-gen
-make verify
+just manifests generate
+just docs-gen
+just verify
 ```
 
-`make verify` must pass on a clean tree. It also syncs the chart's CRDs and RBAC.
+`just verify` must pass on a clean tree. It also syncs the chart's CRDs and RBAC.
 
 ### 6. Verify against a real instance
 
 A compile is not evidence. Run the operator against the new authentik:
 
 ```sh
-make authentik-up                     # uses the pinned tag from supported-versions.yaml
-make test-integration                 # client layer against the live instance
+just authentik-up                     # uses the pinned tag from supported-versions.yaml
+just test-integration                 # client layer against the live instance
 ```
 
 Then the full end-to-end suite. If `kind` is not installed,
@@ -136,7 +136,7 @@ Tear down afterwards, and restore the kubecontext you found:
 
 ```sh
 ./bin/kind delete cluster --name ak-bump
-make authentik-down
+just authentik-down
 kubectl config use-context <the original context>
 ```
 
@@ -155,8 +155,8 @@ manifests.
 - [ ] Every compile error fixed by reading the generated models
 - [ ] Enums re-extracted and markers updated
 - [ ] `supported-versions.yaml`, the Go gate, and both compatibility matrices agree
-- [ ] `make verify` passes on a clean tree
-- [ ] `make test` and `make lint` pass
+- [ ] `just verify` passes on a clean tree
+- [ ] `just test` and `just lint` pass
 - [ ] E2E green against the new authentik, run **twice**
 - [ ] Test environment torn down, kubecontext restored
 - [ ] Chart version bumped for the new release

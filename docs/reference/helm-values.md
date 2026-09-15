@@ -16,14 +16,14 @@ Complete reference for every value accepted by the `authentik-operator` chart.
 ## Regenerating
 
 ```sh
-make docs-helm
+just docs-helm
 ```
 
 It installs `helm-docs` into `bin/` if it is missing, then rewrites the block
 below.
 
 The block below is generated from the chart's `values.yaml`, where every key is
-documented inline, and `make verify` fails if it is stale. To see the same thing
+documented inline, and `just verify` fails if it is stale. To see the same thing
 from a chart you already have:
 
 ```sh

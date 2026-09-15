@@ -5,7 +5,7 @@ metadata:
   name: {{ include "authentik-operator.fullname" . }}-manager
   labels:
     {{- include "authentik-operator.labels" . | nindent 4 }}
-# Rules come from rbac-rules.yaml, which `make manifests` renders from
+# Rules come from rbac-rules.yaml, which `just manifests` renders from
 # config/rbac/role.yaml - itself generated from the +kubebuilder:rbac markers on
 # the controllers.
 #

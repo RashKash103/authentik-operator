@@ -85,7 +85,7 @@ def sync_readme(data: dict, check: bool) -> bool:
         return True
     if check:
         print(f"ERROR: {README.name} version table is out of date with {SOURCE.name}", file=sys.stderr)
-        print("       run 'make sync-versions' and commit the result", file=sys.stderr)
+        print("       run 'just sync-versions' and commit the result", file=sys.stderr)
         return False
     README.write_text(updated)
     print(f"updated {README.name}")

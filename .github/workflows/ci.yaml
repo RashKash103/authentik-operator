@@ -34,17 +34,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Read the pin out of the Makefile rather than duplicating it here. The
-      # previous copy carried a "keep in sync with the Makefile" comment and
+      # Read the pin out of the justfile rather than duplicating it here. The
+      # previous copy carried a "keep in sync with the build file" comment and
       # drifted anyway, failing with "the Go language version (go1.25) used to
       # build golangci-lint is lower than the targeted Go version".
       - name: Resolve the pinned golangci-lint version
         id: lint-version
         run: |
           set -euo pipefail
-          version="$(sed -n 's/^GOLANGCI_LINT_VERSION ?= //p' Makefile)"
+          version="$(sed -n 's/^GOLANGCI_LINT_VERSION := "\(.*\)"/\1/p' justfile)"
           if [ -z "${version}" ]; then
-            echo "could not read GOLANGCI_LINT_VERSION from the Makefile" >&2
+            echo "could not read GOLANGCI_LINT_VERSION from the justfile" >&2
             exit 1
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
@@ -63,6 +63,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -70,8 +73,7 @@ jobs:
           cache: true
 
       - name: go vet
-        run: make vet
-
+        run: just vet
   verify:
     # Stale committed CRDs that no longer match the Go types produce failures
     # that are very hard to read at the other end (a field silently missing
@@ -82,6 +84,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -89,7 +94,7 @@ jobs:
           cache: true
 
       # No restore-keys on purpose. A prefix match would restore a bin/ built
-      # from the previous tool pins, and the Makefile's `test -x` guard then
+      # from the previous tool pins, and the justfile's `test -x` guard then
       # skips reinstalling - so bumping a tool version would silently keep
       # running the old binary, and the stale copy would be re-saved under the
       # new key. A cache miss just reinstalls, which is cheap.
@@ -97,18 +102,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bin
-          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          key: ${{ runner.os }}-tools-${{ hashFiles('justfile') }}
 
       - name: Ensure PyYAML is available
-        # `make verify` depends on verify-versions, which runs
+        # `just verify` depends on verify-versions, which runs
         # hack/sync-versions.py against supported-versions.yaml.
         run: python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet "pyyaml==6.0.3"
 
       - name: Regenerate manifests and DeepCopy, fail if the tree changed
-        run: make verify
+        run: just verify
 
       - name: Fail on newly generated but uncommitted files
-        # `make verify` uses `git diff`, which does not see *new* files. A
+        # `just verify` uses `git diff`, which does not see *new* files. A
         # freshly added API type produces a brand-new CRD, so check that too.
         run: |
           set -euo pipefail
@@ -118,7 +123,6 @@ jobs:
             echo "${untracked}"
             exit 1
           fi
-
   build:
     name: build
     runs-on: ubuntu-latest
@@ -126,6 +130,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -133,7 +140,7 @@ jobs:
           cache: true
 
       # No restore-keys on purpose. A prefix match would restore a bin/ built
-      # from the previous tool pins, and the Makefile's `test -x` guard then
+      # from the previous tool pins, and the justfile's `test -x` guard then
       # skips reinstalling - so bumping a tool version would silently keep
       # running the old binary, and the stale copy would be re-saved under the
       # new key. A cache miss just reinstalls, which is cheap.
@@ -141,21 +148,23 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bin
-          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          key: ${{ runner.os }}-tools-${{ hashFiles('justfile') }}
 
       - name: Build manager binary
-        run: make build
+        run: just build
 
       - name: Build container image
         # Not pushed - this only proves the Dockerfile still builds.
-        run: make docker-build IMG=authentik-operator:ci
-
+        run: IMG=authentik-operator:ci just docker-build
   test:
     name: unit tests (race + coverage)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -164,7 +173,7 @@ jobs:
           cache: true
 
       # No restore-keys on purpose. A prefix match would restore a bin/ built
-      # from the previous tool pins, and the Makefile's `test -x` guard then
+      # from the previous tool pins, and the justfile's `test -x` guard then
       # skips reinstalling - so bumping a tool version would silently keep
       # running the old binary, and the stale copy would be re-saved under the
       # new key. A cache miss just reinstalls, which is cheap.
@@ -172,12 +181,12 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bin
-          key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
+          key: ${{ runner.os }}-tools-${{ hashFiles('justfile') }}
 
       - name: Run tests
-        # `make test` runs `go test ... -race -coverprofile=cover.out` against
+        # `just test` runs `go test ... -race -coverprofile=cover.out` against
         # envtest, excluding the E2E suite (see e2e.yaml for that).
-        run: make test
+        run: just test
 
       - name: Coverage summary
         if: always()
@@ -195,7 +204,6 @@ jobs:
           path: cover.out
           if-no-files-found: warn
           retention-days: 14
-
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest

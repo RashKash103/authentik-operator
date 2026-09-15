@@ -7,22 +7,22 @@
     as much as code.
 
 `CONTRIBUTING.md` in the repository root is the full document — development
-environment, the real Makefile targets, the three test tiers, commit
-conventions, and the `make verify` contract. This page is the short version.
+environment, the real `just` recipes, the three test tiers, commit
+conventions, and the `just verify` contract. This page is the short version.
 
 ## Quick start
 
 ```sh
 git clone <repository-url>
 cd authentik-operator
-make build     # generate, format, vet, build bin/manager
-make test      # unit + envtest
-make help      # every target, with descriptions
+just build     # generate, format, vet, build bin/manager
+just test      # unit + envtest
+just           # every recipe, with descriptions
 ```
 
 Tooling — `controller-gen`, `kustomize`, `setup-envtest`, `golangci-lint`,
-`helm-docs` — is bootstrapped into `bin/` on first use and pinned in the
-Makefile. Do not upgrade any of them by hand; bump the `*_VERSION` variable so a
+`helm-docs`, `crd-ref-docs` — is bootstrapped into `bin/` on first use and pinned in the
+justfile. Do not upgrade any of them by hand; bump the `*_VERSION` variable so a
 clean checkout and CI stay identical.
 
 ## Test tiers
@@ -32,7 +32,7 @@ Run the cheapest tier that can catch your mistake.
 === "Unit"
 
     ```sh
-    make test-unit
+    just test-unit
     ```
 
     `go test ./internal/... -race -short`. No envtest, no Docker, no cluster.
@@ -44,7 +44,7 @@ Run the cheapest tier that can catch your mistake.
 === "envtest"
 
     ```sh
-    make test
+    just test
     ```
 
     The full suite except `test/e2e`, against a real `kube-apiserver` and
@@ -59,12 +59,12 @@ Run the cheapest tier that can catch your mistake.
 === "E2E"
 
     ```sh
-    make authentik-up     # start a local authentik (Docker)
-    make test-e2e         # go test ./test/e2e/... -v -timeout 30m
-    make authentik-down   # stop it and delete its volumes
+    just authentik-up     # start a local authentik (Docker)
+    just test-e2e         # go test ./test/e2e/... -v -timeout 30m
+    just authentik-down   # stop it and delete its volumes
     ```
 
-    `make test-e2e` does not start authentik for you, so you can iterate without
+    `just test-e2e` does not start authentik for you, so you can iterate without
     paying the startup cost each time. It does not tear anything down either.
 
     E2E is for what only a real authentik can prove: API compatibility across
@@ -72,20 +72,20 @@ Run the cheapest tier that can catch your mistake.
     behaviour from [ADR 0002](decisions/0002-adoption-policy.md), and the shape
     of the credentials written back into `Secret`s.
 
-## `make verify` must pass
+## `just verify` must pass
 
 This repository commits its generated artifacts — CRD YAML, RBAC, `DeepCopy`
 methods — and the version matrix must agree with `supported-versions.yaml`.
 
 ```sh
-make verify   # manifests + generate + verify-versions, then fail if the tree changed
+just verify   # manifests + generate + verify-versions, then fail if the tree changed
 ```
 
 If CI says artifacts are out of date:
 
 ```sh
-make manifests generate
-make sync-versions
+just manifests generate
+just sync-versions
 git add -A && git commit
 ```
 
@@ -141,9 +141,9 @@ Summary under about 72 characters, imperative mood, no trailing full stop.
 ## Before opening a pull request
 
 ```sh
-make lint
-make test
-make verify
+just lint
+just test
+just verify
 ```
 
 - Explain **why**, not what — the diff shows what.

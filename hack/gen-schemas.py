@@ -103,7 +103,7 @@ def main() -> int:
         stale = sorted(set(desired) ^ set(existing)) or [
             n for n in desired if existing.get(n) != desired[n]
         ]
-        print(f"ERROR: schemas are out of date ({', '.join(stale)}); run 'make schemas' and commit",
+        print(f"ERROR: schemas are out of date ({', '.join(stale)}); run 'just schemas' and commit",
               file=sys.stderr)
         return 1
 

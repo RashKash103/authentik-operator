@@ -1,7 +1,7 @@
 # GENERATED FILE - DO NOT EDIT.
 #
 # Rendered from config/rbac/role.yaml by hack/sync-chart-rbac.py, which runs as
-# part of `make manifests`. Edit the +kubebuilder:rbac markers on the
+# part of `just manifests`. Edit the +kubebuilder:rbac markers on the
 # controllers instead; this file only exists so the chart's ClusterRole cannot
 # drift from the manager's actual requirements.
 - apiGroups:

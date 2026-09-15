@@ -29,7 +29,7 @@ END = "<!-- END GENERATED: helm-values -->"
 def values_table() -> str:
     """Run helm-docs and return just the generated values table."""
     if not HELM_DOCS.exists():
-        print(f"ERROR: {HELM_DOCS} not found; run 'make helm-docs'", file=sys.stderr)
+        print(f"ERROR: {HELM_DOCS} not found; run 'just helm-docs'", file=sys.stderr)
         sys.exit(1)
 
     # Render to stdout so the chart's own README is never rewritten as a side
@@ -81,7 +81,7 @@ def main() -> int:
         print(f"{TARGET.name} is up to date")
         return 0
     if args.check:
-        print(f"ERROR: {TARGET.name} is out of date; run 'make docs-helm' and commit", file=sys.stderr)
+        print(f"ERROR: {TARGET.name} is out of date; run 'just docs-helm' and commit", file=sys.stderr)
         return 1
 
     TARGET.write_text(updated)

@@ -319,7 +319,7 @@ helm template t charts/authentik-operator -f charts/authentik-operator/ci/invali
 The `crds/` directory is generated, not hand-written:
 
 ```sh
-make manifests
+just manifests
 cp config/crd/bases/*.yaml charts/authentik-operator/crds/
 ```
 

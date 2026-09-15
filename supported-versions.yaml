@@ -32,7 +32,7 @@
 # return) or decoding tolerantly instead of using the generated models. Both are
 # real options; neither is done yet. See the tracking ticket.
 #
-# Changing this file without running `make sync-versions` will fail CI.
+# Changing this file without running `just sync-versions` will fail CI.
 supported:
   - series: "2026.8"
     image: "ghcr.io/goauthentik/server:2026.8.2"

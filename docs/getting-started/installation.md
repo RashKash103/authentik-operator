@@ -134,7 +134,7 @@ left a large `last-applied-configuration` annotation. Client-side apply can fail
 on these CRDs with `metadata.annotations: Too long`.
 
 The chart's `crds/` directory may be empty in a fresh checkout where
-`make manifests` has not run. That is expected, not an error — Helm treats it as
+`just manifests` has not run. That is expected, not an error — Helm treats it as
 "no CRDs to install".
 
 A release that changes the API needs more than new CRDs — see
@@ -146,32 +146,32 @@ the manifest changes v0.2.0 requires.
 Render a single `install.yaml` from the kustomize configuration:
 
 ```sh
-make bundle                 # writes dist/install.yaml
+just bundle                 # writes dist/install.yaml
 kubectl apply -f dist/install.yaml
 ```
 
 Override the image with `IMG`:
 
 ```sh
-make bundle IMG=ghcr.io/example/authentik-operator:v0.2.0
+IMG=ghcr.io/example/authentik-operator:v0.2.0 just bundle
 ```
 
 !!! note
 
-    `make bundle` and `make deploy` both run `kustomize edit set image` inside
+    `just bundle` and `just deploy` both run `kustomize edit set image` inside
     `config/manager`, which modifies `config/manager/kustomization.yaml` in your
     working tree. Check `git status` afterwards.
 
 ## From a checkout
 
 ```sh
-make install     # CRDs only
-make deploy      # CRDs + controller-manager
-make undeploy    # remove the controller-manager
-make uninstall   # remove the CRDs
+just install     # CRDs only
+just deploy      # CRDs + controller-manager
+just undeploy    # remove the controller-manager
+just uninstall   # remove the CRDs
 ```
 
-`make run` runs the manager outside the cluster against your current kubeconfig,
+`just run` runs the manager outside the cluster against your current kubeconfig,
 which is the fastest loop while developing. Install the CRDs first.
 
 ## Manager flags

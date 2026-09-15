@@ -51,7 +51,7 @@ def main() -> int:
         print(f"{TARGET.name} is up to date")
         return 0
     if args.check:
-        print(f"ERROR: {TARGET.name} is out of date; run 'make docs-api' and commit", file=sys.stderr)
+        print(f"ERROR: {TARGET.name} is out of date; run 'just docs-api' and commit", file=sys.stderr)
         return 1
 
     TARGET.write_text(updated)

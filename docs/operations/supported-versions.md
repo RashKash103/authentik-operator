@@ -49,7 +49,7 @@ operator and its Helm chart**, targeting the new authentik.
 <!--
   GENERATED — do not edit the table between the markers by hand.
   Source: supported-versions.yaml. Regenerate with `hack/gen-docs.py`, or
-  `make sync-versions`, which also updates the copy in README.md.
+  `just sync-versions`, which also updates the copy in README.md.
   `hack/gen-docs.py --check` fails if this drifts.
 -->
 
@@ -143,13 +143,13 @@ Rough order for a combined upgrade:
 it, and CI fails if the derived copies drift:
 
 ```sh
-make sync-versions      # rewrite README.md's table
-make verify-versions    # fail if anything is out of date
+just sync-versions      # rewrite README.md's table
+just verify-versions    # fail if anything is out of date
 hack/gen-docs.py        # rewrite this page's table
 hack/gen-docs.py --check
 ```
 
-`make verify` runs the version check as part of its normal work.
+`just verify` runs the version check as part of its normal work.
 
 !!! note "The Go gate is checked, never rewritten"
 
