@@ -46,14 +46,14 @@ func newStubClient() *stubClient {
 			"default-authn":        "flow-authn-uuid",
 		},
 		mappings: map[string]string{
-			"email-nameid": "mapping-nameid-uuid",
-			"acr":          "mapping-acr-uuid",
-			"upn":          "mapping-upn-uuid",
+			"email-nameid": "nameid-uuid",
+			"acr":          "acr-uuid",
+			"upn":          "upn-uuid",
 		},
 		keyPairs: map[string]string{
-			"signing-cert":      "kp-signing-uuid",
-			"verification-cert": "kp-verification-uuid",
-			"encryption-cert":   "kp-encryption-uuid",
+			"signing-cert":      "signing-cert-uuid",
+			"verification-cert": "verification-cert-uuid",
+			"encryption-cert":   "encryption-cert-uuid",
 			"proxy-cert":        "kp-proxy-uuid",
 		},
 	}
@@ -118,8 +118,8 @@ func newSAMLProvider(mutate func(*authentikv1alpha1.SAMLProvider)) *authentikv1a
 		ObjectMeta: metav1.ObjectMeta{Name: "grafana", Namespace: "default"},
 		Spec: authentikv1alpha1.SAMLProviderSpec{
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
-				AuthorizationFlow: "default-authz",
-				InvalidationFlow:  "default-invalidation",
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: "default-authz"},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: "default-invalidation"},
 			},
 			ACSURL: "https://grafana.example.com/saml/acs",
 		},
@@ -132,7 +132,7 @@ func newSAMLProvider(mutate func(*authentikv1alpha1.SAMLProvider)) *authentikv1a
 
 func buildSAML(t *testing.T, p *authentikv1alpha1.SAMLProvider) *api.SAMLProviderRequest {
 	t.Helper()
-	a := &samlAdapter{client: newStubClient(), provider: p}
+	a := &samlAdapter{client: newStubClient(), kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), provider: p}
 	req, err := a.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest: %v", err)
@@ -149,10 +149,10 @@ func TestSAMLBuildRequestSetsRequiredFields(t *testing.T) {
 	if req.Name != "grafana" {
 		t.Errorf("Name = %q, want grafana", req.Name)
 	}
-	if req.AuthorizationFlow != "flow-authz-uuid" {
+	if req.AuthorizationFlow != "default-authz-uuid" {
 		t.Errorf("AuthorizationFlow = %q, want the resolved UUID", req.AuthorizationFlow)
 	}
-	if req.InvalidationFlow != "flow-invalidation-uuid" {
+	if req.InvalidationFlow != "default-invalidation-uuid" {
 		t.Errorf("InvalidationFlow = %q, want the resolved UUID", req.InvalidationFlow)
 	}
 	if req.AcsUrl != "https://grafana.example.com/saml/acs" {
@@ -177,9 +177,9 @@ func TestSAMLBuildRequestPrefersSpecName(t *testing.T) {
 // deep inside authentik.
 func TestSAMLBuildRequestResolvesKeyPairsToUUIDs(t *testing.T) {
 	req := buildSAML(t, newSAMLProvider(func(p *authentikv1alpha1.SAMLProvider) {
-		p.Spec.SigningKeyPair = "signing-cert"
-		p.Spec.VerificationKeyPair = "verification-cert"
-		p.Spec.EncryptionKeyPair = "encryption-cert"
+		p.Spec.SigningKeyPair = &authentikv1alpha1.CertificateKeyPairReference{Name: "signing-cert"}
+		p.Spec.VerificationKeyPair = &authentikv1alpha1.CertificateKeyPairReference{Name: "verification-cert"}
+		p.Spec.EncryptionKeyPair = &authentikv1alpha1.CertificateKeyPairReference{Name: "encryption-cert"}
 	}))
 
 	for _, tc := range []struct {
@@ -187,9 +187,9 @@ func TestSAMLBuildRequestResolvesKeyPairsToUUIDs(t *testing.T) {
 		got   string
 		want  string
 	}{
-		{"signing_kp", req.GetSigningKp(), "kp-signing-uuid"},
-		{"verification_kp", req.GetVerificationKp(), "kp-verification-uuid"},
-		{"encryption_kp", req.GetEncryptionKp(), "kp-encryption-uuid"},
+		{"signing_kp", req.GetSigningKp(), "signing-cert-uuid"},
+		{"verification_kp", req.GetVerificationKp(), "verification-cert-uuid"},
+		{"encryption_kp", req.GetEncryptionKp(), "encryption-cert-uuid"},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("%s = %q, want %q", tc.field, tc.got, tc.want)
@@ -202,12 +202,12 @@ func TestSAMLBuildRequestResolvesKeyPairsToUUIDs(t *testing.T) {
 // two up silently drops one of them.
 func TestSAMLBuildRequestResolvesMappings(t *testing.T) {
 	req := buildSAML(t, newSAMLProvider(func(p *authentikv1alpha1.SAMLProvider) {
-		p.Spec.PropertyMappings = []string{"upn", "acr"}
-		p.Spec.NameIDMapping = "email-nameid"
-		p.Spec.AuthnContextClassRefMapping = "acr"
+		p.Spec.PropertyMappings = []authentikv1alpha1.PropertyMappingReference{{Name: "upn"}, {Name: "acr"}}
+		p.Spec.NameIDMapping = &authentikv1alpha1.PropertyMappingReference{Name: "email-nameid"}
+		p.Spec.AuthnContextClassRefMapping = &authentikv1alpha1.PropertyMappingReference{Name: "acr"}
 	}))
 
-	want := []string{"mapping-upn-uuid", "mapping-acr-uuid"}
+	want := []string{"upn-uuid", "acr-uuid"}
 	got := req.GetPropertyMappings()
 	if len(got) != len(want) {
 		t.Fatalf("property_mappings = %v, want %v", got, want)
@@ -218,10 +218,10 @@ func TestSAMLBuildRequestResolvesMappings(t *testing.T) {
 			t.Errorf("property_mappings[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
-	if req.GetNameIdMapping() != "mapping-nameid-uuid" {
+	if req.GetNameIdMapping() != "email-nameid-uuid" {
 		t.Errorf("name_id_mapping = %q", req.GetNameIdMapping())
 	}
-	if req.GetAuthnContextClassRefMapping() != "mapping-acr-uuid" {
+	if req.GetAuthnContextClassRefMapping() != "acr-uuid" {
 		t.Errorf("authn_context_class_ref_mapping = %q", req.GetAuthnContextClassRefMapping())
 	}
 }
@@ -311,28 +311,28 @@ func TestSAMLBuildRequestReportsUnresolvableReferences(t *testing.T) {
 		mutate func(*authentikv1alpha1.SAMLProvider)
 	}{
 		{"authorization flow", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.AuthorizationFlow = "missing-flow"
+			p.Spec.AuthorizationFlow = authentikv1alpha1.FlowReference{Name: "missing-flow"}
 		}},
 		{"invalidation flow", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.InvalidationFlow = "missing-flow"
+			p.Spec.InvalidationFlow = authentikv1alpha1.FlowReference{Name: "missing-flow"}
 		}},
 		{"authentication flow", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.AuthenticationFlow = ptr("missing-flow")
+			p.Spec.AuthenticationFlow = &authentikv1alpha1.FlowReference{Name: "missing-flow"}
 		}},
 		{"signing key pair", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.SigningKeyPair = "missing-cert"
+			p.Spec.SigningKeyPair = &authentikv1alpha1.CertificateKeyPairReference{Name: "missing-cert"}
 		}},
 		{"nameID mapping", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.NameIDMapping = "missing-mapping"
+			p.Spec.NameIDMapping = &authentikv1alpha1.PropertyMappingReference{Name: "missing-mapping"}
 		}},
 		{"property mappings", func(p *authentikv1alpha1.SAMLProvider) {
-			p.Spec.PropertyMappings = []string{"upn", "missing-mapping"}
+			p.Spec.PropertyMappings = []authentikv1alpha1.PropertyMappingReference{{Name: "upn"}, {Name: "missing-mapping"}}
 		}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &samlAdapter{client: newStubClient(), provider: newSAMLProvider(tt.mutate)}
+			a := &samlAdapter{client: newStubClient(), kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), provider: newSAMLProvider(tt.mutate)}
 			_, err := a.buildRequest(context.Background())
 			if err == nil {
 				t.Fatal("buildRequest succeeded with an unresolvable reference")
@@ -356,7 +356,7 @@ func TestSAMLEquivalent(t *testing.T) {
 		}
 		p.SetAudience("grafana")
 		p.SetSignAssertion(true)
-		p.SetSigningKp("kp-signing-uuid")
+		p.SetSigningKp("signing-cert-uuid")
 		p.SetSpBinding(api.SAMLBINDINGSENUM_POST)
 		return p
 	}

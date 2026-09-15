@@ -20,6 +20,7 @@ import (
 	"context"
 
 	api "goauthentik.io/api/v3"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
 	"rka.sh/authentik-operator/internal/authentik"
@@ -186,7 +187,9 @@ func kubernetesConnectionEquivalent(a, b *api.KubernetesServiceConnection) bool 
 // connection.
 type dockerServiceConnectionAdapter struct {
 	client authentik.Client
-	conn   *authentikv1alpha1.DockerServiceConnection
+	// kube reads the CertificateKeyPair resources this connection references.
+	kube client.Client
+	conn *authentikv1alpha1.DockerServiceConnection
 
 	// observed holds the connection as last read from authentik.
 	observed *api.DockerServiceConnection
@@ -312,21 +315,22 @@ func (a *dockerServiceConnectionAdapter) buildRequest(ctx context.Context) (*api
 	// Both certificate references are sent on every request, explicitly
 	// cleared when unset, so removing one from the spec actually detaches it
 	// rather than silently leaving the old certificate in place.
-	if spec.TLSVerification != "" {
-		pair, err := a.client.ResolveCertificateKeyPair(ctx, spec.TLSVerification)
-		if err != nil {
-			return nil, err
-		}
-		req.SetTlsVerification(pair)
+	verification, err := resolveKeyPairRef(ctx, a.kube, a.conn.Namespace, "spec.tlsVerification", spec.TLSVerification)
+	if err != nil {
+		return nil, err
+	}
+	if verification != "" {
+		req.SetTlsVerification(verification)
 	} else {
 		req.SetTlsVerificationNil()
 	}
-	if spec.TLSAuthentication != "" {
-		pair, err := a.client.ResolveCertificateKeyPair(ctx, spec.TLSAuthentication)
-		if err != nil {
-			return nil, err
-		}
-		req.SetTlsAuthentication(pair)
+
+	authentication, err := resolveKeyPairRef(ctx, a.kube, a.conn.Namespace, "spec.tlsAuthentication", spec.TLSAuthentication)
+	if err != nil {
+		return nil, err
+	}
+	if authentication != "" {
+		req.SetTlsAuthentication(authentication)
 	} else {
 		req.SetTlsAuthenticationNil()
 	}

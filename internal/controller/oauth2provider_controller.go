@@ -103,7 +103,7 @@ func (r *OAuth2ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	adapter := &oauth2Adapter{client: akClient, provider: &provider, clientSecret: clientSecret}
+	adapter := &oauth2Adapter{client: akClient, kube: r.Client, provider: &provider, clientSecret: clientSecret}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &provider, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
 	})
@@ -160,7 +160,7 @@ func (r *OAuth2ProviderReconciler) reconcileDelete(
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil
 	}
 
-	adapter := &oauth2Adapter{client: akClient, provider: provider}
+	adapter := &oauth2Adapter{client: akClient, kube: r.Client, provider: provider}
 	done, err := Finalize(ctx, SyncRequest{Object: provider, Adapter: adapter, Recorder: r.Recorder})
 	if err != nil {
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil //nolint:nilerr // reported via condition

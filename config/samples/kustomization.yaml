@@ -5,6 +5,7 @@ resources:
   - authentik_v1alpha1_authentikconnection.yaml
   - authentik_v1alpha1_clusterauthentikconnection.yaml
   - authentik_v1alpha1_dockerserviceconnection.yaml
+  - authentik_v1alpha1_flow.yaml
   - authentik_v1alpha1_kubernetesserviceconnection.yaml
   - authentik_v1alpha1_oauth2provider.yaml
   - authentik_v1alpha1_outpost.yaml

@@ -90,21 +90,42 @@ spec:
                 type: string
               authenticationFlow:
                 description: |-
-                  AuthenticationFlow is the slug of the flow used to authenticate a user
-                  who reaches the application unauthenticated. Leave unset to use
-                  authentik's default.
-                type: string
+                  AuthenticationFlow is the flow used to authenticate a user who reaches
+                  the application unauthenticated. Leave unset to use authentik's default.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               authnContextClassRefMapping:
-                description: |-
-                  AuthnContextClassRefMapping is the name of the property mapping that
-                  produces the AuthnContextClassRef sent in the assertion.
-                type: string
+                description: AuthnContextClassRefMapping names a property mapping.
+                  Configures how the AuthnContextClassRef value is created. Leave
+                  unset to derive it from the authentication methods used.
+                properties:
+                  name:
+                    description: Name of the PropertyMapping resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               authorizationFlow:
-                description: |-
-                  AuthorizationFlow is the slug of the flow used when authorizing this
+                description: AuthorizationFlow is the flow used when authorizing this
                   provider.
-                minLength: 1
-                type: string
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               connectionRef:
                 description: ConnectionRef selects the authentik instance this provider
                   lives in.
@@ -159,14 +180,28 @@ spec:
                 type: string
               encryptionKeyPair:
                 description: |-
-                  EncryptionKeyPair is the name of the certificate key pair used to
-                  encrypt assertions. When set, assertions are sent encrypted.
-                type: string
+                  EncryptionKeyPair is the certificate key pair used to decrypt incoming
+                  assertions.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               invalidationFlow:
-                description: InvalidationFlow is the slug of the flow used when ending
-                  a session.
-                minLength: 1
-                type: string
+                description: InvalidationFlow is the flow used when ending a session.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               issuerOverride:
                 description: |-
                   IssuerOverride replaces the issuer sent in the assertion. Set it when a
@@ -186,14 +221,32 @@ spec:
                 type: string
               nameIDMapping:
                 description: |-
-                  NameIDMapping is the name of the property mapping that produces the
-                  NameID. Leave unset to let the requested NameID policy decide.
-                type: string
+                  NameIDMapping names a property mapping that produces the NameID value.
+                  Leave unset to honour the NameIDPolicy of the incoming request.
+                properties:
+                  name:
+                    description: Name of the PropertyMapping resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               propertyMappings:
-                description: PropertyMappings are the names of property mappings to
-                  attach.
+                description: PropertyMappings attached to this provider, in order.
                 items:
-                  type: string
+                  description: |-
+                    PropertyMappingReference points at a PropertyMapping resource in the same
+                    namespace.
+                  properties:
+                    name:
+                      description: Name of the PropertyMapping resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               sessionValidNotOnOrAfter:
                 description: |-
@@ -231,10 +284,17 @@ spec:
                 - http://www.w3.org/2000/09/xmldsig#dsa-sha1
                 type: string
               signingKeyPair:
-                description: |-
-                  SigningKeyPair is the name of the certificate key pair used to sign
-                  assertions and responses. Required for the sign* options to take effect.
-                type: string
+                description: SigningKeyPair is the certificate key pair used to sign
+                  outgoing responses.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               slsBinding:
                 description: |-
                   SLSBinding is the binding used to deliver logout messages to the service
@@ -258,10 +318,17 @@ spec:
                 type: string
               verificationKeyPair:
                 description: |-
-                  VerificationKeyPair is the name of the certificate key pair whose public
-                  certificate verifies signed AuthnRequests from the service provider.
-                  When set, unsigned requests are rejected.
-                type: string
+                  VerificationKeyPair is the certificate key pair whose certificate incoming
+                  signatures are validated against. Leave unset to accept unsigned requests.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - acsURL
             - authorizationFlow

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../schemas/flow-v1alpha1.json
+# Flows, property mappings and key pairs get their own resources so the thing
+# they identify is written once and referenced everywhere.
+#
+# Today each adopts an object that already exists in authentik. When the
+# operator learns to create them, only these manifests change — nothing that
+# references them does.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-authorization
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingSlug: default-provider-authorization-explicit-consent
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-invalidation
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingSlug: default-provider-invalidation-flow
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-openid
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'openid'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-email
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'email'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-profile
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'profile'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: CertificateKeyPair
+metadata:
+  name: self-signed
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  existingName: authentik Self-signed Certificate

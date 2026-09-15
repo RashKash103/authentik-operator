@@ -11,8 +11,10 @@ metadata:
 spec:
   connectionRef:
     name: primary
-  authorizationFlow: default-provider-authorization-explicit-consent
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
   externalHost: https://tools.example.com
   mode: forward_single

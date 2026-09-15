@@ -1,0 +1,307 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/application-v1alpha1.json",
+  "title": "Application (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "Application manages an application in authentik.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "Application",
+      "description": "Kind of this resource. Always Application."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "ApplicationSpec defines an application in authentik.",
+      "properties": {
+        "adoptionPolicy": {
+          "default": "FailOnConflict",
+          "description": "AdoptionPolicy controls what happens when an application with this slug\nalready exists in authentik.",
+          "enum": [
+            "FailOnConflict",
+            "AdoptExisting"
+          ],
+          "type": "string"
+        },
+        "backchannelProviderRefs": {
+          "description": "BackchannelProviderRefs are additional providers attached to this\napplication for back-channel use, such as SCIM provisioning or an LDAP\nbind, alongside the primary provider that handles the login itself.",
+          "items": {
+            "description": "ProviderReference points at a provider, either one this operator manages in\nthe same namespace or one that already exists in authentik.\n\nDeclared here but shared with Outpost, which references providers the same\nway. It lives in this file rather than a shared one only because Application\nwas the first consumer.\n\nThe reference is resolved through the provider resource's own\nstatus.providerID rather than by looking its name up in authentik, so the\nKubernetes objects stay the source of truth and renaming a provider inside\nauthentik cannot silently repoint an application at something else.\n\nA namespaced provider is always resolved in the application's own namespace.\nCross-namespace references are deliberately not supported: they would let\nanyone who can create a referring resource in one namespace attach a\nprovider, and therefore credentials, owned by another.",
+            "properties": {
+              "existingProviderName": {
+                "description": "ExistingProviderName is the name of a provider that already exists in\nauthentik and is maintained outside the operator. Use it to attach to a\nprovider somebody else created, rather than one this operator manages.",
+                "maxLength": 255,
+                "type": "string"
+              },
+              "kind": {
+                "default": "OAuth2Provider",
+                "description": "Kind of provider resource being referenced.",
+                "enum": [
+                  "OAuth2Provider",
+                  "SAMLProvider",
+                  "ProxyProvider"
+                ],
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the provider resource in this namespace. Mutually exclusive with\nexistingProviderName.",
+                "maxLength": 255,
+                "type": "string"
+              }
+            },
+            "type": "object",
+            "x-kubernetes-validations": [
+              {
+                "message": "exactly one of name or existingProviderName must be set",
+                "rule": "has(self.name) != has(self.existingProviderName)"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "connectionRef": {
+          "description": "ConnectionRef selects the authentik instance this application lives in.",
+          "properties": {
+            "kind": {
+              "default": "AuthentikConnection",
+              "description": "Kind of connection object being referenced.",
+              "enum": [
+                "AuthentikConnection",
+                "ClusterAuthentikConnection"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the connection object.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "deletionPolicy": {
+          "default": "Delete",
+          "description": "DeletionPolicy controls what happens to the authentik application when\nthis resource is deleted.",
+          "enum": [
+            "Delete",
+            "Orphan"
+          ],
+          "type": "string"
+        },
+        "group": {
+          "description": "Group names the section the application is filed under on the library\npage. Applications sharing a group are shown together.",
+          "type": "string"
+        },
+        "metaDescription": {
+          "description": "MetaDescription is the short description shown on the library entry.",
+          "type": "string"
+        },
+        "metaHide": {
+          "description": "MetaHide keeps the application off the user's library page while leaving\nit usable. Useful for an application reached only by a direct link.",
+          "type": "boolean"
+        },
+        "metaIcon": {
+          "description": "MetaIcon is the URL of the icon shown on the library entry.\n\nOnly a URL is accepted. authentik can also serve an icon uploaded to its\nown media storage, and that is out of scope for this resource: the file\nwould have to travel through the custom resource as base64 and be\nre-uploaded on every reconcile, which does not belong in etcd. Host the\nimage somewhere and point at it.",
+          "type": "string"
+        },
+        "metaLaunchUrl": {
+          "description": "MetaLaunchURL is the address the library entry links to. Leave unset to\nlet authentik derive it from the provider.",
+          "type": "string"
+        },
+        "metaPublisher": {
+          "description": "MetaPublisher names the application's publisher on the library entry.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name is the application's display name, shown on the user library page.\nDefaults to the resource name.",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "openInNewTab": {
+          "description": "OpenInNewTab opens the launch URL in a new browser tab or window.",
+          "type": "boolean"
+        },
+        "policyEngineMode": {
+          "default": "any",
+          "description": "PolicyEngineMode selects whether every policy bound to this application\nmust pass, or any one of them.",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "type": "string"
+        },
+        "providerRef": {
+          "description": "ProviderRef is the provider that authenticates users for this\napplication. Leave unset for an application that only appears in the\nuser library and is not itself protected.",
+          "properties": {
+            "existingProviderName": {
+              "description": "ExistingProviderName is the name of a provider that already exists in\nauthentik and is maintained outside the operator. Use it to attach to a\nprovider somebody else created, rather than one this operator manages.",
+              "maxLength": 255,
+              "type": "string"
+            },
+            "kind": {
+              "default": "OAuth2Provider",
+              "description": "Kind of provider resource being referenced.",
+              "enum": [
+                "OAuth2Provider",
+                "SAMLProvider",
+                "ProxyProvider"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the provider resource in this namespace. Mutually exclusive with\nexistingProviderName.",
+              "maxLength": 255,
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "exactly one of name or existingProviderName must be set",
+              "rule": "has(self.name) != has(self.existingProviderName)"
+            }
+          ]
+        },
+        "slug": {
+          "description": "Slug is the application's internal name, used in its URLs.\n\nIt is immutable. authentik keys an application by its slug, so changing\nit cannot be an update: the operator would have to delete the old\napplication and create a new one, which silently discards every policy\nbinding attached to it. Create a new Application instead.",
+          "maxLength": 50,
+          "minLength": 1,
+          "pattern": "^[-a-zA-Z0-9_]+$",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "message": "slug is immutable; create a new Application instead",
+              "rule": "self == oldSelf"
+            }
+          ]
+        }
+      },
+      "required": [
+        "connectionRef",
+        "slug"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "ApplicationStatus reports the application's state in authentik.",
+      "properties": {
+        "adopted": {
+          "description": "Adopted records that this resource took over a pre-existing authentik\nobject rather than creating it.",
+          "type": "boolean"
+        },
+        "backchannelProviderIDs": {
+          "description": "BackchannelProviderIDs are the numeric primary keys the back-channel\nprovider references resolved to, in spec order.",
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "conditions": {
+          "description": "Conditions describe the current state of the resource.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "lastSyncedTime": {
+          "description": "LastSyncedTime is when the resource last reconciled successfully.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "launchURL": {
+          "description": "LaunchURL is the address authentik currently resolves the library entry\nto, whether taken from metaLaunchUrl or derived from the provider.",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "providerID": {
+          "description": "ProviderID is the numeric primary key the primary provider reference\nresolved to. It is surfaced so a mis-wired reference can be diagnosed\nwithout reading the provider resource as well.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "remoteID": {
+          "description": "RemoteID is authentik's own identifier for the managed object: a numeric\nprimary key for providers and applications, a UUID elsewhere.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
+          "type": "string"
+        },
+        "remoteName": {
+          "description": "RemoteName is the name or slug last observed in authentik. Informational.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

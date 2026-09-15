@@ -90,15 +90,14 @@ type SAMLProviderSpec struct {
 	// +optional
 	SessionValidNotOnOrAfter string `json:"sessionValidNotOnOrAfter,omitempty"`
 
-	// NameIDMapping is the name of the property mapping that produces the
-	// NameID. Leave unset to let the requested NameID policy decide.
+	// NameIDMapping names a property mapping that produces the NameID value.
+	// Leave unset to honour the NameIDPolicy of the incoming request.
 	// +optional
-	NameIDMapping string `json:"nameIDMapping,omitempty"`
+	NameIDMapping *PropertyMappingReference `json:"nameIDMapping,omitempty"`
 
-	// AuthnContextClassRefMapping is the name of the property mapping that
-	// produces the AuthnContextClassRef sent in the assertion.
+	// AuthnContextClassRefMapping names a property mapping. Configures how the AuthnContextClassRef value is created. Leave unset to derive it from the authentication methods used.
 	// +optional
-	AuthnContextClassRefMapping string `json:"authnContextClassRefMapping,omitempty"`
+	AuthnContextClassRefMapping *PropertyMappingReference `json:"authnContextClassRefMapping,omitempty"`
 
 	// DigestAlgorithm used when signing assertions and responses.
 	// +optional
@@ -109,21 +108,19 @@ type SAMLProviderSpec struct {
 	// +optional
 	SignatureAlgorithm SAMLSignatureAlgorithm `json:"signatureAlgorithm,omitempty"`
 
-	// SigningKeyPair is the name of the certificate key pair used to sign
-	// assertions and responses. Required for the sign* options to take effect.
+	// SigningKeyPair is the certificate key pair used to sign outgoing responses.
 	// +optional
-	SigningKeyPair string `json:"signingKeyPair,omitempty"`
+	SigningKeyPair *CertificateKeyPairReference `json:"signingKeyPair,omitempty"`
 
-	// VerificationKeyPair is the name of the certificate key pair whose public
-	// certificate verifies signed AuthnRequests from the service provider.
-	// When set, unsigned requests are rejected.
+	// VerificationKeyPair is the certificate key pair whose certificate incoming
+	// signatures are validated against. Leave unset to accept unsigned requests.
 	// +optional
-	VerificationKeyPair string `json:"verificationKeyPair,omitempty"`
+	VerificationKeyPair *CertificateKeyPairReference `json:"verificationKeyPair,omitempty"`
 
-	// EncryptionKeyPair is the name of the certificate key pair used to
-	// encrypt assertions. When set, assertions are sent encrypted.
+	// EncryptionKeyPair is the certificate key pair used to decrypt incoming
+	// assertions.
 	// +optional
-	EncryptionKeyPair string `json:"encryptionKeyPair,omitempty"`
+	EncryptionKeyPair *CertificateKeyPairReference `json:"encryptionKeyPair,omitempty"`
 
 	// SignAssertion signs the assertion element itself.
 	// +optional

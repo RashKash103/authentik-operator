@@ -230,7 +230,7 @@ func (r *DockerServiceConnectionReconciler) Reconcile(ctx context.Context, req c
 		}
 	}
 
-	adapter := &dockerServiceConnectionAdapter{client: akClient, conn: &conn}
+	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, conn: &conn}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &conn, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
 	})
@@ -272,7 +272,7 @@ func (r *DockerServiceConnectionReconciler) reconcileDelete(
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil
 	}
 
-	adapter := &dockerServiceConnectionAdapter{client: akClient, conn: conn}
+	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, conn: conn}
 	done, err := Finalize(ctx, SyncRequest{Object: conn, Adapter: adapter, Recorder: r.Recorder})
 	if err != nil {
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil //nolint:nilerr // reported via condition

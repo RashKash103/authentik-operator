@@ -125,8 +125,8 @@ func TestOAuth2ProviderSchema(t *testing.T) {
 		return authentikv1alpha1.OAuth2ProviderSpec{
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
-				AuthorizationFlow: "default-provider-authorization-explicit-consent",
-				InvalidationFlow:  "default-provider-invalidation-flow",
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: "default-provider-authorization-explicit-consent"},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: "default-provider-invalidation-flow"},
 			},
 		}
 	}
@@ -168,7 +168,7 @@ func TestOAuth2ProviderSchema(t *testing.T) {
 		{
 			name: "an authorization flow is required",
 			mutate: func(s *authentikv1alpha1.OAuth2ProviderSpec) {
-				s.AuthorizationFlow = ""
+				s.AuthorizationFlow = authentikv1alpha1.FlowReference{}
 			},
 			wantErr: "authorizationFlow",
 		},
@@ -228,8 +228,8 @@ func TestOAuth2ProviderDefaults(t *testing.T) {
 		Spec: authentikv1alpha1.OAuth2ProviderSpec{
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
-				AuthorizationFlow: "authz",
-				InvalidationFlow:  "invalidation",
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: "authz"},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: "invalidation"},
 			},
 		},
 	}
@@ -293,8 +293,8 @@ func TestProxyProviderModeExclusivity(t *testing.T) {
 		return authentikv1alpha1.ProxyProviderSpec{
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
-				AuthorizationFlow: "authz",
-				InvalidationFlow:  "invalidation",
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: "authz"},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: "invalidation"},
 			},
 			ExternalHost: "https://app.example.com",
 		}
@@ -374,4 +374,120 @@ func TestApplicationSlugIsImmutable(t *testing.T) {
 
 	app.Spec.Slug = "renamed"
 	assertAdmission(t, c.Update(ctx, app), "slug")
+}
+
+// TestReferenceExactlyOneOf covers the rules that make references extensible.
+//
+// Each reference carries one option today and will carry a choice once the
+// matching CRDs exist. The exactly-one-of rule is what makes adding that second
+// option additive rather than another breaking change - so it has to actually
+// fire, in both directions.
+func TestReferenceExactlyOneOf(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "schema-refs")
+
+	base := func() authentikv1alpha1.ApplicationSpec {
+		return authentikv1alpha1.ApplicationSpec{
+			ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
+			Slug:          "refs",
+			Name:          "Refs",
+		}
+	}
+
+	cases := []struct {
+		name    string
+		ref     *authentikv1alpha1.ProviderReference
+		wantErr string
+	}{
+		{
+			name: "a managed provider name alone is accepted",
+			ref:  &authentikv1alpha1.ProviderReference{Name: "grafana"},
+		},
+		{
+			// The point of the change: binding to a provider somebody else
+			// created, rather than one this operator manages.
+			name: "an existing provider name alone is accepted",
+			ref:  &authentikv1alpha1.ProviderReference{ExistingProviderName: "hand-made"},
+		},
+		{
+			name:    "both together are rejected",
+			ref:     &authentikv1alpha1.ProviderReference{Name: "grafana", ExistingProviderName: "hand-made"},
+			wantErr: "exactly one",
+		},
+		{
+			name:    "neither is rejected",
+			ref:     &authentikv1alpha1.ProviderReference{},
+			wantErr: "exactly one",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := base()
+			spec.Slug = objName("refs", i)
+			spec.ProviderRef = tc.ref
+			obj := &authentikv1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{Name: objName("refapp", i), Namespace: ns},
+				Spec:       spec,
+			}
+			assertAdmission(t, c.Create(ctx, obj), tc.wantErr)
+		})
+	}
+}
+
+// TestServiceConnectionReferenceExactlyOneOf covers the three-way version of
+// the same rule, which had to be written without list construction: the
+// filter/size form blew the API server's CEL cost budget by 5.6x.
+func TestServiceConnectionReferenceExactlyOneOf(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "schema-screfs")
+
+	cases := []struct {
+		name    string
+		ref     *authentikv1alpha1.ServiceConnectionReference
+		wantErr string
+	}{
+		{
+			name: "a managed Kubernetes connection alone is accepted",
+			ref:  &authentikv1alpha1.ServiceConnectionReference{KubernetesServiceConnectionName: "in-cluster"},
+		},
+		{
+			name: "an existing connection alone is accepted",
+			ref:  &authentikv1alpha1.ServiceConnectionReference{KubernetesServiceConnectionName: "hand-made"},
+		},
+		{
+			name: "no reference at all is accepted, since it is optional",
+			ref:  nil,
+		},
+		{
+			name: "two together are rejected",
+			ref: &authentikv1alpha1.ServiceConnectionReference{
+				KubernetesServiceConnectionName: "in-cluster",
+				DockerServiceConnectionName:     "docker-host",
+			},
+			wantErr: "exactly one",
+		},
+		{
+			name:    "an empty reference is rejected",
+			ref:     &authentikv1alpha1.ServiceConnectionReference{},
+			wantErr: "exactly one",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := &authentikv1alpha1.Outpost{
+				ObjectMeta: metav1.ObjectMeta{Name: objName("outpost", i), Namespace: ns},
+				Spec: authentikv1alpha1.OutpostSpec{
+					ConnectionRef:        authentikv1alpha1.ConnectionReference{Name: "primary"},
+					Name:                 objName("outpost", i),
+					Type:                 authentikv1alpha1.OutpostTypeProxy,
+					ServiceConnectionRef: tc.ref,
+				},
+			}
+			assertAdmission(t, c.Create(ctx, obj), tc.wantErr)
+		})
+	}
 }

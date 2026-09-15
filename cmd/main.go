@@ -250,5 +250,32 @@ func setupControllers(mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create DockerServiceConnection controller: %w", err)
 	}
 
+	// The adopt-only kinds. Everything else references these rather than
+	// naming a flow slug or key pair name inline, so they reconcile first in
+	// practice and dependants converge once they report an ID.
+	if err := (&controller.FlowReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create Flow controller: %w", err)
+	}
+
+	if err := (&controller.PropertyMappingReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create PropertyMapping controller: %w", err)
+	}
+
+	if err := (&controller.CertificateKeyPairReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Resolver: resolver,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("unable to create CertificateKeyPair controller: %w", err)
+	}
+
 	return nil
 }

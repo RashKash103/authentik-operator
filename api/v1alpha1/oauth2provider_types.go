@@ -135,14 +135,14 @@ type OAuth2ProviderSpec struct {
 	// +optional
 	IncludeClaimsInIDToken *bool `json:"includeClaimsInIDToken,omitempty"`
 
-	// SigningKey is the name of the certificate key pair used to sign tokens.
+	// SigningKeyPair is the certificate key pair used to sign tokens.
 	// +optional
-	SigningKey string `json:"signingKey,omitempty"`
+	SigningKeyPair *CertificateKeyPairReference `json:"signingKeyPair,omitempty"`
 
-	// EncryptionKey is the name of the certificate key pair used to encrypt
-	// tokens. When set, tokens are returned as JWEs.
+	// EncryptionKeyPair is the certificate key pair used to encrypt tokens.
+	// When set, tokens are returned as JWEs.
 	// +optional
-	EncryptionKey string `json:"encryptionKey,omitempty"`
+	EncryptionKeyPair *CertificateKeyPairReference `json:"encryptionKeyPair,omitempty"`
 
 	// SubMode selects what the `sub` claim contains.
 	// +kubebuilder:validation:Enum=hashed_user_id;user_id;user_uuid;user_username;user_email;user_upn

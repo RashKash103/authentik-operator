@@ -73,12 +73,10 @@ type OutpostSpec struct {
 	// +optional
 	ProviderRefs []ProviderReference `json:"providerRefs,omitempty"`
 
-	// ServiceConnectionRef is the name, or UUID, of the service connection
-	// authentik should use to deploy this outpost. Leave unset to register the
-	// outpost without letting authentik manage its deployment, which is what a
-	// self-hosted outpost wants.
+	// ServiceConnectionRef selects the service connection authentik uses to
+	// deploy this outpost. Leave unset when you deploy the outpost yourself.
 	// +optional
-	ServiceConnectionRef string `json:"serviceConnectionRef,omitempty"`
+	ServiceConnectionRef *ServiceConnectionReference `json:"serviceConnectionRef,omitempty"`
 
 	// Config is passed to authentik verbatim as the outpost's configuration.
 	// The schema differs per outpost type and per authentik version, so it is

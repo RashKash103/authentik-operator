@@ -70,7 +70,8 @@ spec:
                   bind, alongside the primary provider that handles the login itself.
                 items:
                   description: |-
-                    ProviderReference points at a provider resource in the same namespace.
+                    ProviderReference points at a provider, either one this operator manages in
+                    the same namespace or one that already exists in authentik.
 
                     Declared here but shared with Outpost, which references providers the same
                     way. It lives in this file rather than a shared one only because Application
@@ -86,6 +87,13 @@ spec:
                     anyone who can create a referring resource in one namespace attach a
                     provider, and therefore credentials, owned by another.
                   properties:
+                    existingProviderName:
+                      description: |-
+                        ExistingProviderName is the name of a provider that already exists in
+                        authentik and is maintained outside the operator. Use it to attach to a
+                        provider somebody else created, rather than one this operator manages.
+                      maxLength: 255
+                      type: string
                     kind:
                       default: OAuth2Provider
                       description: Kind of provider resource being referenced.
@@ -95,12 +103,15 @@ spec:
                       - ProxyProvider
                       type: string
                     name:
-                      description: Name of the provider resource.
-                      minLength: 1
+                      description: |-
+                        Name of the provider resource in this namespace. Mutually exclusive with
+                        existingProviderName.
+                      maxLength: 255
                       type: string
-                  required:
-                  - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of name or existingProviderName must be set
+                    rule: has(self.name) != has(self.existingProviderName)
                 type: array
               connectionRef:
                 description: ConnectionRef selects the authentik instance this application
@@ -166,6 +177,7 @@ spec:
                 description: |-
                   Name is the application's display name, shown on the user library page.
                   Defaults to the resource name.
+                maxLength: 255
                 type: string
               openInNewTab:
                 description: OpenInNewTab opens the launch URL in a new browser tab
@@ -186,6 +198,13 @@ spec:
                   application. Leave unset for an application that only appears in the
                   user library and is not itself protected.
                 properties:
+                  existingProviderName:
+                    description: |-
+                      ExistingProviderName is the name of a provider that already exists in
+                      authentik and is maintained outside the operator. Use it to attach to a
+                      provider somebody else created, rather than one this operator manages.
+                    maxLength: 255
+                    type: string
                   kind:
                     default: OAuth2Provider
                     description: Kind of provider resource being referenced.
@@ -195,12 +214,15 @@ spec:
                     - ProxyProvider
                     type: string
                   name:
-                    description: Name of the provider resource.
-                    minLength: 1
+                    description: |-
+                      Name of the provider resource in this namespace. Mutually exclusive with
+                      existingProviderName.
+                    maxLength: 255
                     type: string
-                required:
-                - name
                 type: object
+                x-kubernetes-validations:
+                - message: exactly one of name or existingProviderName must be set
+                  rule: has(self.name) != has(self.existingProviderName)
               slug:
                 description: |-
                   Slug is the application's internal name, used in its URLs.

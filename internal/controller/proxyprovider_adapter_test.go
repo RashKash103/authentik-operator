@@ -33,8 +33,8 @@ func newProxyProvider(mutate func(*authentikv1alpha1.ProxyProvider)) *authentikv
 		ObjectMeta: metav1.ObjectMeta{Name: "grafana", Namespace: "default"},
 		Spec: authentikv1alpha1.ProxyProviderSpec{
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
-				AuthorizationFlow: "default-authz",
-				InvalidationFlow:  "default-invalidation",
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: "default-authz"},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: "default-invalidation"},
 			},
 			ExternalHost: "https://grafana.example.com",
 			Mode:         authentikv1alpha1.ProxyModeProxy,
@@ -48,7 +48,7 @@ func newProxyProvider(mutate func(*authentikv1alpha1.ProxyProvider)) *authentikv
 
 func buildProxy(t *testing.T, p *authentikv1alpha1.ProxyProvider) *api.ProxyProviderRequest {
 	t.Helper()
-	a := &proxyAdapter{client: newStubClient(), provider: p}
+	a := &proxyAdapter{client: newStubClient(), kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), provider: p}
 	req, err := a.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest: %v", err)
@@ -64,10 +64,10 @@ func TestProxyBuildRequestSetsRequiredFields(t *testing.T) {
 	if req.Name != "grafana" {
 		t.Errorf("Name = %q, want grafana", req.Name)
 	}
-	if req.AuthorizationFlow != "flow-authz-uuid" {
+	if req.AuthorizationFlow != "default-authz-uuid" {
 		t.Errorf("AuthorizationFlow = %q, want the resolved UUID", req.AuthorizationFlow)
 	}
-	if req.InvalidationFlow != "flow-invalidation-uuid" {
+	if req.InvalidationFlow != "default-invalidation-uuid" {
 		t.Errorf("InvalidationFlow = %q, want the resolved UUID", req.InvalidationFlow)
 	}
 	if req.ExternalHost != "https://grafana.example.com" {
@@ -79,10 +79,10 @@ func TestProxyBuildRequestSetsRequiredFields(t *testing.T) {
 // UUID; the name is accepted by the schema and then fails inside authentik.
 func TestProxyBuildRequestResolvesCertificate(t *testing.T) {
 	req := buildProxy(t, newProxyProvider(func(p *authentikv1alpha1.ProxyProvider) {
-		p.Spec.Certificate = "proxy-cert"
+		p.Spec.Certificate = &authentikv1alpha1.CertificateKeyPairReference{Name: "proxy-cert"}
 	}))
 
-	if req.GetCertificate() != "kp-proxy-uuid" {
+	if req.GetCertificate() != "proxy-cert-uuid" {
 		t.Errorf("certificate = %q, want the resolved UUID", req.GetCertificate())
 	}
 }
@@ -193,22 +193,22 @@ func TestProxyBuildRequestReportsUnresolvableReferences(t *testing.T) {
 		mutate func(*authentikv1alpha1.ProxyProvider)
 	}{
 		{"authorization flow", func(p *authentikv1alpha1.ProxyProvider) {
-			p.Spec.AuthorizationFlow = "missing-flow"
+			p.Spec.AuthorizationFlow = authentikv1alpha1.FlowReference{Name: "missing-flow"}
 		}},
 		{"authentication flow", func(p *authentikv1alpha1.ProxyProvider) {
-			p.Spec.AuthenticationFlow = ptr("missing-flow")
+			p.Spec.AuthenticationFlow = &authentikv1alpha1.FlowReference{Name: "missing-flow"}
 		}},
 		{"certificate", func(p *authentikv1alpha1.ProxyProvider) {
-			p.Spec.Certificate = "missing-cert"
+			p.Spec.Certificate = &authentikv1alpha1.CertificateKeyPairReference{Name: "missing-cert"}
 		}},
 		{"property mappings", func(p *authentikv1alpha1.ProxyProvider) {
-			p.Spec.PropertyMappings = []string{"missing-mapping"}
+			p.Spec.PropertyMappings = []authentikv1alpha1.PropertyMappingReference{{Name: "missing-mapping"}}
 		}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &proxyAdapter{client: newStubClient(), provider: newProxyProvider(tt.mutate)}
+			a := &proxyAdapter{client: newStubClient(), kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), provider: newProxyProvider(tt.mutate)}
 			_, err := a.buildRequest(context.Background())
 			if err == nil {
 				t.Fatal("buildRequest succeeded with an unresolvable reference")

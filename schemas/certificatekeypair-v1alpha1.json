@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/certificatekeypair-v1alpha1.json",
+  "title": "CertificateKeyPair (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "CertificateKeyPair identifies an authentik certificate-key pair that\nproviders can reference.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "CertificateKeyPair",
+      "description": "Kind of this resource. Always CertificateKeyPair."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "CertificateKeyPairSpec identifies an authentik certificate-key pair.",
+      "properties": {
+        "connectionRef": {
+          "description": "ConnectionRef selects the authentik instance holding the key pair.",
+          "properties": {
+            "kind": {
+              "default": "AuthentikConnection",
+              "description": "Kind of connection object being referenced.",
+              "enum": [
+                "AuthentikConnection",
+                "ClusterAuthentikConnection"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the connection object.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "existingName": {
+          "description": "ExistingName is the name of a certificate-key pair that already exists\nin authentik, such as \"authentik Self-signed Certificate\".",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectionRef",
+        "existingName"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "AdoptedObjectStatus is the status shared by the adopt-only kinds.",
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the current state of the resource.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "lastSyncedTime": {
+          "description": "LastSyncedTime is when the object was last resolved successfully.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "remoteID": {
+          "description": "RemoteID is authentik's UUID for the resolved object. References are\nresolved through this, so Kubernetes stays the source of truth and a\nrename inside authentik cannot silently repoint a provider.",
+          "type": "string"
+        },
+        "remoteName": {
+          "description": "RemoteName is the name or slug last observed in authentik.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

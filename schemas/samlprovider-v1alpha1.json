@@ -1,0 +1,439 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/samlprovider-v1alpha1.json",
+  "title": "SAMLProvider (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "SAMLProvider manages a SAML 2.0 provider in authentik.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "SAMLProvider",
+      "description": "Kind of this resource. Always SAMLProvider."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "SAMLProviderSpec defines a SAML 2.0 identity provider.",
+      "properties": {
+        "acsURL": {
+          "description": "ACSURL is the service provider's Assertion Consumer Service endpoint,\nwhere authentik posts the SAML response.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "adoptionPolicy": {
+          "default": "FailOnConflict",
+          "description": "AdoptionPolicy controls what happens when a provider with this name\nalready exists in authentik.",
+          "enum": [
+            "FailOnConflict",
+            "AdoptExisting"
+          ],
+          "type": "string"
+        },
+        "assertionValidNotBefore": {
+          "description": "AssertionValidNotBefore is how far in the past an assertion becomes\nvalid, in authentik duration syntax, e.g. \"minutes=-5\". A negative\nwindow absorbs clock skew between authentik and the service provider.",
+          "pattern": "^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\\d+);?)+$",
+          "type": "string"
+        },
+        "assertionValidNotOnOrAfter": {
+          "description": "AssertionValidNotOnOrAfter is how long an assertion stays valid, in\nauthentik duration syntax, e.g. \"minutes=5\".",
+          "pattern": "^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\\d+);?)+$",
+          "type": "string"
+        },
+        "audience": {
+          "description": "Audience is the intended recipient of the assertion, sent as the\nAudienceRestriction. Most service providers require it to match their\nown entity ID.",
+          "type": "string"
+        },
+        "authenticationFlow": {
+          "description": "AuthenticationFlow is the flow used to authenticate a user who reaches\nthe application unauthenticated. Leave unset to use authentik's default.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "authnContextClassRefMapping": {
+          "description": "AuthnContextClassRefMapping names a property mapping. Configures how the AuthnContextClassRef value is created. Leave unset to derive it from the authentication methods used.",
+          "properties": {
+            "name": {
+              "description": "Name of the PropertyMapping resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "authorizationFlow": {
+          "description": "AuthorizationFlow is the flow used when authorizing this provider.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "connectionRef": {
+          "description": "ConnectionRef selects the authentik instance this provider lives in.",
+          "properties": {
+            "kind": {
+              "default": "AuthentikConnection",
+              "description": "Kind of connection object being referenced.",
+              "enum": [
+                "AuthentikConnection",
+                "ClusterAuthentikConnection"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the connection object.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "defaultNameIDPolicy": {
+          "description": "DefaultNameIDPolicy is the NameID format used when the service provider\ndoes not request one.",
+          "enum": [
+            "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+            "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+            "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName",
+            "urn:oasis:names:tc:SAML:2.0:nameid-format:WindowsDomainQualifiedName",
+            "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+            "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
+          ],
+          "type": "string"
+        },
+        "defaultRelayState": {
+          "description": "DefaultRelayState is sent as RelayState when authentik starts the login\nitself, for service providers that use it to pick a landing page.",
+          "type": "string"
+        },
+        "deletionPolicy": {
+          "default": "Delete",
+          "description": "DeletionPolicy controls what happens to the authentik provider when this\nresource is deleted.",
+          "enum": [
+            "Delete",
+            "Orphan"
+          ],
+          "type": "string"
+        },
+        "digestAlgorithm": {
+          "description": "DigestAlgorithm used when signing assertions and responses.",
+          "enum": [
+            "http://www.w3.org/2000/09/xmldsig#sha1",
+            "http://www.w3.org/2001/04/xmlenc#sha256",
+            "http://www.w3.org/2001/04/xmldsig-more#sha384",
+            "http://www.w3.org/2001/04/xmlenc#sha512"
+          ],
+          "type": "string"
+        },
+        "encryptionKeyPair": {
+          "description": "EncryptionKeyPair is the certificate key pair used to decrypt incoming\nassertions.",
+          "properties": {
+            "name": {
+              "description": "Name of the CertificateKeyPair resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "invalidationFlow": {
+          "description": "InvalidationFlow is the flow used when ending a session.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "issuerOverride": {
+          "description": "IssuerOverride replaces the issuer sent in the assertion. Set it when a\nservice provider expects an entity ID other than the one authentik\nderives from the provider.",
+          "type": "string"
+        },
+        "logoutMethod": {
+          "description": "LogoutMethod selects how single logout is delivered.",
+          "enum": [
+            "frontchannel_iframe",
+            "frontchannel_native",
+            "backchannel"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Name is the provider's name in authentik. Defaults to the resource name.",
+          "type": "string"
+        },
+        "nameIDMapping": {
+          "description": "NameIDMapping names a property mapping that produces the NameID value.\nLeave unset to honour the NameIDPolicy of the incoming request.",
+          "properties": {
+            "name": {
+              "description": "Name of the PropertyMapping resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "propertyMappings": {
+          "description": "PropertyMappings attached to this provider, in order.",
+          "items": {
+            "description": "PropertyMappingReference points at a PropertyMapping resource in the same\nnamespace.",
+            "properties": {
+              "name": {
+                "description": "Name of the PropertyMapping resource.",
+                "maxLength": 253,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "sessionValidNotOnOrAfter": {
+          "description": "SessionValidNotOnOrAfter is how long the session the assertion\nestablishes stays valid, in authentik duration syntax, e.g. \"hours=8\".",
+          "pattern": "^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\\d+);?)+$",
+          "type": "string"
+        },
+        "signAssertion": {
+          "description": "SignAssertion signs the assertion element itself.",
+          "type": "boolean"
+        },
+        "signLogoutRequest": {
+          "description": "SignLogoutRequest signs logout requests sent to the service provider.",
+          "type": "boolean"
+        },
+        "signLogoutResponse": {
+          "description": "SignLogoutResponse signs logout responses sent to the service provider.",
+          "type": "boolean"
+        },
+        "signResponse": {
+          "description": "SignResponse signs the enclosing SAML response element.",
+          "type": "boolean"
+        },
+        "signatureAlgorithm": {
+          "description": "SignatureAlgorithm used when signing assertions and responses. It must\nmatch the key type of the signing certificate key pair.",
+          "enum": [
+            "http://www.w3.org/2000/09/xmldsig#rsa-sha1",
+            "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+            "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384",
+            "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512",
+            "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha1",
+            "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256",
+            "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha384",
+            "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha512",
+            "http://www.w3.org/2000/09/xmldsig#dsa-sha1"
+          ],
+          "type": "string"
+        },
+        "signingKeyPair": {
+          "description": "SigningKeyPair is the certificate key pair used to sign outgoing responses.",
+          "properties": {
+            "name": {
+              "description": "Name of the CertificateKeyPair resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "slsBinding": {
+          "description": "SLSBinding is the binding used to deliver logout messages to the service\nprovider's SLS endpoint.",
+          "enum": [
+            "redirect",
+            "post"
+          ],
+          "type": "string"
+        },
+        "slsURL": {
+          "description": "SLSURL is the service provider's Single Logout Service endpoint. Leave\nunset to disable single logout.",
+          "type": "string"
+        },
+        "spBinding": {
+          "description": "SPBinding is the binding used to deliver the response to the service\nprovider's ACS endpoint.",
+          "enum": [
+            "redirect",
+            "post"
+          ],
+          "type": "string"
+        },
+        "verificationKeyPair": {
+          "description": "VerificationKeyPair is the certificate key pair whose certificate incoming\nsignatures are validated against. Leave unset to accept unsigned requests.",
+          "properties": {
+            "name": {
+              "description": "Name of the CertificateKeyPair resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "acsURL",
+        "authorizationFlow",
+        "connectionRef",
+        "invalidationFlow"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "SAMLProviderStatus reports the provider's state in authentik.",
+      "properties": {
+        "adopted": {
+          "description": "Adopted records that this resource took over a pre-existing authentik\nobject rather than creating it.",
+          "type": "boolean"
+        },
+        "conditions": {
+          "description": "Conditions describe the current state of the resource.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "issuerURL": {
+          "description": "IssuerURL is the entity ID authentik presents as the issuer.",
+          "type": "string"
+        },
+        "lastSyncedTime": {
+          "description": "LastSyncedTime is when the resource last reconciled successfully.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "metadataURL": {
+          "description": "MetadataURL serves the provider's SAML metadata document, which most\nservice providers can consume directly instead of being configured\nfield by field.",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "providerID": {
+          "description": "ProviderID is authentik's numeric primary key for this provider. It is\nwhat an Application or Outpost must reference, so it is surfaced\nseparately from the generic RemoteID string.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "remoteID": {
+          "description": "RemoteID is authentik's own identifier for the managed object: a numeric\nprimary key for providers and applications, a UUID elsewhere.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
+          "type": "string"
+        },
+        "remoteName": {
+          "description": "RemoteName is the name or slug last observed in authentik. Informational.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

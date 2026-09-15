@@ -68,8 +68,8 @@ func newProviderSpec() authentikv1alpha1.OAuth2ProviderSpec {
 	return authentikv1alpha1.OAuth2ProviderSpec{
 		ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 			ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
-			AuthorizationFlow: defaultAuthorizationFlow,
-			InvalidationFlow:  defaultInvalidationFlow,
+			AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
+			InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
 		},
 		RedirectURIs: []authentikv1alpha1.RedirectURI{
 			{MatchingMode: "strict", URL: "https://app.example.com/callback"},
@@ -283,8 +283,8 @@ func TestSAMLProviderAndApplication(t *testing.T) {
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
 				Name:              utils.UniqueName(ns, "saml-app"),
-				AuthorizationFlow: defaultAuthorizationFlow,
-				InvalidationFlow:  defaultInvalidationFlow,
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
 			},
 			ACSURL: "https://saml.example.com/acs",
 		},
@@ -336,8 +336,8 @@ func TestProxyProviderCreates(t *testing.T) {
 			ProviderCommonSpec: authentikv1alpha1.ProviderCommonSpec{
 				ConnectionRef:     authentikv1alpha1.ConnectionReference{Name: "primary"},
 				Name:              utils.UniqueName(ns, "proxy-app"),
-				AuthorizationFlow: defaultAuthorizationFlow,
-				InvalidationFlow:  defaultInvalidationFlow,
+				AuthorizationFlow: authentikv1alpha1.FlowReference{Name: defaultAuthorizationFlow},
+				InvalidationFlow:  authentikv1alpha1.FlowReference{Name: defaultInvalidationFlow},
 			},
 			ExternalHost: "https://proxied.example.com",
 			Mode:         "forward_single",

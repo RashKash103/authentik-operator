@@ -60,7 +60,7 @@ Please include:
 | Fix or mitigation plan          | Communicated with the assessment         |
 | Public advisory                 | After a fix ships, coordinated with you  |
 
-<!-- PLACEHOLDER: these targets are a stated intention, not an SLA backed by an
+<!-- NOTE: these targets are a stated intention, not an SLA backed by an
      on-call rotation. The owner should adjust them to what is actually
      sustainable, or state plainly that this is a best-effort personal project. -->
 

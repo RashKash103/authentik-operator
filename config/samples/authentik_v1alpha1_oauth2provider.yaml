@@ -13,8 +13,10 @@ spec:
 
   # Flows are referenced by slug, not UUID. These are authentik's shipped
   # defaults; `kubectl get` them in the authentik UI under Flows & Stages.
-  authorizationFlow: default-provider-authorization-explicit-consent
-  invalidationFlow: default-provider-invalidation-flow
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
 
   clientType: confidential
   grantTypes:
@@ -30,9 +32,9 @@ spec:
   refreshTokenValidity: days=30
 
   propertyMappings:
-    - "authentik default OAuth Mapping: OpenID 'openid'"
-    - "authentik default OAuth Mapping: OpenID 'email'"
-    - "authentik default OAuth Mapping: OpenID 'profile'"
+    - name: oidc-openid
+    - name: oidc-email
+    - name: oidc-profile
 
   # The point of the whole resource: the generated credentials land here.
   writeCredentialsTo:

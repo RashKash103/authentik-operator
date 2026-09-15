@@ -172,17 +172,15 @@ type DockerServiceConnectionSpec struct {
 	// +optional
 	URL string `json:"url,omitempty"`
 
-	// TLSVerification is the name of the certificate key pair holding the CA
-	// the daemon's certificate is checked against. Leave unset for no
-	// verification.
+	// TLSVerification is the certificate key pair holding the CA used to verify
+	// the Docker daemon's certificate.
 	// +optional
-	TLSVerification string `json:"tlsVerification,omitempty"`
+	TLSVerification *CertificateKeyPairReference `json:"tlsVerification,omitempty"`
 
-	// TLSAuthentication is the name of the certificate key pair used as a
-	// client certificate when authenticating to the daemon. Leave unset for no
-	// client authentication.
+	// TLSAuthentication is the certificate key pair presented to the Docker daemon
+	// as a client certificate.
 	// +optional
-	TLSAuthentication string `json:"tlsAuthentication,omitempty"`
+	TLSAuthentication *CertificateKeyPairReference `json:"tlsAuthentication,omitempty"`
 }
 
 // DockerServiceConnectionStatus reports the connection's state in authentik.

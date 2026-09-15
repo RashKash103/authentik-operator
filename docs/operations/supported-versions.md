@@ -158,7 +158,6 @@ hack/gen-docs.py --check
     if they disagree. It does not edit Go source: the gate is hand-written, and
     a regex rewrite of it would be more dangerous than useful.
 
-    That file does not exist yet, and the check skips with a note until it does.
 
 ## See also
 

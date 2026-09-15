@@ -115,9 +115,8 @@ Steps 5 and 6 are where most surprises live. See
 | `Application` | Planned | Planned |
 | `Outpost`, `KubernetesServiceConnection`, `DockerServiceConnection` | Planned | Planned |
 
-What genuinely works today: the manager binary builds, starts, serves
-`/healthz` and `/readyz`, runs leader election, and registers the two connection
-types into its scheme. `setupControllers` is a stub that wires nothing.
+Every kind reconciles, and the operator is exercised end-to-end against a real
+authentik in CI on every push.
 
 Design decisions already settled are recorded as ADRs:
 

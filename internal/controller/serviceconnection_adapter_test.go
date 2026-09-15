@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	api "goauthentik.io/api/v3"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
@@ -144,8 +146,8 @@ func TestServiceConnectionNameFallsBackToResourceName(t *testing.T) {
 
 func TestDockerConnectionRequestResolvesCertificates(t *testing.T) {
 	client := &stubAuthentikClient{certKeyPairs: map[string]string{
-		"docker-ca":   "uuid-ca",
-		"docker-cert": "uuid-cert",
+		"docker-ca":   "docker-ca-uuid",
+		"docker-cert": "docker-cert-uuid",
 	}}
 
 	cases := []struct {
@@ -166,26 +168,29 @@ func TestDockerConnectionRequestResolvesCertificates(t *testing.T) {
 		},
 		{
 			name:     "remote resolves both certificate key pairs by name",
-			spec:     authentikv1alpha1.DockerServiceConnectionSpec{URL: "https://docker:2376", TLSVerification: "docker-ca", TLSAuthentication: "docker-cert"},
+			spec:     authentikv1alpha1.DockerServiceConnectionSpec{URL: "https://docker:2376", TLSVerification: &authentikv1alpha1.CertificateKeyPairReference{Name: "docker-ca"}, TLSAuthentication: &authentikv1alpha1.CertificateKeyPairReference{Name: "docker-cert"}},
 			wantURL:  "https://docker:2376",
-			wantCA:   "uuid-ca",
-			wantCert: "uuid-cert",
+			wantCA:   "docker-ca-uuid",
+			wantCert: "docker-cert-uuid",
 		},
 		{
 			// An unresolvable certificate must abort the request rather than
 			// silently producing a connection with no TLS material.
 			name:    "missing certificate key pair fails",
-			spec:    authentikv1alpha1.DockerServiceConnectionSpec{URL: "https://docker:2376", TLSVerification: "absent"},
+			spec:    authentikv1alpha1.DockerServiceConnectionSpec{URL: "https://docker:2376", TLSVerification: &authentikv1alpha1.CertificateKeyPairReference{Name: "absent"}},
 			wantErr: true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			conn := &authentikv1alpha1.DockerServiceConnection{Spec: tc.spec}
+			conn := &authentikv1alpha1.DockerServiceConnection{
+				ObjectMeta: metav1.ObjectMeta{Name: "docker", Namespace: "default"},
+				Spec:       tc.spec,
+			}
 			conn.Name = "docker"
 
-			adapter := &dockerServiceConnectionAdapter{client: client, conn: conn}
+			adapter := &dockerServiceConnectionAdapter{client: client, kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), conn: conn}
 			req, err := adapter.buildRequest(context.Background())
 			if tc.wantErr {
 				if err == nil {
@@ -222,7 +227,7 @@ func TestDockerConnectionRequestClearsRemovedCertificates(t *testing.T) {
 	}
 	conn.Name = "docker"
 
-	adapter := &dockerServiceConnectionAdapter{client: &stubAuthentikClient{}, conn: conn}
+	adapter := &dockerServiceConnectionAdapter{client: &stubAuthentikClient{}, kube: referenceFixture(t, "default", "default-authz", "default-invalidation", "default-authn", "openid", "email", "profile", "claims", "upn", "nameid", "authn-context", "saml-mapping", "proxy-cert", "signing-cert", "verification-cert", "encryption-cert", "docker-ca", "docker-cert", "absent-ok", "acr", "email-nameid"), conn: conn}
 	req, err := adapter.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest: %v", err)

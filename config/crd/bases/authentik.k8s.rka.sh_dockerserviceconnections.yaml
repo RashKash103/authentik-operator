@@ -110,16 +110,30 @@ spec:
                 type: string
               tlsAuthentication:
                 description: |-
-                  TLSAuthentication is the name of the certificate key pair used as a
-                  client certificate when authenticating to the daemon. Leave unset for no
-                  client authentication.
-                type: string
+                  TLSAuthentication is the certificate key pair presented to the Docker daemon
+                  as a client certificate.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               tlsVerification:
                 description: |-
-                  TLSVerification is the name of the certificate key pair holding the CA
-                  the daemon's certificate is checked against. Leave unset for no
-                  verification.
-                type: string
+                  TLSVerification is the certificate key pair holding the CA used to verify
+                  the Docker daemon's certificate.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               url:
                 description: |-
                   URL of the Docker daemon, either "unix:///var/run/docker.sock" for a

@@ -11,5 +11,7 @@ spec:
 
   # Certificate key pairs referenced by name. tlsVerification checks the
   # daemon's certificate; tlsAuthentication is the client certificate.
-  tlsVerification: docker-ca
-  tlsAuthentication: docker-client
+  tlsVerification:
+    name: docker-ca
+  tlsAuthentication:
+    name: docker-client

@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	api "goauthentik.io/api/v3"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
 	"rka.sh/authentik-operator/internal/authentik"
@@ -28,7 +29,10 @@ import (
 
 // samlAdapter implements RemoteAdapter for a SAML provider.
 type samlAdapter struct {
-	client   authentik.Client
+	client authentik.Client
+	// kube reads the Flow, PropertyMapping and CertificateKeyPair
+	// resources this provider references.
+	kube     client.Client
 	provider *authentikv1alpha1.SAMLProvider
 
 	// observed holds the provider as last read from authentik, so the
@@ -156,48 +160,48 @@ func (a *samlAdapter) Delete(ctx context.Context, id string) error {
 func (a *samlAdapter) buildRequest(ctx context.Context) (*api.SAMLProviderRequest, error) {
 	spec := a.provider.Spec
 
-	authzFlow, err := a.client.ResolveFlow(ctx, spec.AuthorizationFlow)
+	authzFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authorizationFlow", spec.AuthorizationFlow)
 	if err != nil {
 		return nil, err
 	}
-	invalidationFlow, err := a.client.ResolveFlow(ctx, spec.InvalidationFlow)
+	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.invalidationFlow", spec.InvalidationFlow)
 	if err != nil {
 		return nil, err
 	}
 
 	req := api.NewSAMLProviderRequest(a.DesiredName(), authzFlow, invalidationFlow, spec.ACSURL)
 
-	if spec.AuthenticationFlow != nil && *spec.AuthenticationFlow != "" {
-		authnFlow, err := a.client.ResolveFlow(ctx, *spec.AuthenticationFlow)
-		if err != nil {
-			return nil, err
-		}
+	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authenticationFlow", spec.AuthenticationFlow)
+	if err != nil {
+		return nil, err
+	}
+	if authnFlow != "" {
 		req.SetAuthenticationFlow(authnFlow)
 	}
 
-	if len(spec.PropertyMappings) > 0 {
-		mappings, err := a.client.ResolvePropertyMappings(ctx, spec.PropertyMappings)
-		if err != nil {
-			return nil, err
-		}
+	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.provider.Namespace, "spec.propertyMappings", spec.PropertyMappings)
+	if err != nil {
+		return nil, err
+	}
+	if len(mappings) > 0 {
 		req.SetPropertyMappings(mappings)
 	}
 
 	// The NameID and AuthnContextClassRef mappings are single property
 	// mappings rather than a list, so they resolve one at a time.
-	if spec.NameIDMapping != "" {
-		mapping, err := a.client.ResolvePropertyMapping(ctx, spec.NameIDMapping)
-		if err != nil {
-			return nil, err
-		}
-		req.SetNameIdMapping(mapping)
+	nameID, err := resolvePropertyMappingRef(ctx, a.kube, a.provider.Namespace, "spec.nameIDMapping", spec.NameIDMapping)
+	if err != nil {
+		return nil, err
 	}
-	if spec.AuthnContextClassRefMapping != "" {
-		mapping, err := a.client.ResolvePropertyMapping(ctx, spec.AuthnContextClassRefMapping)
-		if err != nil {
-			return nil, err
-		}
-		req.SetAuthnContextClassRefMapping(mapping)
+	if nameID != "" {
+		req.SetNameIdMapping(nameID)
+	}
+	authnContext, err := resolvePropertyMappingRef(ctx, a.kube, a.provider.Namespace, "spec.authnContextClassRefMapping", spec.AuthnContextClassRefMapping)
+	if err != nil {
+		return nil, err
+	}
+	if authnContext != "" {
+		req.SetAuthnContextClassRefMapping(authnContext)
 	}
 
 	if err := a.setKeyPairs(ctx, req); err != nil {
@@ -244,21 +248,21 @@ func (a *samlAdapter) setKeyPairs(ctx context.Context, req *api.SAMLProviderRequ
 	spec := a.provider.Spec
 
 	for _, kp := range []struct {
-		name string
-		set  func(string)
+		field string
+		ref   *authentikv1alpha1.CertificateKeyPairReference
+		set   func(string)
 	}{
-		{spec.SigningKeyPair, req.SetSigningKp},
-		{spec.VerificationKeyPair, req.SetVerificationKp},
-		{spec.EncryptionKeyPair, req.SetEncryptionKp},
+		{"spec.signingKeyPair", spec.SigningKeyPair, req.SetSigningKp},
+		{"spec.verificationKeyPair", spec.VerificationKeyPair, req.SetVerificationKp},
+		{"spec.encryptionKeyPair", spec.EncryptionKeyPair, req.SetEncryptionKp},
 	} {
-		if kp.name == "" {
-			continue
-		}
-		resolved, err := a.client.ResolveCertificateKeyPair(ctx, kp.name)
+		resolved, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, kp.field, kp.ref)
 		if err != nil {
 			return err
 		}
-		kp.set(resolved)
+		if resolved != "" {
+			kp.set(resolved)
+		}
 	}
 	return nil
 }

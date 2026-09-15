@@ -72,11 +72,10 @@ type ProxyProviderSpec struct {
 	// +optional
 	Mode ProxyMode `json:"mode,omitempty"`
 
-	// Certificate is the name of the certificate key pair the outpost presents
-	// for ExternalHost. Leave unset when TLS is terminated ahead of the
-	// outpost.
+	// Certificate is the certificate key pair presented for the external
+	// host.
 	// +optional
-	Certificate string `json:"certificate,omitempty"`
+	Certificate *CertificateKeyPairReference `json:"certificate,omitempty"`
 
 	// SkipPathRegex lists paths that bypass authentication, one regular
 	// expression per line. Use it for health checks and public assets.

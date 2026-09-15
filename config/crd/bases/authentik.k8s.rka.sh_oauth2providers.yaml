@@ -75,16 +75,29 @@ spec:
                 type: string
               authenticationFlow:
                 description: |-
-                  AuthenticationFlow is the slug of the flow used to authenticate a user
-                  who reaches the application unauthenticated. Leave unset to use
-                  authentik's default.
-                type: string
+                  AuthenticationFlow is the flow used to authenticate a user who reaches
+                  the application unauthenticated. Leave unset to use authentik's default.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               authorizationFlow:
-                description: |-
-                  AuthorizationFlow is the slug of the flow used when authorizing this
+                description: AuthorizationFlow is the flow used when authorizing this
                   provider.
-                minLength: 1
-                type: string
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               clientID:
                 description: ClientID to use. When empty authentik generates one.
                 type: string
@@ -144,11 +157,19 @@ spec:
                 - Delete
                 - Orphan
                 type: string
-              encryptionKey:
+              encryptionKeyPair:
                 description: |-
-                  EncryptionKey is the name of the certificate key pair used to encrypt
-                  tokens. When set, tokens are returned as JWEs.
-                type: string
+                  EncryptionKeyPair is the certificate key pair used to encrypt tokens.
+                  When set, tokens are returned as JWEs.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               grantTypes:
                 description: GrantTypes the provider will issue tokens for.
                 items:
@@ -178,10 +199,16 @@ spec:
                   that never call the userinfo endpoint.
                 type: boolean
               invalidationFlow:
-                description: InvalidationFlow is the slug of the flow used when ending
-                  a session.
-                minLength: 1
-                type: string
+                description: InvalidationFlow is the flow used when ending a session.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               issuerMode:
                 description: IssuerMode selects how the issuer field is built.
                 enum:
@@ -202,10 +229,20 @@ spec:
                   the resource name.
                 type: string
               propertyMappings:
-                description: PropertyMappings are the names of property mappings to
-                  attach.
+                description: PropertyMappings attached to this provider, in order.
                 items:
-                  type: string
+                  description: |-
+                    PropertyMappingReference points at a PropertyMapping resource in the same
+                    namespace.
+                  properties:
+                    name:
+                      description: Name of the PropertyMapping resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               redirectURIs:
                 description: RedirectURIs permitted for this client.
@@ -234,10 +271,18 @@ spec:
                   "days=30".
                 pattern: ^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\d+);?)+$
                 type: string
-              signingKey:
-                description: SigningKey is the name of the certificate key pair used
-                  to sign tokens.
-                type: string
+              signingKeyPair:
+                description: SigningKeyPair is the certificate key pair used to sign
+                  tokens.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               subMode:
                 description: SubMode selects what the `sub` claim contains.
                 enum:

@@ -1,5 +1,4 @@
 [project]
-# TODO(owner): update once the GitHub repo exists and Pages is enabled
 site_url = "https://rashkash103.github.io/authentik-operator/"
 site_name = "authentik-operator"
 site_description = "A Kubernetes operator for managing authentik resources declaratively."
@@ -21,6 +20,7 @@ nav = [
   ] },
   { "Guides" = [
     "guides/connections.md",
+    "guides/references.md",
     "guides/providers.md",
     "guides/applications.md",
     "guides/outposts.md",

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	api "goauthentik.io/api/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -375,24 +377,58 @@ func TestRecordIdentityWritesResolvedReferences(t *testing.T) {
 func TestResolveServiceConnectionSkipsEmptyReference(t *testing.T) {
 	r := &OutpostReconciler{}
 
-	got, err := r.resolveServiceConnection(context.Background(), nil, newOutpost())
+	got, err := r.resolveServiceConnection(context.Background(), newOutpost())
 	if err != nil || got != "" {
 		t.Fatalf("resolveServiceConnection = (%q, %v), want (\"\", nil)", got, err)
 	}
 }
 
-func TestResolveServiceConnectionResolvesByName(t *testing.T) {
-	akClient := &stubAuthentikClient{serviceConnections: map[string]string{"prod-cluster": "sc-uuid"}}
-	r := &OutpostReconciler{}
-
+// Service connections resolve through the referenced resource's status rather
+// than by name lookup in authentik, so the Kubernetes object stays the source
+// of truth and renaming the connection inside authentik cannot silently
+// repoint an outpost.
+func TestResolveServiceConnectionResolvesThroughResource(t *testing.T) {
+	scheme := serviceConnectionScheme(t)
 	outpost := newOutpost()
-	outpost.Spec.ServiceConnectionRef = "prod-cluster"
+	outpost.Spec.ServiceConnectionRef = &authentikv1alpha1.ServiceConnectionReference{
+		KubernetesServiceConnectionName: "prod-cluster",
+	}
 
-	got, err := r.resolveServiceConnection(context.Background(), akClient, outpost)
+	ready := &authentikv1alpha1.KubernetesServiceConnection{
+		ObjectMeta: metav1.ObjectMeta{Name: "prod-cluster", Namespace: outpost.Namespace},
+	}
+	ready.Status.ServiceConnectionID = "sc-uuid"
+
+	r := &OutpostReconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(ready).Build(),
+	}
+
+	got, err := r.resolveServiceConnection(context.Background(), outpost)
 	if err != nil {
 		t.Fatalf("resolveServiceConnection: %v", err)
 	}
 	if got != "sc-uuid" {
 		t.Errorf("got %q, want the resolved UUID", got)
+	}
+}
+
+// An outpost applied before its service connection must requeue rather than
+// fail, the same as every other reference in this API.
+func TestResolveServiceConnectionRequeuesWhenNotReady(t *testing.T) {
+	scheme := serviceConnectionScheme(t)
+	outpost := newOutpost()
+	outpost.Spec.ServiceConnectionRef = &authentikv1alpha1.ServiceConnectionReference{
+		KubernetesServiceConnectionName: "not-there-yet",
+	}
+
+	r := &OutpostReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
+
+	_, err := r.resolveServiceConnection(context.Background(), outpost)
+	if err == nil {
+		t.Fatal("expected an unresolved reference to fail")
+	}
+	reason, requeue := ResultFor(err)
+	if reason != authentikv1alpha1.ReasonReferenceNotFound || !requeue {
+		t.Errorf("ResultFor = (%s, %v), want (ReferenceNotFound, true)", reason, requeue)
 	}
 }

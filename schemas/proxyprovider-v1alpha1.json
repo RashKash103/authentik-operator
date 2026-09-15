@@ -1,0 +1,327 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/proxyprovider-v1alpha1.json",
+  "title": "ProxyProvider (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "ProxyProvider manages a proxy provider in authentik.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "ProxyProvider",
+      "description": "Kind of this resource. Always ProxyProvider."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "ProxyProviderSpec defines a proxy provider served by an authentik outpost.\n\nThe forwarding modes have no upstream of their own: an existing reverse\nproxy already holds the connection and only asks authentik whether to allow\nit. Rejecting the combination here turns a silently ignored field into an\nerror on apply.\nThe emptiness test uses size() rather than a comparison against an empty\nstring literal: a pair of adjacent single quotes inside a comment is\nrewritten by gofmt into a typographic quote, which silently corrupts the\nrule.",
+      "properties": {
+        "accessTokenValidity": {
+          "description": "AccessTokenValidity in authentik duration syntax, e.g. \"hours=24\".",
+          "pattern": "^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\\d+);?)+$",
+          "type": "string"
+        },
+        "adoptionPolicy": {
+          "default": "FailOnConflict",
+          "description": "AdoptionPolicy controls what happens when a provider with this name\nalready exists in authentik.",
+          "enum": [
+            "FailOnConflict",
+            "AdoptExisting"
+          ],
+          "type": "string"
+        },
+        "authenticationFlow": {
+          "description": "AuthenticationFlow is the flow used to authenticate a user who reaches\nthe application unauthenticated. Leave unset to use authentik's default.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "authorizationFlow": {
+          "description": "AuthorizationFlow is the flow used when authorizing this provider.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "basicAuthEnabled": {
+          "description": "BasicAuthEnabled sends HTTP Basic credentials to the upstream, for\napplications that cannot read authentication headers.",
+          "type": "boolean"
+        },
+        "basicAuthPasswordAttribute": {
+          "description": "BasicAuthPasswordAttribute is the user attribute holding the password\nsent as HTTP Basic credentials.",
+          "type": "string"
+        },
+        "basicAuthUserAttribute": {
+          "description": "BasicAuthUserAttribute is the user attribute holding the username sent\nas HTTP Basic credentials.",
+          "type": "string"
+        },
+        "certificate": {
+          "description": "Certificate is the certificate key pair presented for the external\nhost.",
+          "properties": {
+            "name": {
+              "description": "Name of the CertificateKeyPair resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "connectionRef": {
+          "description": "ConnectionRef selects the authentik instance this provider lives in.",
+          "properties": {
+            "kind": {
+              "default": "AuthentikConnection",
+              "description": "Kind of connection object being referenced.",
+              "enum": [
+                "AuthentikConnection",
+                "ClusterAuthentikConnection"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the connection object.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "cookieDomain": {
+          "description": "CookieDomain is the domain the session cookie is issued for. Set it in\nforward_domain mode so one session covers every application on the\ndomain.",
+          "type": "string"
+        },
+        "deletionPolicy": {
+          "default": "Delete",
+          "description": "DeletionPolicy controls what happens to the authentik provider when this\nresource is deleted.",
+          "enum": [
+            "Delete",
+            "Orphan"
+          ],
+          "type": "string"
+        },
+        "externalHost": {
+          "description": "ExternalHost is the URL the application is reached on by users, for\nexample \"https://grafana.example.com\". It is what the outpost matches\nincoming requests against.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "interceptHeaderAuth": {
+          "description": "InterceptHeaderAuth makes the outpost handle Authorization headers sent\nby the client instead of passing them through to the application.",
+          "type": "boolean"
+        },
+        "internalHost": {
+          "description": "InternalHost is the upstream the outpost forwards traffic to, for\nexample \"http://grafana.monitoring.svc.cluster.local:3000\". Valid only\nin proxy mode.",
+          "type": "string"
+        },
+        "internalHostSSLValidation": {
+          "description": "InternalHostSSLValidation verifies the upstream's TLS certificate.\nDisable it only for an upstream using a self-signed certificate.",
+          "type": "boolean"
+        },
+        "invalidationFlow": {
+          "description": "InvalidationFlow is the flow used when ending a session.",
+          "properties": {
+            "name": {
+              "description": "Name of the Flow resource.",
+              "maxLength": 253,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "mode": {
+          "default": "proxy",
+          "description": "Mode selects how the outpost serves the application: proxy terminates\ntraffic and forwards it upstream, while the forward modes authorize\nrequests for an existing reverse proxy.",
+          "enum": [
+            "proxy",
+            "forward_single",
+            "forward_domain"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Name is the provider's name in authentik. Defaults to the resource name.",
+          "type": "string"
+        },
+        "propertyMappings": {
+          "description": "PropertyMappings attached to this provider, in order.",
+          "items": {
+            "description": "PropertyMappingReference points at a PropertyMapping resource in the same\nnamespace.",
+            "properties": {
+              "name": {
+                "description": "Name of the PropertyMapping resource.",
+                "maxLength": 253,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "refreshTokenValidity": {
+          "description": "RefreshTokenValidity in authentik duration syntax, e.g. \"days=30\".",
+          "pattern": "^(((microseconds|milliseconds|seconds|minutes|hours|days|weeks)=-?\\d+);?)+$",
+          "type": "string"
+        },
+        "skipPathRegex": {
+          "description": "SkipPathRegex lists paths that bypass authentication, one regular\nexpression per line. Use it for health checks and public assets.\n\nEvery request matching one of these expressions reaches the application\nunauthenticated, so keep the expressions anchored and narrow.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorizationFlow",
+        "connectionRef",
+        "externalHost",
+        "invalidationFlow"
+      ],
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "internalHost is only valid when mode is proxy; forward_single and forward_domain have no upstream to forward to",
+          "rule": "!((has(self.mode) && (self.mode == 'forward_single' || self.mode == 'forward_domain')) && has(self.internalHost) && size(self.internalHost) > 0)"
+        }
+      ]
+    },
+    "status": {
+      "description": "ProxyProviderStatus reports the provider's state in authentik.",
+      "properties": {
+        "adopted": {
+          "description": "Adopted records that this resource took over a pre-existing authentik\nobject rather than creating it.",
+          "type": "boolean"
+        },
+        "conditions": {
+          "description": "Conditions describe the current state of the resource.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "lastSyncedTime": {
+          "description": "LastSyncedTime is when the resource last reconciled successfully.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "outposts": {
+          "description": "Outposts names the outposts currently serving this provider. A proxy\nprovider that no outpost serves is unreachable, so an empty list is the\nusual explanation for an application that cannot be opened.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "providerID": {
+          "description": "ProviderID is authentik's numeric primary key for this provider. It is\nwhat an Application or Outpost must reference, so it is surfaced\nseparately from the generic RemoteID string.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "remoteID": {
+          "description": "RemoteID is authentik's own identifier for the managed object: a numeric\nprimary key for providers and applications, a UUID elsewhere.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
+          "type": "string"
+        },
+        "remoteName": {
+          "description": "RemoteName is the name or slug last observed in authentik. Informational.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

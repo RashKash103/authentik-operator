@@ -72,7 +72,7 @@ func (r *SAMLProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	adapter := &samlAdapter{client: akClient, provider: &provider}
+	adapter := &samlAdapter{client: akClient, kube: r.Client, provider: &provider}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &provider, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
 	})
@@ -116,7 +116,7 @@ func (r *SAMLProviderReconciler) reconcileDelete(
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil
 	}
 
-	adapter := &samlAdapter{client: akClient, provider: provider}
+	adapter := &samlAdapter{client: akClient, kube: r.Client, provider: provider}
 	done, err := Finalize(ctx, SyncRequest{Object: provider, Adapter: adapter, Recorder: r.Recorder})
 	if err != nil {
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil //nolint:nilerr // reported via condition

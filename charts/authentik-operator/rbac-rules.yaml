@@ -27,11 +27,14 @@
   resources:
   - applications
   - authentikconnections
+  - certificatekeypairs
   - clusterauthentikconnections
   - dockerserviceconnections
+  - flows
   - kubernetesserviceconnections
   - oauth2providers
   - outposts
+  - propertymappings
   - proxyproviders
   - samlproviders
   verbs:
@@ -61,11 +64,14 @@
   resources:
   - applications/status
   - authentikconnections/status
+  - certificatekeypairs/status
   - clusterauthentikconnections/status
   - dockerserviceconnections/status
+  - flows/status
   - kubernetesserviceconnections/status
   - oauth2providers/status
   - outposts/status
+  - propertymappings/status
   - proxyproviders/status
   - samlproviders/status
   verbs:

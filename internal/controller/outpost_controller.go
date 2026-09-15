@@ -95,7 +95,7 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.fail(ctx, &outpost, err)
 	}
 
-	serviceConnection, err := r.resolveServiceConnection(ctx, akClient, &outpost)
+	serviceConnection, err := r.resolveServiceConnection(ctx, &outpost)
 	if err != nil {
 		return r.fail(ctx, &outpost, err)
 	}
@@ -229,15 +229,33 @@ func (r *OutpostReconciler) resolveProviderRef(
 		}
 		return *provider.Status.ProviderID, nil
 
-	// TODO: resolve SAMLProvider and ProxyProvider once their Go types land.
-	// Their status carries the same ProviderID, so each becomes one more case
-	// here, one more Watches() in SetupWithManager, and nothing else. Until
-	// then a reference to one is reported as unresolved rather than silently
-	// dropped, because dropping it is exactly the partial-provider-set failure
-	// resolveProviderIDs exists to prevent.
-	case authentikv1alpha1.ProviderKindSAML, authentikv1alpha1.ProviderKindProxy:
-		return 0, fmt.Errorf("%w: %s references are not supported by this operator version yet (%s)",
-			authentik.ErrNotFound, kind, resolveProviderRefsOp)
+	case authentikv1alpha1.ProviderKindSAML:
+		var provider authentikv1alpha1.SAMLProvider
+		if err := r.Get(ctx, key, &provider); err != nil {
+			if apierrors.IsNotFound(err) {
+				return 0, authentik.NotFound(resolveProviderRefsOp, string(kind), name)
+			}
+			return 0, err
+		}
+		if provider.Status.ProviderID == nil {
+			return 0, fmt.Errorf("%w: %s %q is not registered in authentik yet (%s)",
+				authentik.ErrNotFound, kind, name, resolveProviderRefsOp)
+		}
+		return *provider.Status.ProviderID, nil
+
+	case authentikv1alpha1.ProviderKindProxy:
+		var provider authentikv1alpha1.ProxyProvider
+		if err := r.Get(ctx, key, &provider); err != nil {
+			if apierrors.IsNotFound(err) {
+				return 0, authentik.NotFound(resolveProviderRefsOp, string(kind), name)
+			}
+			return 0, err
+		}
+		if provider.Status.ProviderID == nil {
+			return 0, fmt.Errorf("%w: %s %q is not registered in authentik yet (%s)",
+				authentik.ErrNotFound, kind, name, resolveProviderRefsOp)
+		}
+		return *provider.Status.ProviderID, nil
 
 	default:
 		return 0, fmt.Errorf("%w: unknown provider kind %q (%s)",
@@ -245,17 +263,67 @@ func (r *OutpostReconciler) resolveProviderRef(
 	}
 }
 
-// resolveServiceConnection resolves the service connection reference, which
-// accepts either a name or a UUID.
+// resolveServiceConnection resolves the service connection reference to its
+// UUID.
+//
+// Resolution goes through the referenced resource's status, so Kubernetes stays
+// the source of truth. A service connection that authentik already has is
+// adopted by declaring a KubernetesServiceConnection or DockerServiceConnection
+// for it, rather than naming it inline here.
 func (r *OutpostReconciler) resolveServiceConnection(
-	ctx context.Context, akClient authentik.Client, outpost *authentikv1alpha1.Outpost,
+	ctx context.Context, outpost *authentikv1alpha1.Outpost,
 ) (string, error) {
-	if outpost.Spec.ServiceConnectionRef == "" {
+	ref := outpost.Spec.ServiceConnectionRef
+	if ref == nil {
 		// No service connection: authentik registers the outpost but does not
 		// deploy it, which is what a self-hosted outpost wants.
 		return "", nil
 	}
-	return akClient.ResolveServiceConnection(ctx, outpost.Spec.ServiceConnectionRef)
+
+	switch {
+	case ref.KubernetesServiceConnectionName != "":
+		var sc authentikv1alpha1.KubernetesServiceConnection
+		key := types.NamespacedName{Name: ref.KubernetesServiceConnectionName, Namespace: outpost.Namespace}
+		if err := r.Get(ctx, key, &sc); err != nil {
+			if apierrors.IsNotFound(err) {
+				return "", serviceConnectionNotReady(key.Name, "KubernetesServiceConnection", "does not exist")
+			}
+			return "", err
+		}
+		if sc.Status.ServiceConnectionID == "" {
+			return "", serviceConnectionNotReady(key.Name, "KubernetesServiceConnection",
+				"has not been created in authentik yet")
+		}
+		return sc.Status.ServiceConnectionID, nil
+
+	case ref.DockerServiceConnectionName != "":
+		var sc authentikv1alpha1.DockerServiceConnection
+		key := types.NamespacedName{Name: ref.DockerServiceConnectionName, Namespace: outpost.Namespace}
+		if err := r.Get(ctx, key, &sc); err != nil {
+			if apierrors.IsNotFound(err) {
+				return "", serviceConnectionNotReady(key.Name, "DockerServiceConnection", "does not exist")
+			}
+			return "", err
+		}
+		if sc.Status.ServiceConnectionID == "" {
+			return "", serviceConnectionNotReady(key.Name, "DockerServiceConnection",
+				"has not been created in authentik yet")
+		}
+		return sc.Status.ServiceConnectionID, nil
+
+	default:
+		return "", fmt.Errorf("%w: spec.serviceConnectionRef names nothing", authentik.ErrValidation)
+	}
+}
+
+// serviceConnectionNotReady builds the error for a service connection that
+// cannot be resolved yet.
+//
+// It wraps ErrNotFound so ResultFor requeues: an outpost applied before its
+// service connection is normal and must converge, not fail permanently.
+func serviceConnectionNotReady(name, kind, why string) error {
+	return fmt.Errorf("%w: spec.serviceConnectionRef: %s %q %s",
+		authentik.ErrNotFound, kind, name, why)
 }
 
 // writeToken publishes the outpost's API token and the authentik base URL into
@@ -375,20 +443,27 @@ func (r *OutpostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Watching every provider kind is what turns "applied out of order" into a
+	// non-event: an outpost whose providers are not registered yet would
+	// otherwise wait out the requeue timer, which is the difference between an
+	// application coming back in seconds and coming back in half a minute.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authentikv1alpha1.Outpost{}).
 		Owns(&corev1.Secret{}).
-		// Without this watch an outpost whose providers were not registered
-		// yet would wait out the requeue timer before noticing they are, which
-		// is the difference between an application coming back in seconds and
-		// coming back in half a minute.
-		//
-		// TODO: add the same watch for SAMLProvider and ProxyProvider once
-		// their Go types land.
 		Watches(
 			&authentikv1alpha1.OAuth2Provider{},
 			handler.EnqueueRequestsFromMapFunc(
 				r.outpostsForProvider(authentikv1alpha1.ProviderKindOAuth2)),
+		).
+		Watches(
+			&authentikv1alpha1.SAMLProvider{},
+			handler.EnqueueRequestsFromMapFunc(
+				r.outpostsForProvider(authentikv1alpha1.ProviderKindSAML)),
+		).
+		Watches(
+			&authentikv1alpha1.ProxyProvider{},
+			handler.EnqueueRequestsFromMapFunc(
+				r.outpostsForProvider(authentikv1alpha1.ProviderKindProxy)),
 		).
 		Named("outpost").
 		Complete(r)

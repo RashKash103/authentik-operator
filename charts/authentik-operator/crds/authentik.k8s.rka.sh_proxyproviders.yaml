@@ -83,16 +83,29 @@ spec:
                 type: string
               authenticationFlow:
                 description: |-
-                  AuthenticationFlow is the slug of the flow used to authenticate a user
-                  who reaches the application unauthenticated. Leave unset to use
-                  authentik's default.
-                type: string
+                  AuthenticationFlow is the flow used to authenticate a user who reaches
+                  the application unauthenticated. Leave unset to use authentik's default.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               authorizationFlow:
-                description: |-
-                  AuthorizationFlow is the slug of the flow used when authorizing this
+                description: AuthorizationFlow is the flow used when authorizing this
                   provider.
-                minLength: 1
-                type: string
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               basicAuthEnabled:
                 description: |-
                   BasicAuthEnabled sends HTTP Basic credentials to the upstream, for
@@ -110,10 +123,17 @@ spec:
                 type: string
               certificate:
                 description: |-
-                  Certificate is the name of the certificate key pair the outpost presents
-                  for ExternalHost. Leave unset when TLS is terminated ahead of the
-                  outpost.
-                type: string
+                  Certificate is the certificate key pair presented for the external
+                  host.
+                properties:
+                  name:
+                    description: Name of the CertificateKeyPair resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               connectionRef:
                 description: ConnectionRef selects the authentik instance this provider
                   lives in.
@@ -171,10 +191,16 @@ spec:
                   Disable it only for an upstream using a self-signed certificate.
                 type: boolean
               invalidationFlow:
-                description: InvalidationFlow is the slug of the flow used when ending
-                  a session.
-                minLength: 1
-                type: string
+                description: InvalidationFlow is the flow used when ending a session.
+                properties:
+                  name:
+                    description: Name of the Flow resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               mode:
                 default: proxy
                 description: |-
@@ -191,10 +217,20 @@ spec:
                   the resource name.
                 type: string
               propertyMappings:
-                description: PropertyMappings are the names of property mappings to
-                  attach.
+                description: PropertyMappings attached to this provider, in order.
                 items:
-                  type: string
+                  description: |-
+                    PropertyMappingReference points at a PropertyMapping resource in the same
+                    namespace.
+                  properties:
+                    name:
+                      description: Name of the PropertyMapping resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               refreshTokenValidity:
                 description: RefreshTokenValidity in authentik duration syntax, e.g.

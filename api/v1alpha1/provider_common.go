@@ -26,10 +26,9 @@ const AuthentikDurationPattern = `^(((microseconds|milliseconds|seconds|minutes|
 // ProviderCommonSpec holds the fields every authentik provider shares.
 //
 // authentik takes flows, property mappings and certificate key pairs as UUIDs.
-// These fields accept the human-readable slug or name instead and the operator
+// The references below name them by slug or name instead and the operator
 // resolves them, because nobody wants to paste UUIDs into version control. A
-// value that already looks like a UUID is passed through unchanged, so either
-// form works.
+// value that already looks like a UUID is passed through unchanged.
 type ProviderCommonSpec struct {
 	// ConnectionRef selects the authentik instance this provider lives in.
 	ConnectionRef ConnectionReference `json:"connectionRef"`
@@ -38,24 +37,20 @@ type ProviderCommonSpec struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// AuthorizationFlow is the slug of the flow used when authorizing this
-	// provider.
-	// +kubebuilder:validation:MinLength=1
-	AuthorizationFlow string `json:"authorizationFlow"`
+	// AuthorizationFlow is the flow used when authorizing this provider.
+	AuthorizationFlow FlowReference `json:"authorizationFlow"`
 
-	// InvalidationFlow is the slug of the flow used when ending a session.
-	// +kubebuilder:validation:MinLength=1
-	InvalidationFlow string `json:"invalidationFlow"`
+	// InvalidationFlow is the flow used when ending a session.
+	InvalidationFlow FlowReference `json:"invalidationFlow"`
 
-	// AuthenticationFlow is the slug of the flow used to authenticate a user
-	// who reaches the application unauthenticated. Leave unset to use
-	// authentik's default.
+	// AuthenticationFlow is the flow used to authenticate a user who reaches
+	// the application unauthenticated. Leave unset to use authentik's default.
 	// +optional
-	AuthenticationFlow *string `json:"authenticationFlow,omitempty"`
+	AuthenticationFlow *FlowReference `json:"authenticationFlow,omitempty"`
 
-	// PropertyMappings are the names of property mappings to attach.
+	// PropertyMappings attached to this provider, in order.
 	// +optional
-	PropertyMappings []string `json:"propertyMappings,omitempty"`
+	PropertyMappings []PropertyMappingReference `json:"propertyMappings,omitempty"`
 
 	// AdoptionPolicy controls what happens when a provider with this name
 	// already exists in authentik.

@@ -31,7 +31,10 @@ const (
 	ProviderKindProxy ProviderKind = "ProxyProvider"
 )
 
-// ProviderReference points at a provider resource in the same namespace.
+// ProviderReference points at a provider, either one this operator manages in
+// the same namespace or one that already exists in authentik.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.name) != has(self.existingProviderName)",message="exactly one of name or existingProviderName must be set"
 //
 // Declared here but shared with Outpost, which references providers the same
 // way. It lives in this file rather than a shared one only because Application
@@ -52,9 +55,18 @@ type ProviderReference struct {
 	// +optional
 	Kind ProviderKind `json:"kind,omitempty"`
 
-	// Name of the provider resource.
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	// Name of the provider resource in this namespace. Mutually exclusive with
+	// existingProviderName.
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// ExistingProviderName is the name of a provider that already exists in
+	// authentik and is maintained outside the operator. Use it to attach to a
+	// provider somebody else created, rather than one this operator manages.
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	ExistingProviderName string `json:"existingProviderName,omitempty"`
 }
 
 // Key returns a stable identifier for the reference, used as a field index
@@ -84,6 +96,7 @@ type ApplicationSpec struct {
 
 	// Name is the application's display name, shown on the user library page.
 	// Defaults to the resource name.
+	// +kubebuilder:validation:MaxLength=255
 	// +optional
 	Name string `json:"name,omitempty"`
 

@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/authentikconnection-v1alpha1.json",
+  "title": "AuthentikConnection (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "AuthentikConnection describes how to reach one authentik instance, using an\nAPI token stored in the same namespace.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "AuthentikConnection",
+      "description": "Kind of this resource. Always AuthentikConnection."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "AuthentikConnectionSpec defines a connection to an authentik instance, using\ncredentials held in the same namespace.",
+      "properties": {
+        "caBundleSecretRef": {
+          "description": "CABundleSecretRef optionally points at a Secret in this object's own\nnamespace holding a PEM CA bundle used to verify the authentik server.",
+          "properties": {
+            "key": {
+              "description": "Key within the Secret's data.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the Secret.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name"
+          ],
+          "type": "object"
+        },
+        "insecureSkipTLSVerify": {
+          "default": false,
+          "description": "InsecureSkipTLSVerify disables verification of the authentik server's TLS\ncertificate. Intended for local testing against a self-signed instance;\nprefer caBundleSecretRef anywhere else.",
+          "type": "boolean"
+        },
+        "probeInterval": {
+          "default": "5m",
+          "description": "ProbeInterval is how often the connection is re-checked for reachability.",
+          "pattern": "^([0-9]+(s|m|h))+$",
+          "type": "string"
+        },
+        "tokenSecretRef": {
+          "description": "TokenSecretRef points at a Secret in this object's own namespace holding\nan authentik API token.",
+          "properties": {
+            "key": {
+              "description": "Key within the Secret's data.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the Secret.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name"
+          ],
+          "type": "object"
+        },
+        "url": {
+          "description": "URL is the base URL of the authentik instance, for example\nhttps://authentik.example.com. Do not include the /api/v3 suffix.",
+          "minLength": 1,
+          "pattern": "^https?://",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tokenSecretRef",
+        "url"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "AuthentikConnectionStatus reports reachability and version compatibility.",
+      "properties": {
+        "authentikVersion": {
+          "description": "AuthentikVersion is the version reported by the instance, e.g. \"2026.8.2\".",
+          "type": "string"
+        },
+        "conditions": {
+          "description": "Conditions describe the current state of the connection.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "lastProbeTime": {
+          "description": "LastProbeTime is when the instance was last contacted.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "versionSupported": {
+          "description": "VersionSupported reports whether AuthentikVersion falls within the range\nthis operator is tested against. When false, dependent resources refuse to\nreconcile rather than failing obscurely deep inside an API call.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

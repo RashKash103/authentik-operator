@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	api "goauthentik.io/api/v3"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authentikv1alpha1 "rka.sh/authentik-operator/api/v1alpha1"
 	"rka.sh/authentik-operator/internal/authentik"
@@ -28,7 +29,10 @@ import (
 
 // proxyAdapter implements RemoteAdapter for a proxy provider.
 type proxyAdapter struct {
-	client   authentik.Client
+	client authentik.Client
+	// kube reads the Flow, PropertyMapping and CertificateKeyPair
+	// resources this provider references.
+	kube     client.Client
 	provider *authentikv1alpha1.ProxyProvider
 
 	// observed holds the provider as last read from authentik, so the
@@ -158,39 +162,39 @@ func (a *proxyAdapter) Delete(ctx context.Context, id string) error {
 func (a *proxyAdapter) buildRequest(ctx context.Context) (*api.ProxyProviderRequest, error) {
 	spec := a.provider.Spec
 
-	authzFlow, err := a.client.ResolveFlow(ctx, spec.AuthorizationFlow)
+	authzFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authorizationFlow", spec.AuthorizationFlow)
 	if err != nil {
 		return nil, err
 	}
-	invalidationFlow, err := a.client.ResolveFlow(ctx, spec.InvalidationFlow)
+	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.invalidationFlow", spec.InvalidationFlow)
 	if err != nil {
 		return nil, err
 	}
 
 	req := api.NewProxyProviderRequest(a.DesiredName(), authzFlow, invalidationFlow, spec.ExternalHost)
 
-	if spec.AuthenticationFlow != nil && *spec.AuthenticationFlow != "" {
-		authnFlow, err := a.client.ResolveFlow(ctx, *spec.AuthenticationFlow)
-		if err != nil {
-			return nil, err
-		}
+	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authenticationFlow", spec.AuthenticationFlow)
+	if err != nil {
+		return nil, err
+	}
+	if authnFlow != "" {
 		req.SetAuthenticationFlow(authnFlow)
 	}
 
-	if len(spec.PropertyMappings) > 0 {
-		mappings, err := a.client.ResolvePropertyMappings(ctx, spec.PropertyMappings)
-		if err != nil {
-			return nil, err
-		}
+	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.provider.Namespace, "spec.propertyMappings", spec.PropertyMappings)
+	if err != nil {
+		return nil, err
+	}
+	if len(mappings) > 0 {
 		req.SetPropertyMappings(mappings)
 	}
 
-	if spec.Certificate != "" {
-		cert, err := a.client.ResolveCertificateKeyPair(ctx, spec.Certificate)
-		if err != nil {
-			return nil, err
-		}
-		req.SetCertificate(cert)
+	certificate, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, "spec.certificate", spec.Certificate)
+	if err != nil {
+		return nil, err
+	}
+	if certificate != "" {
+		req.SetCertificate(certificate)
 	}
 
 	// Only proxy mode has an upstream. The CRD already refuses the

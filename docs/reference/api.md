@@ -19,12 +19,12 @@ API group.
 make docs-api
 ```
 
-!!! warning "`make docs-api` does not exist yet"
+!!! note "Generated, never hand-written"
 
-    This target is planned and is **not** in the Makefile today, so the
-    generated block below is empty. It is a stub rather than a stale copy on
-    purpose: a hand-written API reference is wrong within a week of the types
-    changing, and a wrong reference is worse than a missing one.
+    `make docs-api` regenerates the block below from the Go types, and
+    `make verify` fails if it is stale. A hand-written API reference is wrong
+    within a week of the types changing, and a wrong reference is worse than a
+    missing one.
 
     Until the target lands, read the types directly. They are short, thoroughly
     commented, and are the actual source of truth:
@@ -76,14 +76,42 @@ Package v1alpha1 contains API Schema definitions for the authentik v1alpha1 API 
 ### Resource Types
 - [Application](#application)
 - [AuthentikConnection](#authentikconnection)
+- [CertificateKeyPair](#certificatekeypair)
+- [CertificateKeyPairList](#certificatekeypairlist)
 - [ClusterAuthentikConnection](#clusterauthentikconnection)
 - [DockerServiceConnection](#dockerserviceconnection)
+- [Flow](#flow)
+- [FlowList](#flowlist)
 - [KubernetesServiceConnection](#kubernetesserviceconnection)
 - [OAuth2Provider](#oauth2provider)
 - [Outpost](#outpost)
+- [PropertyMapping](#propertymapping)
+- [PropertyMappingList](#propertymappinglist)
 - [ProxyProvider](#proxyprovider)
 - [SAMLProvider](#samlprovider)
 
+
+
+#### AdoptedObjectStatus
+
+
+
+AdoptedObjectStatus is the status shared by the adopt-only kinds.
+
+
+
+_Appears in:_
+- [CertificateKeyPair](#certificatekeypair)
+- [Flow](#flow)
+- [PropertyMapping](#propertymapping)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#condition-v1-meta) array_ | Conditions describe the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
+| `remoteID` _string_ | RemoteID is authentik's UUID for the resolved object. References are<br />resolved through this, so Kubernetes stays the source of truth and a<br />rename inside authentik cannot silently repoint a provider. |  | Optional: \{\} <br /> |
+| `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. |  | Optional: \{\} <br /> |
+| `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the object was last resolved successfully. |  | Optional: \{\} <br /> |
 
 
 #### AdoptionPolicy
@@ -166,7 +194,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this application lives in. |  |  |
-| `name` _string_ | Name is the application's display name, shown on the user library page.<br />Defaults to the resource name. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the application's display name, shown on the user library page.<br />Defaults to the resource name. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
 | `slug` _string_ | Slug is the application's internal name, used in its URLs.<br />It is immutable. authentik keys an application by its slug, so changing<br />it cannot be an update: the operator would have to delete the old<br />application and create a new one, which silently discards every policy<br />binding attached to it. Create a new Application instead. |  | MaxLength: 50 <br />MinLength: 1 <br />Pattern: `^[-a-zA-Z0-9_]+$` <br /> |
 | `providerRef` _[ProviderReference](#providerreference)_ | ProviderRef is the provider that authenticates users for this<br />application. Leave unset for an application that only appears in the<br />user library and is not itself protected. |  | Optional: \{\} <br /> |
 | `backchannelProviderRefs` _[ProviderReference](#providerreference) array_ | BackchannelProviderRefs are additional providers attached to this<br />application for back-channel use, such as SCIM provisioning or an LDAP<br />bind, alongside the primary provider that handles the login itself. |  | Optional: \{\} <br /> |
@@ -268,6 +296,82 @@ _Appears in:_
 | `lastProbeTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastProbeTime is when the instance was last contacted. |  | Optional: \{\} <br /> |
 
 
+#### CertificateKeyPair
+
+
+
+CertificateKeyPair identifies an authentik certificate-key pair that
+providers can reference.
+
+
+
+_Appears in:_
+- [CertificateKeyPairList](#certificatekeypairlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `CertificateKeyPair` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[CertificateKeyPairSpec](#certificatekeypairspec)_ |  |  |  |
+| `status` _[AdoptedObjectStatus](#adoptedobjectstatus)_ |  |  |  |
+
+
+#### CertificateKeyPairList
+
+
+
+CertificateKeyPairList contains a list of CertificateKeyPair.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `CertificateKeyPairList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[CertificateKeyPair](#certificatekeypair) array_ |  |  |  |
+
+
+#### CertificateKeyPairReference
+
+
+
+CertificateKeyPairReference points at a CertificateKeyPair resource in the
+same namespace.
+
+
+
+_Appears in:_
+- [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [OAuth2ProviderSpec](#oauth2providerspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the CertificateKeyPair resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+
+
+#### CertificateKeyPairSpec
+
+
+
+CertificateKeyPairSpec identifies an authentik certificate-key pair.
+
+
+
+_Appears in:_
+- [CertificateKeyPair](#certificatekeypair)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance holding the key pair. |  |  |
+| `existingName` _string_ | ExistingName is the name of a certificate-key pair that already exists<br />in authentik, such as "authentik Self-signed Certificate". |  | MaxLength: 255 <br />MinLength: 1 <br /> |
+
+
 #### ClusterAuthentikConnection
 
 
@@ -350,10 +454,13 @@ connection genuinely needs to be shared cluster-wide.
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
+- [CertificateKeyPairSpec](#certificatekeypairspec)
 - [DockerServiceConnectionSpec](#dockerserviceconnectionspec)
+- [FlowSpec](#flowspec)
 - [KubernetesServiceConnectionSpec](#kubernetesserviceconnectionspec)
 - [OAuth2ProviderSpec](#oauth2providerspec)
 - [OutpostSpec](#outpostspec)
+- [PropertyMappingSpec](#propertymappingspec)
 - [ProviderCommonSpec](#providercommonspec)
 - [ProxyProviderSpec](#proxyproviderspec)
 - [SAMLProviderSpec](#samlproviderspec)
@@ -474,8 +581,8 @@ _Appears in:_
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik service connection<br />when this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `local` _boolean_ | Local makes authentik use the Docker socket mounted into its own<br />container instead of dialling a URL. |  | Optional: \{\} <br /> |
 | `url` _string_ | URL of the Docker daemon, either "unix:///var/run/docker.sock" for a<br />local socket or "https://hostname:2376" for a remote daemon. |  | Optional: \{\} <br /> |
-| `tlsVerification` _string_ | TLSVerification is the name of the certificate key pair holding the CA<br />the daemon's certificate is checked against. Leave unset for no<br />verification. |  | Optional: \{\} <br /> |
-| `tlsAuthentication` _string_ | TLSAuthentication is the name of the certificate key pair used as a<br />client certificate when authenticating to the daemon. Leave unset for no<br />client authentication. |  | Optional: \{\} <br /> |
+| `tlsVerification` _[CertificateKeyPairReference](#certificatekeypairreference)_ | TLSVerification is the certificate key pair holding the CA used to verify<br />the Docker daemon's certificate. |  | Optional: \{\} <br /> |
+| `tlsAuthentication` _[CertificateKeyPairReference](#certificatekeypairreference)_ | TLSAuthentication is the certificate key pair presented to the Docker daemon<br />as a client certificate. |  | Optional: \{\} <br /> |
 
 
 #### DockerServiceConnectionStatus
@@ -498,6 +605,84 @@ _Appears in:_
 | `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
 | `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
 | `serviceConnectionID` _string_ | ServiceConnectionID is authentik's UUID for this service connection. It<br />is what an Outpost's serviceConnectionRef ultimately resolves to, so it<br />is surfaced separately from the generic RemoteID string. |  | Optional: \{\} <br /> |
+
+
+#### Flow
+
+
+
+Flow identifies an authentik flow that providers can reference.
+
+
+
+_Appears in:_
+- [FlowList](#flowlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `Flow` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[FlowSpec](#flowspec)_ |  |  |  |
+| `status` _[AdoptedObjectStatus](#adoptedobjectstatus)_ |  |  |  |
+
+
+#### FlowList
+
+
+
+FlowList contains a list of Flow.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `FlowList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[Flow](#flow) array_ |  |  |  |
+
+
+#### FlowReference
+
+
+
+FlowReference points at a Flow resource in the same namespace.
+
+Cross-namespace references are deliberately absent, matching every other
+reference in this API: they would let anyone who can create a provider in one
+namespace borrow configuration from another.
+
+
+
+_Appears in:_
+- [OAuth2ProviderSpec](#oauth2providerspec)
+- [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the Flow resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+
+
+#### FlowSpec
+
+
+
+FlowSpec identifies an authentik flow.
+
+
+
+_Appears in:_
+- [Flow](#flow)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance holding the flow. |  |  |
+| `existingSlug` _string_ | ExistingSlug is the slug of a flow that already exists in authentik,<br />such as "default-provider-authorization-explicit-consent". The operator<br />resolves it and never modifies the flow.<br />A UUID is also accepted and passed through unchanged. |  | MaxLength: 255 <br />MinLength: 1 <br /> |
 
 
 #### KubernetesServiceConnection
@@ -674,10 +859,10 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
 | `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
-| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
-| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
-| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
-| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _[FlowReference](#flowreference)_ | AuthorizationFlow is the flow used when authorizing this provider. |  |  |
+| `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
+| `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `clientType` _string_ | ClientType is confidential for clients that can keep a secret, public<br />for those that cannot (SPAs, native apps). | confidential | Enum: [confidential public] <br />Optional: \{\} <br /> |
@@ -690,8 +875,8 @@ _Appears in:_
 | `accessTokenValidity` _string_ | AccessTokenValidity in authentik duration syntax, e.g. "hours=1". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
 | `refreshTokenValidity` _string_ | RefreshTokenValidity in authentik duration syntax, e.g. "days=30". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
 | `includeClaimsInIDToken` _boolean_ | IncludeClaimsInIDToken embeds scope claims in the id_token, for clients<br />that never call the userinfo endpoint. |  | Optional: \{\} <br /> |
-| `signingKey` _string_ | SigningKey is the name of the certificate key pair used to sign tokens. |  | Optional: \{\} <br /> |
-| `encryptionKey` _string_ | EncryptionKey is the name of the certificate key pair used to encrypt<br />tokens. When set, tokens are returned as JWEs. |  | Optional: \{\} <br /> |
+| `signingKeyPair` _[CertificateKeyPairReference](#certificatekeypairreference)_ | SigningKeyPair is the certificate key pair used to sign tokens. |  | Optional: \{\} <br /> |
+| `encryptionKeyPair` _[CertificateKeyPairReference](#certificatekeypairreference)_ | EncryptionKeyPair is the certificate key pair used to encrypt tokens.<br />When set, tokens are returned as JWEs. |  | Optional: \{\} <br /> |
 | `subMode` _string_ | SubMode selects what the `sub` claim contains. |  | Enum: [hashed_user_id user_id user_uuid user_username user_email user_upn] <br />Optional: \{\} <br /> |
 | `issuerMode` _string_ | IssuerMode selects how the issuer field is built. |  | Enum: [global per_provider] <br />Optional: \{\} <br /> |
 | `logoutURI` _string_ | LogoutURI is called on logout. |  | Optional: \{\} <br /> |
@@ -760,7 +945,7 @@ _Appears in:_
 | `name` _string_ | Name is the outpost's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
 | `type` _[OutpostType](#outposttype)_ | Type selects which outpost implementation authentik registers. |  | Enum: [proxy ldap radius rac] <br /> |
 | `providerRefs` _[ProviderReference](#providerreference) array_ | ProviderRefs are the providers this outpost serves. Every reference must<br />resolve before the outpost is registered or updated. |  | Optional: \{\} <br /> |
-| `serviceConnectionRef` _string_ | ServiceConnectionRef is the name, or UUID, of the service connection<br />authentik should use to deploy this outpost. Leave unset to register the<br />outpost without letting authentik manage its deployment, which is what a<br />self-hosted outpost wants. |  | Optional: \{\} <br /> |
+| `serviceConnectionRef` _[ServiceConnectionReference](#serviceconnectionreference)_ | ServiceConnectionRef selects the service connection authentik uses to<br />deploy this outpost. Leave unset when you deploy the outpost yourself. |  | Optional: \{\} <br /> |
 | `config` _object (keys:string, values:[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#json-v1-apiextensions-k8s-io))_ | Config is passed to authentik verbatim as the outpost's configuration.<br />The schema differs per outpost type and per authentik version, so it is<br />deliberately not modelled here.<br />Well-known keys include: "log_level", "authentik_host",<br />"authentik_host_browser", "authentik_host_insecure",<br />"object_naming_template", "refresh_interval", "kubernetes_replicas",<br />"kubernetes_namespace", "kubernetes_service_type",<br />"kubernetes_ingress_class_name", "kubernetes_ingress_annotations",<br />"kubernetes_ingress_secret_name", "kubernetes_image_pull_secrets",<br />"kubernetes_json_patches", "kubernetes_disabled_components",<br />"docker_network", "docker_map_ports", "docker_labels" and "docker_image".<br />Consult the authentik documentation for the set your version accepts. |  | Optional: \{\} <br /> |
 | `writeTokenTo` _[OutpostTokenSecretRef](#outposttokensecretref)_ | WriteTokenTo creates a Secret holding the outpost's API token and the<br />authentik base URL, which is what a self-hosted outpost needs in order to<br />connect back. Leave unset when authentik deploys the outpost itself. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when an outpost with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
@@ -831,6 +1016,82 @@ _Appears in:_
 | `rac` | OutpostTypeRAC is a Remote Access Control outpost.<br /> |
 
 
+#### PropertyMapping
+
+
+
+PropertyMapping identifies an authentik property mapping that providers can
+reference.
+
+
+
+_Appears in:_
+- [PropertyMappingList](#propertymappinglist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `PropertyMapping` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[PropertyMappingSpec](#propertymappingspec)_ |  |  |  |
+| `status` _[AdoptedObjectStatus](#adoptedobjectstatus)_ |  |  |  |
+
+
+#### PropertyMappingList
+
+
+
+PropertyMappingList contains a list of PropertyMapping.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `authentik.k8s.rka.sh/v1alpha1` | | |
+| `kind` _string_ | `PropertyMappingList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[PropertyMapping](#propertymapping) array_ |  |  |  |
+
+
+#### PropertyMappingReference
+
+
+
+PropertyMappingReference points at a PropertyMapping resource in the same
+namespace.
+
+
+
+_Appears in:_
+- [OAuth2ProviderSpec](#oauth2providerspec)
+- [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the PropertyMapping resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+
+
+#### PropertyMappingSpec
+
+
+
+PropertyMappingSpec identifies an authentik property mapping.
+
+
+
+_Appears in:_
+- [PropertyMapping](#propertymapping)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance holding the mapping. |  |  |
+| `existingName` _string_ | ExistingName is the name of a property mapping that already exists in<br />authentik, such as "authentik default OAuth Mapping: OpenID 'email'". |  | MaxLength: 255 <br />MinLength: 1 <br /> |
+
+
 #### ProviderCommonSpec
 
 
@@ -838,10 +1099,9 @@ _Appears in:_
 ProviderCommonSpec holds the fields every authentik provider shares.
 
 authentik takes flows, property mappings and certificate key pairs as UUIDs.
-These fields accept the human-readable slug or name instead and the operator
+The references below name them by slug or name instead and the operator
 resolves them, because nobody wants to paste UUIDs into version control. A
-value that already looks like a UUID is passed through unchanged, so either
-form works.
+value that already looks like a UUID is passed through unchanged.
 
 
 
@@ -854,10 +1114,10 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
 | `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
-| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
-| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
-| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
-| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _[FlowReference](#flowreference)_ | AuthorizationFlow is the flow used when authorizing this provider. |  |  |
+| `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
+| `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 
@@ -885,7 +1145,8 @@ _Appears in:_
 
 
 
-ProviderReference points at a provider resource in the same namespace.
+ProviderReference points at a provider, either one this operator manages in
+the same namespace or one that already exists in authentik.
 
 Declared here but shared with Outpost, which references providers the same
 way. It lives in this file rather than a shared one only because Application
@@ -910,7 +1171,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `kind` _[ProviderKind](#providerkind)_ | Kind of provider resource being referenced. | OAuth2Provider | Enum: [OAuth2Provider SAMLProvider ProxyProvider] <br />Optional: \{\} <br /> |
-| `name` _string_ | Name of the provider resource. |  | MinLength: 1 <br /> |
+| `name` _string_ | Name of the provider resource in this namespace. Mutually exclusive with<br />existingProviderName. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `existingProviderName` _string_ | ExistingProviderName is the name of a provider that already exists in<br />authentik and is maintained outside the operator. Use it to attach to a<br />provider somebody else created, rather than one this operator manages. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
 
 
 #### ProviderStatus
@@ -999,17 +1261,17 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
 | `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
-| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
-| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
-| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
-| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _[FlowReference](#flowreference)_ | AuthorizationFlow is the flow used when authorizing this provider. |  |  |
+| `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
+| `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `externalHost` _string_ | ExternalHost is the URL the application is reached on by users, for<br />example "https://grafana.example.com". It is what the outpost matches<br />incoming requests against. |  | MinLength: 1 <br /> |
 | `internalHost` _string_ | InternalHost is the upstream the outpost forwards traffic to, for<br />example "http://grafana.monitoring.svc.cluster.local:3000". Valid only<br />in proxy mode. |  | Optional: \{\} <br /> |
 | `internalHostSSLValidation` _boolean_ | InternalHostSSLValidation verifies the upstream's TLS certificate.<br />Disable it only for an upstream using a self-signed certificate. |  | Optional: \{\} <br /> |
 | `mode` _[ProxyMode](#proxymode)_ | Mode selects how the outpost serves the application: proxy terminates<br />traffic and forwards it upstream, while the forward modes authorize<br />requests for an existing reverse proxy. | proxy | Enum: [proxy forward_single forward_domain] <br />Optional: \{\} <br /> |
-| `certificate` _string_ | Certificate is the name of the certificate key pair the outpost presents<br />for ExternalHost. Leave unset when TLS is terminated ahead of the<br />outpost. |  | Optional: \{\} <br /> |
+| `certificate` _[CertificateKeyPairReference](#certificatekeypairreference)_ | Certificate is the certificate key pair presented for the external<br />host. |  | Optional: \{\} <br /> |
 | `skipPathRegex` _string_ | SkipPathRegex lists paths that bypass authentication, one regular<br />expression per line. Use it for health checks and public assets.<br />Every request matching one of these expressions reaches the application<br />unauthenticated, so keep the expressions anchored and narrow. |  | Optional: \{\} <br /> |
 | `basicAuthEnabled` _boolean_ | BasicAuthEnabled sends HTTP Basic credentials to the upstream, for<br />applications that cannot read authentication headers. |  | Optional: \{\} <br /> |
 | `basicAuthUserAttribute` _string_ | BasicAuthUserAttribute is the user attribute holding the username sent<br />as HTTP Basic credentials. |  | Optional: \{\} <br /> |
@@ -1171,10 +1433,10 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this provider lives in. |  |  |
 | `name` _string_ | Name is the provider's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
-| `authorizationFlow` _string_ | AuthorizationFlow is the slug of the flow used when authorizing this<br />provider. |  | MinLength: 1 <br /> |
-| `invalidationFlow` _string_ | InvalidationFlow is the slug of the flow used when ending a session. |  | MinLength: 1 <br /> |
-| `authenticationFlow` _string_ | AuthenticationFlow is the slug of the flow used to authenticate a user<br />who reaches the application unauthenticated. Leave unset to use<br />authentik's default. |  | Optional: \{\} <br /> |
-| `propertyMappings` _string array_ | PropertyMappings are the names of property mappings to attach. |  | Optional: \{\} <br /> |
+| `authorizationFlow` _[FlowReference](#flowreference)_ | AuthorizationFlow is the flow used when authorizing this provider. |  |  |
+| `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
+| `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
+| `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `acsURL` _string_ | ACSURL is the service provider's Assertion Consumer Service endpoint,<br />where authentik posts the SAML response. |  | MinLength: 1 <br /> |
@@ -1184,13 +1446,13 @@ _Appears in:_
 | `assertionValidNotBefore` _string_ | AssertionValidNotBefore is how far in the past an assertion becomes<br />valid, in authentik duration syntax, e.g. "minutes=-5". A negative<br />window absorbs clock skew between authentik and the service provider. |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
 | `assertionValidNotOnOrAfter` _string_ | AssertionValidNotOnOrAfter is how long an assertion stays valid, in<br />authentik duration syntax, e.g. "minutes=5". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
 | `sessionValidNotOnOrAfter` _string_ | SessionValidNotOnOrAfter is how long the session the assertion<br />establishes stays valid, in authentik duration syntax, e.g. "hours=8". |  | Pattern: `^(((microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)=-?\d+);?)+$` <br />Optional: \{\} <br /> |
-| `nameIDMapping` _string_ | NameIDMapping is the name of the property mapping that produces the<br />NameID. Leave unset to let the requested NameID policy decide. |  | Optional: \{\} <br /> |
-| `authnContextClassRefMapping` _string_ | AuthnContextClassRefMapping is the name of the property mapping that<br />produces the AuthnContextClassRef sent in the assertion. |  | Optional: \{\} <br /> |
+| `nameIDMapping` _[PropertyMappingReference](#propertymappingreference)_ | NameIDMapping names a property mapping that produces the NameID value.<br />Leave unset to honour the NameIDPolicy of the incoming request. |  | Optional: \{\} <br /> |
+| `authnContextClassRefMapping` _[PropertyMappingReference](#propertymappingreference)_ | AuthnContextClassRefMapping names a property mapping. Configures how the AuthnContextClassRef value is created. Leave unset to derive it from the authentication methods used. |  | Optional: \{\} <br /> |
 | `digestAlgorithm` _[SAMLDigestAlgorithm](#samldigestalgorithm)_ | DigestAlgorithm used when signing assertions and responses. |  | Enum: [http://www.w3.org/2000/09/xmldsig#sha1 http://www.w3.org/2001/04/xmlenc#sha256 http://www.w3.org/2001/04/xmldsig-more#sha384 http://www.w3.org/2001/04/xmlenc#sha512] <br />Optional: \{\} <br /> |
 | `signatureAlgorithm` _[SAMLSignatureAlgorithm](#samlsignaturealgorithm)_ | SignatureAlgorithm used when signing assertions and responses. It must<br />match the key type of the signing certificate key pair. |  | Enum: [http://www.w3.org/2000/09/xmldsig#rsa-sha1 http://www.w3.org/2001/04/xmldsig-more#rsa-sha256 http://www.w3.org/2001/04/xmldsig-more#rsa-sha384 http://www.w3.org/2001/04/xmldsig-more#rsa-sha512 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha1 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha384 http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha512 http://www.w3.org/2000/09/xmldsig#dsa-sha1] <br />Optional: \{\} <br /> |
-| `signingKeyPair` _string_ | SigningKeyPair is the name of the certificate key pair used to sign<br />assertions and responses. Required for the sign* options to take effect. |  | Optional: \{\} <br /> |
-| `verificationKeyPair` _string_ | VerificationKeyPair is the name of the certificate key pair whose public<br />certificate verifies signed AuthnRequests from the service provider.<br />When set, unsigned requests are rejected. |  | Optional: \{\} <br /> |
-| `encryptionKeyPair` _string_ | EncryptionKeyPair is the name of the certificate key pair used to<br />encrypt assertions. When set, assertions are sent encrypted. |  | Optional: \{\} <br /> |
+| `signingKeyPair` _[CertificateKeyPairReference](#certificatekeypairreference)_ | SigningKeyPair is the certificate key pair used to sign outgoing responses. |  | Optional: \{\} <br /> |
+| `verificationKeyPair` _[CertificateKeyPairReference](#certificatekeypairreference)_ | VerificationKeyPair is the certificate key pair whose certificate incoming<br />signatures are validated against. Leave unset to accept unsigned requests. |  | Optional: \{\} <br /> |
+| `encryptionKeyPair` _[CertificateKeyPairReference](#certificatekeypairreference)_ | EncryptionKeyPair is the certificate key pair used to decrypt incoming<br />assertions. |  | Optional: \{\} <br /> |
 | `signAssertion` _boolean_ | SignAssertion signs the assertion element itself. |  | Optional: \{\} <br /> |
 | `signResponse` _boolean_ | SignResponse signs the enclosing SAML response element. |  | Optional: \{\} <br /> |
 | `signLogoutRequest` _boolean_ | SignLogoutRequest signs logout requests sent to the service provider. |  | Optional: \{\} <br /> |
@@ -1283,6 +1545,24 @@ _Appears in:_
 | `name` _string_ | Name is the service connection's name in authentik. Defaults to the<br />resource name. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a service connection with this<br />name already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik service connection<br />when this resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
+
+
+#### ServiceConnectionReference
+
+
+
+ServiceConnectionReference points at a service connection resource in the
+same namespace.
+
+
+
+_Appears in:_
+- [OutpostSpec](#outpostspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `kubernetesServiceConnectionName` _string_ | KubernetesServiceConnectionName names a KubernetesServiceConnection<br />resource in this namespace. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
+| `dockerServiceConnectionName` _string_ | DockerServiceConnectionName names a DockerServiceConnection resource in<br />this namespace. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
 
 
 #### ServiceConnectionStatus

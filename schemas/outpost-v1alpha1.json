@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rashkash103.github.io/authentik-operator/schemas/outpost-v1alpha1.json",
+  "title": "Outpost (authentik.k8s.rka.sh/v1alpha1)",
+  "description": "Outpost manages an authentik outpost and the set of providers it serves.",
+  "x-generated-by": "Generated from config/crd/bases by hack/gen-schemas.py. Do not edit. CEL rules under x-kubernetes-validations are NOT enforced by editors - only the API server evaluates them.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "authentik.k8s.rka.sh/v1alpha1",
+      "description": "APIVersion of this resource. Always authentik.k8s.rka.sh/v1alpha1."
+    },
+    "kind": {
+      "type": "string",
+      "const": "Outpost",
+      "description": "Kind of this resource. Always Outpost."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "OutpostSpec defines an authentik outpost.",
+      "properties": {
+        "adoptionPolicy": {
+          "default": "FailOnConflict",
+          "description": "AdoptionPolicy controls what happens when an outpost with this name\nalready exists in authentik.",
+          "enum": [
+            "FailOnConflict",
+            "AdoptExisting"
+          ],
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": {
+            "x-kubernetes-preserve-unknown-fields": true
+          },
+          "description": "Config is passed to authentik verbatim as the outpost's configuration.\nThe schema differs per outpost type and per authentik version, so it is\ndeliberately not modelled here.\n\nWell-known keys include: \"log_level\", \"authentik_host\",\n\"authentik_host_browser\", \"authentik_host_insecure\",\n\"object_naming_template\", \"refresh_interval\", \"kubernetes_replicas\",\n\"kubernetes_namespace\", \"kubernetes_service_type\",\n\"kubernetes_ingress_class_name\", \"kubernetes_ingress_annotations\",\n\"kubernetes_ingress_secret_name\", \"kubernetes_image_pull_secrets\",\n\"kubernetes_json_patches\", \"kubernetes_disabled_components\",\n\"docker_network\", \"docker_map_ports\", \"docker_labels\" and \"docker_image\".\nConsult the authentik documentation for the set your version accepts.",
+          "type": "object",
+          "x-kubernetes-preserve-unknown-fields": true
+        },
+        "connectionRef": {
+          "description": "ConnectionRef selects the authentik instance this outpost is registered\nwith.",
+          "properties": {
+            "kind": {
+              "default": "AuthentikConnection",
+              "description": "Kind of connection object being referenced.",
+              "enum": [
+                "AuthentikConnection",
+                "ClusterAuthentikConnection"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the connection object.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "deletionPolicy": {
+          "default": "Delete",
+          "description": "DeletionPolicy controls what happens to the authentik outpost when this\nresource is deleted.",
+          "enum": [
+            "Delete",
+            "Orphan"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Name is the outpost's name in authentik. Defaults to the resource name.",
+          "type": "string"
+        },
+        "providerRefs": {
+          "description": "ProviderRefs are the providers this outpost serves. Every reference must\nresolve before the outpost is registered or updated.",
+          "items": {
+            "description": "ProviderReference points at a provider, either one this operator manages in\nthe same namespace or one that already exists in authentik.\n\nDeclared here but shared with Outpost, which references providers the same\nway. It lives in this file rather than a shared one only because Application\nwas the first consumer.\n\nThe reference is resolved through the provider resource's own\nstatus.providerID rather than by looking its name up in authentik, so the\nKubernetes objects stay the source of truth and renaming a provider inside\nauthentik cannot silently repoint an application at something else.\n\nA namespaced provider is always resolved in the application's own namespace.\nCross-namespace references are deliberately not supported: they would let\nanyone who can create a referring resource in one namespace attach a\nprovider, and therefore credentials, owned by another.",
+            "properties": {
+              "existingProviderName": {
+                "description": "ExistingProviderName is the name of a provider that already exists in\nauthentik and is maintained outside the operator. Use it to attach to a\nprovider somebody else created, rather than one this operator manages.",
+                "maxLength": 255,
+                "type": "string"
+              },
+              "kind": {
+                "default": "OAuth2Provider",
+                "description": "Kind of provider resource being referenced.",
+                "enum": [
+                  "OAuth2Provider",
+                  "SAMLProvider",
+                  "ProxyProvider"
+                ],
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the provider resource in this namespace. Mutually exclusive with\nexistingProviderName.",
+                "maxLength": 255,
+                "type": "string"
+              }
+            },
+            "type": "object",
+            "x-kubernetes-validations": [
+              {
+                "message": "exactly one of name or existingProviderName must be set",
+                "rule": "has(self.name) != has(self.existingProviderName)"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "serviceConnectionRef": {
+          "description": "ServiceConnectionRef selects the service connection authentik uses to\ndeploy this outpost. Leave unset when you deploy the outpost yourself.",
+          "properties": {
+            "dockerServiceConnectionName": {
+              "description": "DockerServiceConnectionName names a DockerServiceConnection resource in\nthis namespace.",
+              "maxLength": 253,
+              "type": "string"
+            },
+            "kubernetesServiceConnectionName": {
+              "description": "KubernetesServiceConnectionName names a KubernetesServiceConnection\nresource in this namespace.",
+              "maxLength": 253,
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "exactly one of kubernetesServiceConnectionName or dockerServiceConnectionName must be set",
+              "rule": "has(self.kubernetesServiceConnectionName) != has(self.dockerServiceConnectionName)"
+            }
+          ]
+        },
+        "type": {
+          "description": "Type selects which outpost implementation authentik registers.",
+          "enum": [
+            "proxy",
+            "ldap",
+            "radius",
+            "rac"
+          ],
+          "type": "string"
+        },
+        "writeTokenTo": {
+          "description": "WriteTokenTo creates a Secret holding the outpost's API token and the\nauthentik base URL, which is what a self-hosted outpost needs in order to\nconnect back. Leave unset when authentik deploys the outpost itself.",
+          "properties": {
+            "hostKey": {
+              "default": "authentik-host",
+              "description": "HostKey is the Secret key holding the authentik base URL, which a\nself-hosted outpost passes as AUTHENTIK_HOST.",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the Secret to create in this resource's namespace.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "tokenKey": {
+              "default": "token",
+              "description": "TokenKey is the Secret key holding the outpost API token, which a\nself-hosted outpost passes as AUTHENTIK_TOKEN.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "connectionRef",
+        "type"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "OutpostStatus reports the outpost's state in authentik.",
+      "properties": {
+        "adopted": {
+          "description": "Adopted records that this resource took over a pre-existing authentik\nobject rather than creating it.",
+          "type": "boolean"
+        },
+        "conditions": {
+          "description": "Conditions describe the current state of the resource.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "lastSyncedTime": {
+          "description": "LastSyncedTime is when the resource last reconciled successfully.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation this status reflects.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "outpostID": {
+          "description": "OutpostID is authentik's UUID for this outpost.",
+          "type": "string"
+        },
+        "providerIDs": {
+          "description": "ProviderIDs are the authentik primary keys every providerRef resolved\nto, in spec order. It is empty until all of them resolve.",
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "remoteID": {
+          "description": "RemoteID is authentik's own identifier for the managed object: a numeric\nprimary key for providers and applications, a UUID elsewhere.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
+          "type": "string"
+        },
+        "remoteName": {
+          "description": "RemoteName is the name or slug last observed in authentik. Informational.",
+          "type": "string"
+        },
+        "serviceConnectionID": {
+          "description": "ServiceConnectionID is the UUID serviceConnectionRef resolved to.",
+          "type": "string"
+        },
+        "tokenIdentifier": {
+          "description": "TokenIdentifier names the authentik token this outpost authenticates\nwith. It is an identifier, not the token itself, which is never placed\nin status.",
+          "type": "string"
+        },
+        "tokenSecretName": {
+          "description": "TokenSecretName is the Secret the outpost token was written to.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
