@@ -66,6 +66,10 @@
     "status": {
       "description": "AdoptedObjectStatus is the status shared by the adopt-only kinds.",
       "properties": {
+        "authentikURL": {
+          "description": "AuthentikURL is the instance this object resolved against.\n\nA UUID only means anything on the instance that issued it, so a\ncross-namespace reference compares this against the referring resource's\nown connection and refuses a mismatch. Without the check, pointing at a\nflow from a namespace wired to a different authentik would send a UUID\nthat instance has never seen.",
+          "type": "string"
+        },
         "conditions": {
           "description": "Conditions describe the current state of the resource.",
           "items": {

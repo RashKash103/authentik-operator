@@ -38,6 +38,8 @@ type SAMLProviderReconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder recorder.EventRecorder
 	Resolver *ConnectionResolver
+	// References decides whether references may cross namespaces.
+	References ReferencePolicy
 }
 
 // +kubebuilder:rbac:groups=authentik.k8s.rka.sh,resources=samlproviders,verbs=get;list;watch;create;update;patch;delete
@@ -72,7 +74,7 @@ func (r *SAMLProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	adapter := &samlAdapter{client: akClient, kube: r.Client, provider: &provider}
+	adapter := &samlAdapter{client: akClient, kube: r.Client, refs: ReferenceScope{AuthentikURL: akClient.BaseURL(), Policy: r.References}, provider: &provider}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &provider, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
 	})
@@ -116,7 +118,7 @@ func (r *SAMLProviderReconciler) reconcileDelete(
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil
 	}
 
-	adapter := &samlAdapter{client: akClient, kube: r.Client, provider: provider}
+	adapter := &samlAdapter{client: akClient, kube: r.Client, refs: ReferenceScope{AuthentikURL: akClient.BaseURL(), Policy: r.References}, provider: provider}
 	done, err := Finalize(ctx, SyncRequest{Object: provider, Adapter: adapter, Recorder: r.Recorder})
 	if err != nil {
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil //nolint:nilerr // reported via condition
@@ -135,7 +137,9 @@ func (r *SAMLProviderReconciler) recordIdentity(
 ) {
 	status := provider.ManagedStatus()
 	status.RemoteID = outcome.RemoteID
-	status.RemoteName = provider.ProviderName()
+	// The scoped name, not the declared one: with a cluster identity set they
+	// differ, and status has to report what authentik actually holds.
+	status.RemoteName = adapter.DesiredName()
 	status.Adopted = status.Adopted || outcome.Adopted
 	now := metav1.Now()
 	status.LastSyncedTime = &now

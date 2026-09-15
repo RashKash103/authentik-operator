@@ -39,6 +39,15 @@ type FlowReference struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // PropertyMappingReference points at a PropertyMapping resource in the same
@@ -48,6 +57,15 @@ type PropertyMappingReference struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // CertificateKeyPairReference points at a CertificateKeyPair resource in the
@@ -57,6 +75,15 @@ type CertificateKeyPairReference struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // ServiceConnectionReference points at a service connection resource in the
@@ -65,16 +92,25 @@ type CertificateKeyPairReference struct {
 // +kubebuilder:validation:XValidation:rule="has(self.kubernetesServiceConnectionName) != has(self.dockerServiceConnectionName)",message="exactly one of kubernetesServiceConnectionName or dockerServiceConnectionName must be set"
 type ServiceConnectionReference struct {
 	// KubernetesServiceConnectionName names a KubernetesServiceConnection
-	// resource in this namespace.
+	// resource.
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	KubernetesServiceConnectionName string `json:"kubernetesServiceConnectionName,omitempty"`
 
-	// DockerServiceConnectionName names a DockerServiceConnection resource in
-	// this namespace.
+	// DockerServiceConnectionName names a DockerServiceConnection resource.
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	DockerServiceConnectionName string `json:"dockerServiceConnectionName,omitempty"`
+
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // PropertyMappingNames flattens a list of references to resource names.

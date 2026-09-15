@@ -61,6 +61,10 @@ type Client interface {
 	// (base URL, token) pair. It is the cache partition key and is safe to log.
 	ConnectionID() string
 
+	// Cluster is the identity this operator scopes managed object names with,
+	// or empty when it is the only operator talking to this instance.
+	Cluster() string
+
 	// Version returns the authentik version the instance is running.
 	Version(ctx context.Context) (Version, error)
 
@@ -129,6 +133,11 @@ type Config struct {
 	// clients share a cache; entries stay partitioned by connection either way.
 	Cache *RefCache
 
+	// Cluster scopes the names of objects this operator manages, so several
+	// operators can share one authentik without colliding. Empty means no
+	// scoping.
+	Cluster string
+
 	// UserAgentSuffix is appended to the operator's User-Agent, typically the
 	// operator version.
 	UserAgentSuffix string
@@ -143,6 +152,7 @@ type client struct {
 	api      *api.APIClient
 	baseURL  string
 	connID   string
+	cluster  string
 	cache    *RefCache
 	pageSize int32
 }
@@ -202,6 +212,7 @@ func New(cfg Config) (Client, error) {
 		connID:   connectionID(baseURL, cfg.Token),
 		cache:    cache,
 		pageSize: defaultPageSize,
+		cluster:  cfg.Cluster,
 	}, nil
 }
 
@@ -335,3 +346,6 @@ func connectionID(baseURL, token string) string {
 	sum := sha256.Sum256([]byte(baseURL + "\x00" + token))
 	return baseURL + "#" + hex.EncodeToString(sum[:8])
 }
+
+// Cluster returns the identity this operator scopes managed object names with.
+func (c *client) Cluster() string { return c.cluster }

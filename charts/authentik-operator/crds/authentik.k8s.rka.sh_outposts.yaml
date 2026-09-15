@@ -155,9 +155,19 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name of the provider resource in this namespace. Mutually exclusive with
+                        Name of the provider resource. Mutually exclusive with
                         existingProviderName.
                       maxLength: 255
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace holding the resource. Defaults to the referring resource's own
+                        namespace.
+
+                        Naming another namespace requires the operator to be started with
+                        cross-namespace references enabled; otherwise the reference is refused
+                        rather than quietly resolved somewhere else.
+                      maxLength: 63
                       type: string
                   type: object
                   x-kubernetes-validations:
@@ -170,16 +180,25 @@ spec:
                   deploy this outpost. Leave unset when you deploy the outpost yourself.
                 properties:
                   dockerServiceConnectionName:
-                    description: |-
-                      DockerServiceConnectionName names a DockerServiceConnection resource in
-                      this namespace.
+                    description: DockerServiceConnectionName names a DockerServiceConnection
+                      resource.
                     maxLength: 253
                     type: string
                   kubernetesServiceConnectionName:
                     description: |-
                       KubernetesServiceConnectionName names a KubernetesServiceConnection
-                      resource in this namespace.
+                      resource.
                     maxLength: 253
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace holding the resource. Defaults to the referring resource's own
+                      namespace.
+
+                      Naming another namespace requires the operator to be started with
+                      cross-namespace references enabled; otherwise the reference is refused
+                      rather than quietly resolved somewhere else.
+                    maxLength: 63
                     type: string
                 type: object
                 x-kubernetes-validations:

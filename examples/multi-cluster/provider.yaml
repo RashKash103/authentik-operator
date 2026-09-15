@@ -1,0 +1,44 @@
+# Applied unchanged in both clusters. The declared provider name is the same in
+# each; the connection's cluster identity is what makes them distinct objects in
+# authentik (grafana-prod-eu and grafana-prod-us).
+#
+# Note there is no Application here on purpose. Application slugs are NOT scoped
+# by cluster - a slug is part of the URL users log in at - so two clusters
+# sharing one authentik must choose distinct slugs for their applications.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-authorization
+  namespace: identity
+spec:
+  connectionRef:
+    name: primary
+  existingSlug: default-provider-authorization-explicit-consent
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Flow
+metadata:
+  name: provider-invalidation
+  namespace: identity
+spec:
+  connectionRef:
+    name: primary
+  existingSlug: default-provider-invalidation-flow
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: OAuth2Provider
+metadata:
+  name: grafana
+  namespace: identity
+spec:
+  connectionRef:
+    name: primary
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
+  redirectURIs:
+    - matchingMode: strict
+      url: https://grafana.example.com/login/generic_oauth
+  writeCredentialsTo:
+    name: grafana-oidc

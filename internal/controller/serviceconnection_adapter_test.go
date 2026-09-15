@@ -43,9 +43,17 @@ type stubAuthentikClient struct {
 
 	// serviceConnections maps a service connection name to its UUID.
 	serviceConnections map[string]string
+
+	// cluster scopes managed object names. Empty in most tests, which is the
+	// single-operator case.
+	cluster string
 }
 
 func (c *stubAuthentikClient) BaseURL() string { return c.baseURL }
+
+// Cluster must be declared rather than left to the embedded interface: the
+// embedded value is nil, so an inherited call panics instead of returning "".
+func (c *stubAuthentikClient) Cluster() string { return c.cluster }
 
 func (c *stubAuthentikClient) ResolveCertificateKeyPair(_ context.Context, name string) (string, error) {
 	if uuid, ok := c.certKeyPairs[name]; ok {
@@ -101,7 +109,7 @@ func TestKubernetesConnectionRequestUsesSpec(t *testing.T) {
 			conn := &authentikv1alpha1.KubernetesServiceConnection{Spec: tc.spec}
 			conn.Name = "cluster"
 
-			adapter := &kubernetesServiceConnectionAdapter{conn: conn, kubeconfig: tc.kubeconfig}
+			adapter := &kubernetesServiceConnectionAdapter{client: &stubAuthentikClient{}, conn: conn, kubeconfig: tc.kubeconfig}
 			req := adapter.buildRequest()
 
 			if req.GetName() != "cluster" {

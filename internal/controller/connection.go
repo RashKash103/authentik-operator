@@ -157,6 +157,7 @@ func (r *ConnectionResolver) build(
 		Token:              string(token),
 		CABundle:           caBundle,
 		InsecureSkipVerify: settings.InsecureSkipTLSVerify,
+		Cluster:            settings.Cluster,
 		Cache:              r.Cache,
 		UserAgentSuffix:    r.UserAgentSuffix,
 	})

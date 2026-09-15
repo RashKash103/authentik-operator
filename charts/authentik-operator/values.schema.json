@@ -18,12 +18,20 @@
   "definitions": {
     "stringMap": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "quantity": {
       "oneOf": [
-        { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m|e[0-9]+)?$" },
-        { "type": "number", "minimum": 0 }
+        {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m|e[0-9]+)?$"
+        },
+        {
+          "type": "number",
+          "minimum": 0
+        }
       ]
     },
     "port": {
@@ -43,7 +51,9 @@
     },
     "objectList": {
       "type": "array",
-      "items": { "type": "object" }
+      "items": {
+        "type": "object"
+      }
     },
     "probe": {
       "type": "object",
@@ -87,7 +97,10 @@
     "image": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "pullPolicy"],
+      "required": [
+        "repository",
+        "pullPolicy"
+      ],
       "description": "Operator container image.",
       "properties": {
         "repository": {
@@ -106,7 +119,11 @@
         },
         "pullPolicy": {
           "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"],
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ],
           "description": "Image pull policy. IfNotPresent for released tags; Always only for moving tags such as main or latest."
         }
       }
@@ -117,7 +134,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
           "name": {
             "type": "string",
@@ -140,7 +159,9 @@
     "serviceAccount": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["create"],
+      "required": [
+        "create"
+      ],
       "description": "ServiceAccount the operator runs as.",
       "properties": {
         "create": {
@@ -165,7 +186,9 @@
     "rbac": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["create"],
+      "required": [
+        "create"
+      ],
       "description": "RBAC objects created by the chart.",
       "properties": {
         "create": {
@@ -186,13 +209,27 @@
       "type": "object",
       "description": "Pod-level security context. Defaults satisfy the restricted Pod Security Standard; change only if a policy engine demands different settings.",
       "properties": {
-        "runAsNonRoot": { "type": "boolean", "description": "Refuse to start if the image would run as UID 0." },
-        "runAsUser": { "type": "integer", "description": "UID to run the Pod as." },
-        "runAsGroup": { "type": "integer", "description": "Primary GID to run the Pod as." },
-        "fsGroup": { "type": "integer", "description": "Supplemental group applied to mounted volumes." },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "description": "Refuse to start if the image would run as UID 0."
+        },
+        "runAsUser": {
+          "type": "integer",
+          "description": "UID to run the Pod as."
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "description": "Primary GID to run the Pod as."
+        },
+        "fsGroup": {
+          "type": "integer",
+          "description": "Supplemental group applied to mounted volumes."
+        },
         "supplementalGroups": {
           "type": "array",
-          "items": { "type": "integer" },
+          "items": {
+            "type": "integer"
+          },
           "description": "Additional groups added to the container's first process."
         },
         "seccompProfile": {
@@ -202,7 +239,11 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+              "enum": [
+                "RuntimeDefault",
+                "Localhost",
+                "Unconfined"
+              ],
               "description": "Seccomp profile source. RuntimeDefault is required by the restricted PSS."
             },
             "localhostProfile": {
@@ -226,10 +267,22 @@
           "type": "boolean",
           "description": "Mount the container root filesystem read-only. If something needs to write, mount an emptyDir via extraVolumes rather than relaxing this."
         },
-        "privileged": { "type": "boolean", "description": "Run the container privileged. Never needed here." },
-        "runAsNonRoot": { "type": "boolean", "description": "Container-level override of the Pod setting." },
-        "runAsUser": { "type": "integer", "description": "UID to run the container as." },
-        "runAsGroup": { "type": "integer", "description": "GID to run the container as." },
+        "privileged": {
+          "type": "boolean",
+          "description": "Run the container privileged. Never needed here."
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "description": "Container-level override of the Pod setting."
+        },
+        "runAsUser": {
+          "type": "integer",
+          "description": "UID to run the container as."
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "description": "GID to run the container as."
+        },
         "capabilities": {
           "type": "object",
           "additionalProperties": false,
@@ -237,12 +290,16 @@
           "properties": {
             "drop": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Capabilities to drop. ALL is the correct value for this operator."
             },
             "add": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Capabilities to add. Should stay empty."
             }
           }
@@ -251,8 +308,17 @@
           "type": "object",
           "description": "Container-level seccomp profile override.",
           "properties": {
-            "type": { "type": "string", "enum": ["RuntimeDefault", "Localhost", "Unconfined"] },
-            "localhostProfile": { "type": "string" }
+            "type": {
+              "type": "string",
+              "enum": [
+                "RuntimeDefault",
+                "Localhost",
+                "Unconfined"
+              ]
+            },
+            "localhostProfile": {
+              "type": "string"
+            }
           }
         }
       }
@@ -267,9 +333,18 @@
           "additionalProperties": false,
           "description": "Resource ceiling. Memory over-limit means OOMKill; CPU over-limit means throttling.",
           "properties": {
-            "cpu": { "$ref": "#/definitions/quantity", "description": "CPU limit, e.g. 500m." },
-            "memory": { "$ref": "#/definitions/quantity", "description": "Memory limit, e.g. 256Mi." },
-            "ephemeral-storage": { "$ref": "#/definitions/quantity", "description": "Ephemeral storage limit." }
+            "cpu": {
+              "$ref": "#/definitions/quantity",
+              "description": "CPU limit, e.g. 500m."
+            },
+            "memory": {
+              "$ref": "#/definitions/quantity",
+              "description": "Memory limit, e.g. 256Mi."
+            },
+            "ephemeral-storage": {
+              "$ref": "#/definitions/quantity",
+              "description": "Ephemeral storage limit."
+            }
           }
         },
         "requests": {
@@ -277,9 +352,18 @@
           "additionalProperties": false,
           "description": "Scheduling reservation. Kept small so the operator schedules anywhere.",
           "properties": {
-            "cpu": { "$ref": "#/definitions/quantity", "description": "CPU request, e.g. 10m." },
-            "memory": { "$ref": "#/definitions/quantity", "description": "Memory request, e.g. 64Mi." },
-            "ephemeral-storage": { "$ref": "#/definitions/quantity", "description": "Ephemeral storage request." }
+            "cpu": {
+              "$ref": "#/definitions/quantity",
+              "description": "CPU request, e.g. 10m."
+            },
+            "memory": {
+              "$ref": "#/definitions/quantity",
+              "description": "Memory request, e.g. 64Mi."
+            },
+            "ephemeral-storage": {
+              "$ref": "#/definitions/quantity",
+              "description": "Ephemeral storage request."
+            }
           }
         },
         "claims": {
@@ -316,7 +400,13 @@
     },
     "dnsPolicy": {
       "type": "string",
-      "enum": ["", "ClusterFirst", "ClusterFirstWithHostNet", "Default", "None"],
+      "enum": [
+        "",
+        "ClusterFirst",
+        "ClusterFirstWithHostNet",
+        "Default",
+        "None"
+      ],
       "description": "Pod DNS policy. Use None (with dnsConfig) only in clusters with unusual DNS topology."
     },
     "dnsConfig": {
@@ -332,17 +422,31 @@
       "description": "Extra environment variables for the manager container in full Kubernetes env form, so valueFrom works. Typical uses: HTTPS_PROXY/NO_PROXY, SSL_CERT_FILE.",
       "items": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1, "description": "Environment variable name." },
-          "value": { "type": "string", "description": "Literal value. Mutually exclusive with valueFrom." },
-          "valueFrom": { "type": "object", "description": "Source for the value: secretKeyRef, configMapKeyRef, fieldRef or resourceFieldRef." }
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Environment variable name."
+          },
+          "value": {
+            "type": "string",
+            "description": "Literal value. Mutually exclusive with valueFrom."
+          },
+          "valueFrom": {
+            "type": "object",
+            "description": "Source for the value: secretKeyRef, configMapKeyRef, fieldRef or resourceFieldRef."
+          }
         }
       }
     },
     "extraArgs": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Extra command-line flags appended to /manager. An escape hatch for flags newer than this chart version."
     },
     "extraVolumes": {
@@ -350,9 +454,15 @@
       "description": "Extra Pod volumes in full Kubernetes form. Most often a Secret/ConfigMap CA bundle for the authentik endpoint, or an emptyDir for a writable path.",
       "items": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1, "description": "Volume name, referenced by an extraVolumeMounts entry." }
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Volume name, referenced by an extraVolumeMounts entry."
+          }
         }
       }
     },
@@ -361,12 +471,29 @@
       "description": "Extra volume mounts on the manager container, matching extraVolumes by name.",
       "items": {
         "type": "object",
-        "required": ["name", "mountPath"],
+        "required": [
+          "name",
+          "mountPath"
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1, "description": "Name of the volume to mount, from extraVolumes." },
-          "mountPath": { "type": "string", "minLength": 1, "description": "Path inside the container to mount at." },
-          "subPath": { "type": "string", "description": "Mount a single file or subdirectory of the volume." },
-          "readOnly": { "type": "boolean", "description": "Mount read-only. Should be true for CA bundles and other config." }
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Name of the volume to mount, from extraVolumes."
+          },
+          "mountPath": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path inside the container to mount at."
+          },
+          "subPath": {
+            "type": "string",
+            "description": "Mount a single file or subdirectory of the volume."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "Mount read-only. Should be true for CA bundles and other config."
+          }
         }
       }
     },
@@ -375,25 +502,39 @@
       "description": "Extra Kubernetes manifests rendered with the release. Strings pass through tpl, so Helm templating works. Use for a NetworkPolicy or PodDisruptionBudget you want in the release.",
       "items": {
         "oneOf": [
-          { "type": "object" },
-          { "type": "string" }
+          {
+            "type": "object"
+          },
+          {
+            "type": "string"
+          }
         ]
       }
     },
     "log": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["level", "format"],
+      "required": [
+        "level",
+        "format"
+      ],
       "description": "Operator logging (zap).",
       "properties": {
         "level": {
           "type": "string",
-          "enum": ["debug", "info", "error"],
+          "enum": [
+            "debug",
+            "info",
+            "error"
+          ],
           "description": "Log verbosity (--zap-log-level). Use debug when diagnosing reconcile behaviour; it is noisy in steady state."
         },
         "format": {
           "type": "string",
-          "enum": ["json", "console"],
+          "enum": [
+            "json",
+            "console"
+          ],
           "description": "Log encoding (--zap-encoder). json for log pipelines, console for human-readable local debugging."
         }
       }
@@ -401,7 +542,9 @@
     "leaderElection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled"],
+      "required": [
+        "enabled"
+      ],
       "description": "Leader election settings.",
       "properties": {
         "enabled": {
@@ -413,13 +556,17 @@
     "watchNamespaces": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "$ref": "#/definitions/dns1123" },
+      "items": {
+        "$ref": "#/definitions/dns1123"
+      },
       "description": "Namespaces the operator watches. Empty means all namespaces. Restricting shrinks cache memory and blast radius, but resources elsewhere are silently ignored."
     },
     "health": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["port"],
+      "required": [
+        "port"
+      ],
       "description": "Health and readiness endpoint settings.",
       "properties": {
         "port": {
@@ -443,7 +590,13 @@
     "metrics": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "port", "secure", "service", "serviceMonitor"],
+      "required": [
+        "enabled",
+        "port",
+        "secure",
+        "service",
+        "serviceMonitor"
+      ],
       "description": "controller-runtime metrics endpoint and its exposure.",
       "properties": {
         "enabled": {
@@ -461,7 +614,11 @@
         "service": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["enabled", "type", "port"],
+          "required": [
+            "enabled",
+            "type",
+            "port"
+          ],
           "description": "Service fronting the metrics endpoint.",
           "properties": {
             "enabled": {
@@ -470,7 +627,11 @@
             },
             "type": {
               "type": "string",
-              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
               "description": "Service type. ClusterIP is correct; metrics should never leave the cluster."
             },
             "port": {
@@ -490,7 +651,9 @@
         "serviceMonitor": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["enabled"],
+          "required": [
+            "enabled"
+          ],
           "description": "Prometheus Operator ServiceMonitor for the metrics endpoint.",
           "properties": {
             "enabled": {
@@ -516,8 +679,13 @@
             },
             "scrapeTimeout": {
               "oneOf": [
-                { "type": "string", "maxLength": 0 },
-                { "$ref": "#/definitions/duration" }
+                {
+                  "type": "string",
+                  "maxLength": 0
+                },
+                {
+                  "$ref": "#/definitions/duration"
+                }
               ],
               "description": "Scrape timeout. Empty means Prometheus' default. Must not exceed interval."
             },
@@ -528,7 +696,11 @@
             },
             "scheme": {
               "type": "string",
-              "enum": ["", "http", "https"],
+              "enum": [
+                "",
+                "http",
+                "https"
+              ],
               "description": "Scrape scheme. Empty derives it from metrics.secure (https when secure, http otherwise)."
             },
             "bearerTokenFile": {
@@ -554,6 +726,10 @@
           }
         }
       }
+    },
+    "allowCrossNamespaceReferences": {
+      "type": "boolean",
+      "description": "Allow references to name another namespace. Does not apply to connectionRef; share a connection with a ClusterAuthentikConnection instead."
     }
   }
 }

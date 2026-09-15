@@ -32,7 +32,10 @@ type samlAdapter struct {
 	client authentik.Client
 	// kube reads the Flow, PropertyMapping and CertificateKeyPair
 	// resources this provider references.
-	kube     client.Client
+	kube client.Client
+	// refs is the scope references resolve in: the owning namespace, the
+	// authentik it talks to, and whether crossing namespaces is allowed.
+	refs     ReferenceScope
 	provider *authentikv1alpha1.SAMLProvider
 
 	// observed holds the provider as last read from authentik, so the
@@ -42,7 +45,9 @@ type samlAdapter struct {
 
 func (a *samlAdapter) Kind() string { return "SAML provider" }
 
-func (a *samlAdapter) DesiredName() string { return a.provider.ProviderName() }
+func (a *samlAdapter) DesiredName() string {
+	return ScopedName(a.client.Cluster(), a.provider.ProviderName())
+}
 
 func (a *samlAdapter) Exists(ctx context.Context, id string) (bool, error) {
 	const op = "retrieve saml provider"
@@ -160,18 +165,18 @@ func (a *samlAdapter) Delete(ctx context.Context, id string) error {
 func (a *samlAdapter) buildRequest(ctx context.Context) (*api.SAMLProviderRequest, error) {
 	spec := a.provider.Spec
 
-	authzFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authorizationFlow", spec.AuthorizationFlow)
+	authzFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.authorizationFlow", spec.AuthorizationFlow)
 	if err != nil {
 		return nil, err
 	}
-	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.invalidationFlow", spec.InvalidationFlow)
+	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.invalidationFlow", spec.InvalidationFlow)
 	if err != nil {
 		return nil, err
 	}
 
 	req := api.NewSAMLProviderRequest(a.DesiredName(), authzFlow, invalidationFlow, spec.ACSURL)
 
-	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authenticationFlow", spec.AuthenticationFlow)
+	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.scope(), "spec.authenticationFlow", spec.AuthenticationFlow)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +184,7 @@ func (a *samlAdapter) buildRequest(ctx context.Context) (*api.SAMLProviderReques
 		req.SetAuthenticationFlow(authnFlow)
 	}
 
-	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.provider.Namespace, "spec.propertyMappings", spec.PropertyMappings)
+	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.scope(), "spec.propertyMappings", spec.PropertyMappings)
 	if err != nil {
 		return nil, err
 	}
@@ -189,14 +194,14 @@ func (a *samlAdapter) buildRequest(ctx context.Context) (*api.SAMLProviderReques
 
 	// The NameID and AuthnContextClassRef mappings are single property
 	// mappings rather than a list, so they resolve one at a time.
-	nameID, err := resolvePropertyMappingRef(ctx, a.kube, a.provider.Namespace, "spec.nameIDMapping", spec.NameIDMapping)
+	nameID, err := resolvePropertyMappingRef(ctx, a.kube, a.scope(), "spec.nameIDMapping", spec.NameIDMapping)
 	if err != nil {
 		return nil, err
 	}
 	if nameID != "" {
 		req.SetNameIdMapping(nameID)
 	}
-	authnContext, err := resolvePropertyMappingRef(ctx, a.kube, a.provider.Namespace, "spec.authnContextClassRefMapping", spec.AuthnContextClassRefMapping)
+	authnContext, err := resolvePropertyMappingRef(ctx, a.kube, a.scope(), "spec.authnContextClassRefMapping", spec.AuthnContextClassRefMapping)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +261,7 @@ func (a *samlAdapter) setKeyPairs(ctx context.Context, req *api.SAMLProviderRequ
 		{"spec.verificationKeyPair", spec.VerificationKeyPair, req.SetVerificationKp},
 		{"spec.encryptionKeyPair", spec.EncryptionKeyPair, req.SetEncryptionKp},
 	} {
-		resolved, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, kp.field, kp.ref)
+		resolved, err := resolveKeyPairRef(ctx, a.kube, a.scope(), kp.field, kp.ref)
 		if err != nil {
 			return err
 		}
@@ -360,4 +365,14 @@ func setIfNotNil[T any](value *T, set func(T)) {
 	if value != nil {
 		set(*value)
 	}
+}
+
+// scope returns the reference scope for this adapter, defaulting the namespace
+// to the owning resource's own.
+func (a *samlAdapter) scope() ReferenceScope {
+	scope := a.refs
+	if scope.Namespace == "" {
+		scope.Namespace = a.provider.Namespace
+	}
+	return scope
 }

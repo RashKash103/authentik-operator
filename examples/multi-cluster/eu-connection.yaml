@@ -1,0 +1,21 @@
+# The EU cluster's operator. Objects it manages are suffixed with -prod-eu.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authentik-api-token
+  namespace: identity
+type: Opaque
+stringData:
+  token: replace-me
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: AuthentikConnection
+metadata:
+  name: primary
+  namespace: identity
+spec:
+  url: https://authentik.example.com
+  cluster: prod-eu
+  tokenSecretRef:
+    name: authentik-api-token
+    key: token

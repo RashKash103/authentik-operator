@@ -58,7 +58,7 @@ func (a *kubernetesServiceConnectionAdapter) Kind() string {
 }
 
 func (a *kubernetesServiceConnectionAdapter) DesiredName() string {
-	return a.conn.ServiceConnectionName()
+	return ScopedName(a.client.Cluster(), a.conn.ServiceConnectionName())
 }
 
 func (a *kubernetesServiceConnectionAdapter) Exists(ctx context.Context, id string) (bool, error) {
@@ -189,6 +189,9 @@ type dockerServiceConnectionAdapter struct {
 	client authentik.Client
 	// kube reads the CertificateKeyPair resources this connection references.
 	kube client.Client
+	// refs is the scope references resolve in: the owning namespace, the
+	// authentik it talks to, and whether crossing namespaces is allowed.
+	refs ReferenceScope
 	conn *authentikv1alpha1.DockerServiceConnection
 
 	// observed holds the connection as last read from authentik.
@@ -198,7 +201,7 @@ type dockerServiceConnectionAdapter struct {
 func (a *dockerServiceConnectionAdapter) Kind() string { return "Docker service connection" }
 
 func (a *dockerServiceConnectionAdapter) DesiredName() string {
-	return a.conn.ServiceConnectionName()
+	return ScopedName(a.client.Cluster(), a.conn.ServiceConnectionName())
 }
 
 func (a *dockerServiceConnectionAdapter) Exists(ctx context.Context, id string) (bool, error) {
@@ -315,7 +318,7 @@ func (a *dockerServiceConnectionAdapter) buildRequest(ctx context.Context) (*api
 	// Both certificate references are sent on every request, explicitly
 	// cleared when unset, so removing one from the spec actually detaches it
 	// rather than silently leaving the old certificate in place.
-	verification, err := resolveKeyPairRef(ctx, a.kube, a.conn.Namespace, "spec.tlsVerification", spec.TLSVerification)
+	verification, err := resolveKeyPairRef(ctx, a.kube, a.scope(), "spec.tlsVerification", spec.TLSVerification)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +328,7 @@ func (a *dockerServiceConnectionAdapter) buildRequest(ctx context.Context) (*api
 		req.SetTlsVerificationNil()
 	}
 
-	authentication, err := resolveKeyPairRef(ctx, a.kube, a.conn.Namespace, "spec.tlsAuthentication", spec.TLSAuthentication)
+	authentication, err := resolveKeyPairRef(ctx, a.kube, a.scope(), "spec.tlsAuthentication", spec.TLSAuthentication)
 	if err != nil {
 		return nil, err
 	}
@@ -350,4 +353,14 @@ func dockerConnectionEquivalent(a, b *api.DockerServiceConnection) bool {
 		a.Url == b.Url &&
 		a.GetTlsVerification() == b.GetTlsVerification() &&
 		a.GetTlsAuthentication() == b.GetTlsAuthentication()
+}
+
+// scope returns the reference scope for this adapter, defaulting the namespace
+// to the owning resource's own.
+func (a *dockerServiceConnectionAdapter) scope() ReferenceScope {
+	scope := a.refs
+	if scope.Namespace == "" {
+		scope.Namespace = a.conn.Namespace
+	}
+	return scope
 }

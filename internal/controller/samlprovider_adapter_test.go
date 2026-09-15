@@ -33,6 +33,8 @@ import (
 // Only the resolvers are exercised: buildRequest is pure translation, so the
 // tests never need the generated HTTP client.
 type stubClient struct {
+	// cluster scopes managed object names; empty in most tests.
+	cluster  string
 	flows    map[string]string
 	mappings map[string]string
 	keyPairs map[string]string
@@ -92,8 +94,10 @@ func (c *stubClient) ResolveCertificateKeyPair(_ context.Context, name string) (
 
 func (c *stubClient) BaseURL() string      { return "https://authentik.example.com" }
 func (c *stubClient) ConnectionID() string { return "stub" }
-func (c *stubClient) InvalidateCache()     {}
-func (c *stubClient) API() *api.APIClient  { return nil }
+
+func (c *stubClient) Cluster() string     { return c.cluster }
+func (c *stubClient) InvalidateCache()    {}
+func (c *stubClient) API() *api.APIClient { return nil }
 
 func (c *stubClient) Version(context.Context) (authentik.Version, error) {
 	return authentik.Version{}, nil

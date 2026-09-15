@@ -194,6 +194,17 @@ leaderElection:
 # Example: `watchNamespaces: ["apps", "platform"]`
 watchNamespaces: []
 
+# -- Allow a Flow, PropertyMapping, CertificateKeyPair, provider or service
+# connection reference to name another namespace. Off by default.
+#
+# Turning it on makes one namespace's configuration another's dependency, which
+# is a cluster-level decision rather than one a manifest author should make for
+# themselves. It does NOT apply to `connectionRef`: credentials never cross a
+# namespace boundary this way. Share a connection with a
+# ClusterAuthentikConnection instead, where the owner grants access through
+# `allowedNamespaces`.
+allowCrossNamespaceReferences: false
+
 health:
   # -- Container port for the health/readiness endpoints (`/healthz`, `/readyz`).
   # Change only on a port collision with an injected sidecar.

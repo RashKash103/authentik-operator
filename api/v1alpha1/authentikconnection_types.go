@@ -34,6 +34,24 @@ type ConnectionSettings struct {
 	// +optional
 	InsecureSkipTLSVerify bool `json:"insecureSkipTLSVerify,omitempty"`
 
+	// Cluster identifies this operator instance when several of them share one
+	// authentik - for example one per Kubernetes cluster, or one reaching the
+	// instance directly and another through a proxy.
+	//
+	// authentik has no ownership marker on most objects, so when this is set
+	// the operator scopes the names of objects it manages with it: a provider
+	// named "grafana" becomes "grafana-prod-eu". Two clusters then get two
+	// distinct objects instead of fighting over one, and neither operator can
+	// adopt or delete the other's.
+	//
+	// Leave it unset when only one operator talks to the instance. Changing it
+	// later orphans the objects created under the old value; they are not
+	// renamed, and the operator will create new ones.
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=40
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
+
 	// ProbeInterval is how often the connection is re-checked for reachability.
 	// +kubebuilder:default="5m"
 	// +kubebuilder:validation:Type=string

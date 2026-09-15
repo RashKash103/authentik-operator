@@ -192,6 +192,9 @@ func resolveAdopted(
 
 	status.RemoteID = remoteID
 	status.RemoteName = identifier
+	// Recording the instance is what lets a cross-namespace reference verify
+	// the UUID it is about to use actually came from the same authentik.
+	status.AuthentikURL = akClient.BaseURL()
 	now := metav1.Now()
 	status.LastSyncedTime = &now
 	SetCondition(&status.Conditions, authentikv1alpha1.ConditionReady, metav1.ConditionTrue,

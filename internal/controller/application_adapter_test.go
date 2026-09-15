@@ -37,7 +37,7 @@ func TestApplicationAdapterDesiredNameIsTheSlug(t *testing.T) {
 	app.Spec.Name = "Grafana Dashboards"
 	app.Spec.Slug = "grafana"
 
-	adapter := &applicationAdapter{app: app}
+	adapter := &applicationAdapter{client: &stubAuthentikClient{}, app: app}
 	if got := adapter.DesiredName(); got != "grafana" {
 		t.Errorf("DesiredName() = %q, want the slug %q", got, "grafana")
 	}
@@ -68,7 +68,7 @@ func TestApplicationBuildRequestNameAndSlug(t *testing.T) {
 			app := newTestApplication()
 			app.Spec.Name = tc.specName
 
-			req := (&applicationAdapter{app: app}).buildRequest()
+			req := (&applicationAdapter{client: &stubAuthentikClient{}, app: app}).buildRequest()
 			if req.Name != tc.wantName {
 				t.Errorf("Name = %q, want %q", req.Name, tc.wantName)
 			}
@@ -148,7 +148,7 @@ func TestApplicationBuildRequestMetadata(t *testing.T) {
 	app.Spec.OpenInNewTab = ptrBool(true)
 	app.Spec.MetaHide = ptrBool(true)
 
-	req := (&applicationAdapter{app: app}).buildRequest()
+	req := (&applicationAdapter{client: &stubAuthentikClient{}, app: app}).buildRequest()
 
 	if got := req.GetMetaLaunchUrl(); got != "https://grafana.example.com" {
 		t.Errorf("MetaLaunchUrl = %q", got)
@@ -180,7 +180,7 @@ func TestApplicationBuildRequestOmitsUnsetOptionalFields(t *testing.T) {
 	app := newTestApplication()
 	app.Spec.PolicyEngineMode = ""
 
-	body, err := json.Marshal((&applicationAdapter{app: app}).buildRequest())
+	body, err := json.Marshal((&applicationAdapter{client: &stubAuthentikClient{}, app: app}).buildRequest())
 	if err != nil {
 		t.Fatalf("marshalling request: %v", err)
 	}

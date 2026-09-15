@@ -49,6 +49,11 @@
               "maxLength": 253,
               "minLength": 1,
               "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+              "maxLength": 63,
+              "type": "string"
             }
           },
           "required": [
@@ -63,6 +68,11 @@
               "description": "Name of the Flow resource.",
               "maxLength": 253,
               "minLength": 1,
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+              "maxLength": 63,
               "type": "string"
             }
           },
@@ -90,6 +100,11 @@
               "description": "Name of the CertificateKeyPair resource.",
               "maxLength": 253,
               "minLength": 1,
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+              "maxLength": 63,
               "type": "string"
             }
           },
@@ -159,6 +174,11 @@
               "maxLength": 253,
               "minLength": 1,
               "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+              "maxLength": 63,
+              "type": "string"
             }
           },
           "required": [
@@ -189,6 +209,11 @@
                 "description": "Name of the PropertyMapping resource.",
                 "maxLength": 253,
                 "minLength": 1,
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+                "maxLength": 63,
                 "type": "string"
               }
             },

@@ -47,6 +47,12 @@
           ],
           "type": "object"
         },
+        "cluster": {
+          "description": "Cluster identifies this operator instance when several of them share one\nauthentik - for example one per Kubernetes cluster, or one reaching the\ninstance directly and another through a proxy.\n\nauthentik has no ownership marker on most objects, so when this is set\nthe operator scopes the names of objects it manages with it: a provider\nnamed \"grafana\" becomes \"grafana-prod-eu\". Two clusters then get two\ndistinct objects instead of fighting over one, and neither operator can\nadopt or delete the other's.\n\nLeave it unset when only one operator talks to the instance. Changing it\nlater orphans the objects created under the old value; they are not\nrenamed, and the operator will create new ones.",
+          "maxLength": 40,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "type": "string"
+        },
         "insecureSkipTLSVerify": {
           "default": false,
           "description": "InsecureSkipTLSVerify disables verification of the authentik server's TLS\ncertificate. Intended for local testing against a self-signed instance;\nprefer caBundleSecretRef anywhere else.",

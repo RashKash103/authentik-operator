@@ -118,6 +118,16 @@ spec:
                     maxLength: 253
                     minLength: 1
                     type: string
+                  namespace:
+                    description: |-
+                      Namespace holding the resource. Defaults to the referring resource's own
+                      namespace.
+
+                      Naming another namespace requires the operator to be started with
+                      cross-namespace references enabled; otherwise the reference is refused
+                      rather than quietly resolved somewhere else.
+                    maxLength: 63
+                    type: string
                 required:
                 - name
                 type: object
@@ -130,6 +140,16 @@ spec:
                     description: Name of the CertificateKeyPair resource.
                     maxLength: 253
                     minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace holding the resource. Defaults to the referring resource's own
+                      namespace.
+
+                      Naming another namespace requires the operator to be started with
+                      cross-namespace references enabled; otherwise the reference is refused
+                      rather than quietly resolved somewhere else.
+                    maxLength: 63
                     type: string
                 required:
                 - name

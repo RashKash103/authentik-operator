@@ -47,6 +47,8 @@ type ApplicationReconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder recorder.EventRecorder
 	Resolver *ConnectionResolver
+	// References decides whether references may cross namespaces.
+	References ReferencePolicy
 }
 
 // +kubebuilder:rbac:groups=authentik.k8s.rka.sh,resources=applications,verbs=get;list;watch;create;update;patch;delete
@@ -263,7 +265,9 @@ func (r *ApplicationReconciler) recordIdentity(
 ) {
 	status := app.ManagedStatus()
 	status.RemoteID = outcome.RemoteID
-	status.RemoteName = app.Spec.Slug
+	// Applications are deliberately unscoped, so the slug is already what
+	// authentik holds; taking it from the adapter keeps the two in step.
+	status.RemoteName = adapter.DesiredName()
 	status.Adopted = status.Adopted || outcome.Adopted
 	now := metav1.Now()
 	status.LastSyncedTime = &now

@@ -55,6 +55,16 @@ type AdoptedObjectStatus struct {
 	// +optional
 	RemoteName string `json:"remoteName,omitempty"`
 
+	// AuthentikURL is the instance this object resolved against.
+	//
+	// A UUID only means anything on the instance that issued it, so a
+	// cross-namespace reference compares this against the referring resource's
+	// own connection and refuses a mismatch. Without the check, pointing at a
+	// flow from a namespace wired to a different authentik would send a UUID
+	// that instance has never seen.
+	// +optional
+	AuthentikURL string `json:"authentikURL,omitempty"`
+
 	// LastSyncedTime is when the object was last resolved successfully.
 	// +optional
 	LastSyncedTime *metav1.Time `json:"lastSyncedTime,omitempty"`

@@ -57,8 +57,13 @@
                 "type": "string"
               },
               "name": {
-                "description": "Name of the provider resource in this namespace. Mutually exclusive with\nexistingProviderName.",
+                "description": "Name of the provider resource. Mutually exclusive with\nexistingProviderName.",
                 "maxLength": 255,
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+                "maxLength": 63,
                 "type": "string"
               }
             },
@@ -165,8 +170,13 @@
               "type": "string"
             },
             "name": {
-              "description": "Name of the provider resource in this namespace. Mutually exclusive with\nexistingProviderName.",
+              "description": "Name of the provider resource. Mutually exclusive with\nexistingProviderName.",
               "maxLength": 255,
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+              "maxLength": 63,
               "type": "string"
             }
           },

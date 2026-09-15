@@ -58,7 +58,10 @@ type outpostAdapter struct {
 
 func (a *outpostAdapter) Kind() string { return "Outpost" }
 
-func (a *outpostAdapter) DesiredName() string { return a.outpost.OutpostName() }
+// DesiredName is the outpost's name in authentik.
+func (a *outpostAdapter) DesiredName() string {
+	return ScopedName(a.client.Cluster(), a.outpost.OutpostName())
+}
 
 func (a *outpostAdapter) Exists(ctx context.Context, id string) (bool, error) {
 	const op = "retrieve outpost"

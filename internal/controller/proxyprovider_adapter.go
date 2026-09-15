@@ -32,7 +32,10 @@ type proxyAdapter struct {
 	client authentik.Client
 	// kube reads the Flow, PropertyMapping and CertificateKeyPair
 	// resources this provider references.
-	kube     client.Client
+	kube client.Client
+	// refs is the scope references resolve in: the owning namespace, the
+	// authentik it talks to, and whether crossing namespaces is allowed.
+	refs     ReferenceScope
 	provider *authentikv1alpha1.ProxyProvider
 
 	// observed holds the provider as last read from authentik, so the
@@ -42,7 +45,9 @@ type proxyAdapter struct {
 
 func (a *proxyAdapter) Kind() string { return "proxy provider" }
 
-func (a *proxyAdapter) DesiredName() string { return a.provider.ProviderName() }
+func (a *proxyAdapter) DesiredName() string {
+	return ScopedName(a.client.Cluster(), a.provider.ProviderName())
+}
 
 func (a *proxyAdapter) Exists(ctx context.Context, id string) (bool, error) {
 	const op = "retrieve proxy provider"
@@ -162,18 +167,18 @@ func (a *proxyAdapter) Delete(ctx context.Context, id string) error {
 func (a *proxyAdapter) buildRequest(ctx context.Context) (*api.ProxyProviderRequest, error) {
 	spec := a.provider.Spec
 
-	authzFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authorizationFlow", spec.AuthorizationFlow)
+	authzFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.authorizationFlow", spec.AuthorizationFlow)
 	if err != nil {
 		return nil, err
 	}
-	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.invalidationFlow", spec.InvalidationFlow)
+	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.invalidationFlow", spec.InvalidationFlow)
 	if err != nil {
 		return nil, err
 	}
 
 	req := api.NewProxyProviderRequest(a.DesiredName(), authzFlow, invalidationFlow, spec.ExternalHost)
 
-	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authenticationFlow", spec.AuthenticationFlow)
+	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.scope(), "spec.authenticationFlow", spec.AuthenticationFlow)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +186,7 @@ func (a *proxyAdapter) buildRequest(ctx context.Context) (*api.ProxyProviderRequ
 		req.SetAuthenticationFlow(authnFlow)
 	}
 
-	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.provider.Namespace, "spec.propertyMappings", spec.PropertyMappings)
+	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.scope(), "spec.propertyMappings", spec.PropertyMappings)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +194,7 @@ func (a *proxyAdapter) buildRequest(ctx context.Context) (*api.ProxyProviderRequ
 		req.SetPropertyMappings(mappings)
 	}
 
-	certificate, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, "spec.certificate", spec.Certificate)
+	certificate, err := resolveKeyPairRef(ctx, a.kube, a.scope(), "spec.certificate", spec.Certificate)
 	if err != nil {
 		return nil, err
 	}
@@ -277,4 +282,14 @@ func proxyEquivalent(a, b *api.ProxyProvider) bool {
 		return a == b
 	}
 	return proxyStateOf(a) == proxyStateOf(b)
+}
+
+// scope returns the reference scope for this adapter, defaulting the namespace
+// to the owning resource's own.
+func (a *proxyAdapter) scope() ReferenceScope {
+	scope := a.refs
+	if scope.Namespace == "" {
+		scope.Namespace = a.provider.Namespace
+	}
+	return scope
 }

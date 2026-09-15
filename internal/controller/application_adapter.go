@@ -51,7 +51,14 @@ func (a *applicationAdapter) Kind() string { return "Application" }
 
 // DesiredName returns the slug, which is what authentik keys applications by
 // and therefore what a pre-existing application would collide on.
-func (a *applicationAdapter) DesiredName() string { return a.app.Spec.Slug }
+//
+// Deliberately NOT scoped by cluster, unlike provider names: the slug appears
+// in the URL users are sent to when logging in, so scoping it would publish
+// internal cluster naming to anyone who reaches that page - including people
+// who are not signed in. See ApplicationsAreNotScoped.
+func (a *applicationAdapter) DesiredName() string {
+	return a.app.Spec.Slug
+}
 
 func (a *applicationAdapter) Exists(ctx context.Context, id string) (bool, error) {
 	const op = "retrieve application"

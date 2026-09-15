@@ -55,7 +55,7 @@ type ProviderReference struct {
 	// +optional
 	Kind ProviderKind `json:"kind,omitempty"`
 
-	// Name of the provider resource in this namespace. Mutually exclusive with
+	// Name of the provider resource. Mutually exclusive with
 	// existingProviderName.
 	// +kubebuilder:validation:MaxLength=255
 	// +optional
@@ -67,6 +67,16 @@ type ProviderReference struct {
 	// +kubebuilder:validation:MaxLength=255
 	// +optional
 	ExistingProviderName string `json:"existingProviderName,omitempty"`
+
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // Key returns a stable identifier for the reference, used as a field index

@@ -109,6 +109,7 @@ securityContext:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity/anti-affinity rules. With `replicaCount: 2` add pod anti-affinity so both replicas do not land on the same node, defeating the point. |
+| allowCrossNamespaceReferences | bool | `false` | Allow a Flow, PropertyMapping, CertificateKeyPair, provider or service connection reference to name another namespace. Off by default.  Turning it on makes one namespace's configuration another's dependency, which is a cluster-level decision rather than one a manifest author should make for themselves. It does NOT apply to `connectionRef`: credentials never cross a namespace boundary this way. Share a connection with a ClusterAuthentikConnection instead, where the owner grants access through `allowedNamespaces`. |
 | dnsConfig | object | `{}` | Custom DNS settings, used when `dnsPolicy: None`. |
 | dnsPolicy | string | `""` | DNS policy for the Pod. Change to `None` (plus `dnsConfig`) only in clusters with unusual DNS topology. |
 | enableHTTP2 | bool | `false` | Enable HTTP/2 on the metrics endpoint (`--enable-http2`). Off by default: HTTP/2 has a history of DoS-shaped CVEs (Rapid Reset) and the operator's endpoints gain nothing from it. Turn on only if a scraper requires it. |

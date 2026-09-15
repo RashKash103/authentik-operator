@@ -49,6 +49,7 @@ func TestOutpostRequestCarriesResolvedReferences(t *testing.T) {
 	}
 
 	adapter := &outpostAdapter{
+		client:            &stubAuthentikClient{},
 		outpost:           outpost,
 		providerIDs:       []int32{7, 9},
 		serviceConnection: "sc-uuid",
@@ -84,7 +85,7 @@ func TestOutpostRequestCarriesResolvedReferences(t *testing.T) {
 // authentik requires the providers field, and an outpost that genuinely serves
 // nothing still has to send an empty list rather than null.
 func TestOutpostRequestSendsEmptyProviderList(t *testing.T) {
-	adapter := &outpostAdapter{outpost: newOutpost()}
+	adapter := &outpostAdapter{client: &stubAuthentikClient{}, outpost: newOutpost()}
 
 	req, err := adapter.buildRequest()
 	if err != nil {
@@ -102,7 +103,7 @@ func TestOutpostRequestSendsEmptyProviderList(t *testing.T) {
 // Omitting the field from the request would leave authentik managing a
 // deployment nobody asked for any more, while the resource reported success.
 func TestOutpostRequestClearsRemovedServiceConnection(t *testing.T) {
-	adapter := &outpostAdapter{outpost: newOutpost()}
+	adapter := &outpostAdapter{client: &stubAuthentikClient{}, outpost: newOutpost()}
 
 	req, err := adapter.buildRequest()
 	if err != nil {

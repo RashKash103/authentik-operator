@@ -63,6 +63,9 @@ spec:
             {{- end }}
             - --leader-elect={{ .Values.leaderElection.enabled }}
             - --enable-http2={{ .Values.enableHTTP2 }}
+            {{- if .Values.allowCrossNamespaceReferences }}
+            - --allow-cross-namespace-references
+            {{- end }}
             {{- with .Values.watchNamespaces }}
             - --watch-namespaces={{ join "," . }}
             {{- end }}

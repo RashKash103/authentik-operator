@@ -347,6 +347,7 @@ func TestRecordIdentityWritesResolvedReferences(t *testing.T) {
 	outpost := newOutpost(oauth2Ref("grafana"))
 	r := &OutpostReconciler{}
 	adapter := &outpostAdapter{
+		client:   &stubAuthentikClient{},
 		outpost:  outpost,
 		observed: &api.Outpost{Pk: "uuid", TokenIdentifier: "ak-outpost-edge"},
 	}

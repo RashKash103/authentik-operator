@@ -91,7 +91,7 @@ func (r *KubernetesServiceConnectionReconciler) Reconcile(ctx context.Context, r
 		return r.fail(ctx, &conn, err)
 	}
 
-	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, conn.ServiceConnectionName())
+	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName())
 
 	MarkReady(&conn.Status.Conditions, conn.Generation)
 	if err := r.Status().Update(ctx, &conn); err != nil {
@@ -199,6 +199,8 @@ type DockerServiceConnectionReconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder recorder.EventRecorder
 	Resolver *ConnectionResolver
+	// References decides whether references may cross namespaces.
+	References ReferencePolicy
 }
 
 // +kubebuilder:rbac:groups=authentik.k8s.rka.sh,resources=dockerserviceconnections,verbs=get;list;watch;create;update;patch;delete
@@ -230,7 +232,7 @@ func (r *DockerServiceConnectionReconciler) Reconcile(ctx context.Context, req c
 		}
 	}
 
-	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, conn: &conn}
+	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, refs: ReferenceScope{AuthentikURL: akClient.BaseURL(), Policy: r.References}, conn: &conn}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &conn, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
 	})
@@ -238,7 +240,7 @@ func (r *DockerServiceConnectionReconciler) Reconcile(ctx context.Context, req c
 		return r.fail(ctx, &conn, err)
 	}
 
-	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, conn.ServiceConnectionName())
+	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName())
 
 	MarkReady(&conn.Status.Conditions, conn.Generation)
 	if err := r.Status().Update(ctx, &conn); err != nil {
@@ -272,7 +274,7 @@ func (r *DockerServiceConnectionReconciler) reconcileDelete(
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil
 	}
 
-	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, conn: conn}
+	adapter := &dockerServiceConnectionAdapter{client: akClient, kube: r.Client, refs: ReferenceScope{AuthentikURL: akClient.BaseURL(), Policy: r.References}, conn: conn}
 	done, err := Finalize(ctx, SyncRequest{Object: conn, Adapter: adapter, Recorder: r.Recorder})
 	if err != nil {
 		return ctrl.Result{RequeueAfter: retryAfterFailure}, nil //nolint:nilerr // reported via condition
@@ -333,6 +335,8 @@ func parseKubeconfig(data []byte, secret types.NamespacedName, key string) (map[
 
 // recordServiceConnectionIdentity writes the authentik identity of a service
 // connection onto its status.
+// name is the scoped name the adapter uses, not the declared one: with a
+// cluster identity set they differ, and status reports what authentik holds.
 func recordServiceConnectionIdentity(
 	status *authentikv1alpha1.ServiceConnectionStatus, outcome SyncOutcome, name string,
 ) {

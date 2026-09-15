@@ -111,6 +111,7 @@ _Appears in:_
 | `observedGeneration` _integer_ | ObservedGeneration is the .metadata.generation this status reflects. |  | Optional: \{\} <br /> |
 | `remoteID` _string_ | RemoteID is authentik's UUID for the resolved object. References are<br />resolved through this, so Kubernetes stays the source of truth and a<br />rename inside authentik cannot silently repoint a provider. |  | Optional: \{\} <br /> |
 | `remoteName` _string_ | RemoteName is the name or slug last observed in authentik. |  | Optional: \{\} <br /> |
+| `authentikURL` _string_ | AuthentikURL is the instance this object resolved against.<br />A UUID only means anything on the instance that issued it, so a<br />cross-namespace reference compares this against the referring resource's<br />own connection and refuses a mismatch. Without the check, pointing at a<br />flow from a namespace wired to a different authentik would send a UUID<br />that instance has never seen. |  | Optional: \{\} <br /> |
 | `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the object was last resolved successfully. |  | Optional: \{\} <br /> |
 
 
@@ -270,6 +271,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `url` _string_ | URL is the base URL of the authentik instance, for example<br />https://authentik.example.com. Do not include the /api/v3 suffix. |  | MinLength: 1 <br />Pattern: `^https?://` <br /> |
 | `insecureSkipTLSVerify` _boolean_ | InsecureSkipTLSVerify disables verification of the authentik server's TLS<br />certificate. Intended for local testing against a self-signed instance;<br />prefer caBundleSecretRef anywhere else. | false | Optional: \{\} <br /> |
+| `cluster` _string_ | Cluster identifies this operator instance when several of them share one<br />authentik - for example one per Kubernetes cluster, or one reaching the<br />instance directly and another through a proxy.<br />authentik has no ownership marker on most objects, so when this is set<br />the operator scopes the names of objects it manages with it: a provider<br />named "grafana" becomes "grafana-prod-eu". Two clusters then get two<br />distinct objects instead of fighting over one, and neither operator can<br />adopt or delete the other's.<br />Leave it unset when only one operator talks to the instance. Changing it<br />later orphans the objects created under the old value; they are not<br />renamed, and the operator will create new ones. |  | MaxLength: 40 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
 | `probeInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#duration-v1-meta)_ | ProbeInterval is how often the connection is re-checked for reachability. | 5m | Pattern: `^([0-9]+(s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `tokenSecretRef` _[LocalSecretKeyReference](#localsecretkeyreference)_ | TokenSecretRef points at a Secret in this object's own namespace holding<br />an authentik API token. |  |  |
 | `caBundleSecretRef` _[LocalSecretKeyReference](#localsecretkeyreference)_ | CABundleSecretRef optionally points at a Secret in this object's own<br />namespace holding a PEM CA bundle used to verify the authentik server. |  | Optional: \{\} <br /> |
@@ -353,6 +355,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the CertificateKeyPair resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 
 #### CertificateKeyPairSpec
@@ -414,6 +417,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `url` _string_ | URL is the base URL of the authentik instance, for example<br />https://authentik.example.com. Do not include the /api/v3 suffix. |  | MinLength: 1 <br />Pattern: `^https?://` <br /> |
 | `insecureSkipTLSVerify` _boolean_ | InsecureSkipTLSVerify disables verification of the authentik server's TLS<br />certificate. Intended for local testing against a self-signed instance;<br />prefer caBundleSecretRef anywhere else. | false | Optional: \{\} <br /> |
+| `cluster` _string_ | Cluster identifies this operator instance when several of them share one<br />authentik - for example one per Kubernetes cluster, or one reaching the<br />instance directly and another through a proxy.<br />authentik has no ownership marker on most objects, so when this is set<br />the operator scopes the names of objects it manages with it: a provider<br />named "grafana" becomes "grafana-prod-eu". Two clusters then get two<br />distinct objects instead of fighting over one, and neither operator can<br />adopt or delete the other's.<br />Leave it unset when only one operator talks to the instance. Changing it<br />later orphans the objects created under the old value; they are not<br />renamed, and the operator will create new ones. |  | MaxLength: 40 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
 | `probeInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#duration-v1-meta)_ | ProbeInterval is how often the connection is re-checked for reachability. | 5m | Pattern: `^([0-9]+(s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `tokenSecretRef` _[SecretKeyReference](#secretkeyreference)_ | TokenSecretRef points at a Secret holding an authentik API token. The<br />namespace is required and is the only place the token is read from; the<br />namespace of a resource referring to this connection is never consulted. |  |  |
 | `caBundleSecretRef` _[SecretKeyReference](#secretkeyreference)_ | CABundleSecretRef optionally points at a Secret holding a PEM CA bundle<br />used to verify the authentik server. |  | Optional: \{\} <br /> |
@@ -489,6 +493,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `url` _string_ | URL is the base URL of the authentik instance, for example<br />https://authentik.example.com. Do not include the /api/v3 suffix. |  | MinLength: 1 <br />Pattern: `^https?://` <br /> |
 | `insecureSkipTLSVerify` _boolean_ | InsecureSkipTLSVerify disables verification of the authentik server's TLS<br />certificate. Intended for local testing against a self-signed instance;<br />prefer caBundleSecretRef anywhere else. | false | Optional: \{\} <br /> |
+| `cluster` _string_ | Cluster identifies this operator instance when several of them share one<br />authentik - for example one per Kubernetes cluster, or one reaching the<br />instance directly and another through a proxy.<br />authentik has no ownership marker on most objects, so when this is set<br />the operator scopes the names of objects it manages with it: a provider<br />named "grafana" becomes "grafana-prod-eu". Two clusters then get two<br />distinct objects instead of fighting over one, and neither operator can<br />adopt or delete the other's.<br />Leave it unset when only one operator talks to the instance. Changing it<br />later orphans the objects created under the old value; they are not<br />renamed, and the operator will create new ones. |  | MaxLength: 40 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
 | `probeInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#duration-v1-meta)_ | ProbeInterval is how often the connection is re-checked for reachability. | 5m | Pattern: `^([0-9]+(s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 
 
@@ -666,6 +671,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the Flow resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 
 #### FlowSpec
@@ -1073,6 +1079,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the PropertyMapping resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 
 #### PropertyMappingSpec
@@ -1171,8 +1178,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `kind` _[ProviderKind](#providerkind)_ | Kind of provider resource being referenced. | OAuth2Provider | Enum: [OAuth2Provider SAMLProvider ProxyProvider] <br />Optional: \{\} <br /> |
-| `name` _string_ | Name of the provider resource in this namespace. Mutually exclusive with<br />existingProviderName. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `name` _string_ | Name of the provider resource. Mutually exclusive with<br />existingProviderName. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
 | `existingProviderName` _string_ | ExistingProviderName is the name of a provider that already exists in<br />authentik and is maintained outside the operator. Use it to attach to a<br />provider somebody else created, rather than one this operator manages. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 
 #### ProviderStatus
@@ -1561,8 +1569,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `kubernetesServiceConnectionName` _string_ | KubernetesServiceConnectionName names a KubernetesServiceConnection<br />resource in this namespace. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
-| `dockerServiceConnectionName` _string_ | DockerServiceConnectionName names a DockerServiceConnection resource in<br />this namespace. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
+| `kubernetesServiceConnectionName` _string_ | KubernetesServiceConnectionName names a KubernetesServiceConnection<br />resource. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
+| `dockerServiceConnectionName` _string_ | DockerServiceConnectionName names a DockerServiceConnection resource. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 
 #### ServiceConnectionStatus

@@ -32,7 +32,10 @@ type oauth2Adapter struct {
 	client authentik.Client
 	// kube reads the Flow, PropertyMapping and CertificateKeyPair
 	// resources this provider references.
-	kube     client.Client
+	kube client.Client
+	// refs is the scope references resolve in: the owning namespace, the
+	// authentik it talks to, and whether crossing namespaces is allowed.
+	refs     ReferenceScope
 	provider *authentikv1alpha1.OAuth2Provider
 
 	// clientSecret is the secret to send, either taken from a referenced
@@ -46,7 +49,9 @@ type oauth2Adapter struct {
 
 func (a *oauth2Adapter) Kind() string { return "OAuth2 provider" }
 
-func (a *oauth2Adapter) DesiredName() string { return a.provider.ProviderName() }
+func (a *oauth2Adapter) DesiredName() string {
+	return ScopedName(a.client.Cluster(), a.provider.ProviderName())
+}
 
 func (a *oauth2Adapter) Exists(ctx context.Context, id string) (bool, error) {
 	pk, err := parseProviderID(id)
@@ -161,18 +166,18 @@ func (a *oauth2Adapter) Delete(ctx context.Context, id string) error {
 func (a *oauth2Adapter) buildRequest(ctx context.Context) (*api.OAuth2ProviderRequest, error) {
 	spec := a.provider.Spec
 
-	authzFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authorizationFlow", spec.AuthorizationFlow)
+	authzFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.authorizationFlow", spec.AuthorizationFlow)
 	if err != nil {
 		return nil, err
 	}
-	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.provider.Namespace, "spec.invalidationFlow", spec.InvalidationFlow)
+	invalidationFlow, err := resolveFlowRef(ctx, a.kube, a.scope(), "spec.invalidationFlow", spec.InvalidationFlow)
 	if err != nil {
 		return nil, err
 	}
 
 	req := api.NewOAuth2ProviderRequest(a.DesiredName(), authzFlow, invalidationFlow, a.redirectURIs())
 
-	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.provider.Namespace, "spec.authenticationFlow", spec.AuthenticationFlow)
+	authnFlow, err := resolveOptionalFlowRef(ctx, a.kube, a.scope(), "spec.authenticationFlow", spec.AuthenticationFlow)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +185,7 @@ func (a *oauth2Adapter) buildRequest(ctx context.Context) (*api.OAuth2ProviderRe
 		req.SetAuthenticationFlow(authnFlow)
 	}
 
-	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.provider.Namespace, "spec.propertyMappings", spec.PropertyMappings)
+	mappings, err := resolvePropertyMappingRefs(ctx, a.kube, a.scope(), "spec.propertyMappings", spec.PropertyMappings)
 	if err != nil {
 		return nil, err
 	}
@@ -188,14 +193,14 @@ func (a *oauth2Adapter) buildRequest(ctx context.Context) (*api.OAuth2ProviderRe
 		req.SetPropertyMappings(mappings)
 	}
 
-	signingKey, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, "spec.signingKeyPair", spec.SigningKeyPair)
+	signingKey, err := resolveKeyPairRef(ctx, a.kube, a.scope(), "spec.signingKeyPair", spec.SigningKeyPair)
 	if err != nil {
 		return nil, err
 	}
 	if signingKey != "" {
 		req.SetSigningKey(signingKey)
 	}
-	encryptionKey, err := resolveKeyPairRef(ctx, a.kube, a.provider.Namespace, "spec.encryptionKeyPair", spec.EncryptionKeyPair)
+	encryptionKey, err := resolveKeyPairRef(ctx, a.kube, a.scope(), "spec.encryptionKeyPair", spec.EncryptionKeyPair)
 	if err != nil {
 		return nil, err
 	}
@@ -300,4 +305,14 @@ func (a *oauth2Adapter) setupURLs(ctx context.Context, providerID *int32) *api.O
 		return nil
 	}
 	return urls
+}
+
+// scope returns the reference scope for this adapter, defaulting the namespace
+// to the owning resource's own.
+func (a *oauth2Adapter) scope() ReferenceScope {
+	scope := a.refs
+	if scope.Namespace == "" {
+		scope.Namespace = a.provider.Namespace
+	}
+	return scope
 }

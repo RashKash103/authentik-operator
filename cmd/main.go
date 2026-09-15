@@ -62,6 +62,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var watchNamespaces string
+	var allowCrossNamespaceRefs bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0",
 		"The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or 0 to disable.")
@@ -75,6 +76,11 @@ func main() {
 		"Enable HTTP/2 for the metrics and webhook servers.")
 	flag.StringVar(&watchNamespaces, "watch-namespaces", "",
 		"Comma-separated list of namespaces to watch. Empty means all namespaces.")
+	flag.BoolVar(&allowCrossNamespaceRefs, "allow-cross-namespace-references", false,
+		"Allow a Flow, PropertyMapping, CertificateKeyPair, provider or service connection "+
+			"reference to name another namespace. Off by default: it makes one namespace's "+
+			"configuration another's dependency. It does NOT apply to connectionRef, which "+
+			"never crosses namespaces - use a ClusterAuthentikConnection to share credentials.")
 
 	opts := zap.Options{Development: false}
 	opts.BindFlags(flag.CommandLine)
@@ -140,7 +146,9 @@ func main() {
 	}
 
 	// Controllers are registered here as they land; see setupControllers.
-	if err := setupControllers(mgr); err != nil {
+	if err := setupControllers(mgr, controller.ReferencePolicy{
+		AllowCrossNamespace: allowCrossNamespaceRefs,
+	}); err != nil {
 		setupLog.Error(err, "unable to set up controllers")
 		os.Exit(1)
 	}
@@ -166,7 +174,7 @@ func main() {
 // All controllers share one ConnectionResolver, and therefore one reference
 // cache, so a flow slug resolved for one resource does not have to be looked up
 // again for the next. Entries stay partitioned per authentik instance.
-func setupControllers(mgr ctrl.Manager) error {
+func setupControllers(mgr ctrl.Manager, references controller.ReferencePolicy) error {
 	resolver := &controller.ConnectionResolver{
 		Client:          mgr.GetClient(),
 		Cache:           authentik.NewRefCache(authentik.DefaultCacheTTL),
@@ -188,46 +196,51 @@ func setupControllers(mgr ctrl.Manager) error {
 	}
 
 	if err := (&controller.OAuth2ProviderReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("oauth2provider-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("oauth2provider-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create OAuth2Provider controller: %w", err)
 	}
 
 	if err := (&controller.ApplicationReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("application-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("application-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Application controller: %w", err)
 	}
 
 	if err := (&controller.SAMLProviderReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("samlprovider-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("samlprovider-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create SAMLProvider controller: %w", err)
 	}
 
 	if err := (&controller.ProxyProviderReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("proxyprovider-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("proxyprovider-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create ProxyProvider controller: %w", err)
 	}
 
 	if err := (&controller.OutpostReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("outpost-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("outpost-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Outpost controller: %w", err)
 	}
@@ -242,10 +255,11 @@ func setupControllers(mgr ctrl.Manager) error {
 	}
 
 	if err := (&controller.DockerServiceConnectionReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("dockerserviceconnection-controller"),
-		Resolver: resolver,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorder("dockerserviceconnection-controller"),
+		Resolver:   resolver,
+		References: references,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create DockerServiceConnection controller: %w", err)
 	}

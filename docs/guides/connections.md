@@ -324,3 +324,88 @@ More at [Troubleshooting](../operations/troubleshooting.md).
 - [ADR 0001 — Connection scope](../decisions/0001-connection-scope.md)
 - [Creating an API token](../getting-started/api-token.md)
 - [Security](../operations/security.md)
+
+## Several operators, one authentik
+
+More than one operator can point at the same authentik — one per Kubernetes
+cluster, or one reaching it directly while another goes through a proxy.
+
+authentik has **no ownership marker** on providers or applications; objects are
+keyed by name. So two operators both managing a provider called `grafana` are
+managing *the same object*, and the second to arrive either refuses it as an
+adoption conflict or takes it over from the first.
+
+`spec.cluster` keeps them apart:
+
+```yaml
+spec:
+  url: https://authentik.example.com
+  cluster: prod-eu
+```
+
+The operator scopes the names of objects it manages with that identity, so a
+provider declared as `grafana` is created as `grafana-prod-eu`. Lookups use the
+same scoped name, which means an operator never finds, adopts or deletes another
+cluster's object.
+
+| Object | `spec.cluster` | Declared | In authentik |
+| --- | --- | --- | --- |
+| Provider | `prod-eu` | `grafana` | `grafana-prod-eu` |
+| Provider | `prod-us` | `grafana` | `grafana-prod-us` |
+| Provider | *(unset)* | `grafana` | `grafana` |
+| **Application** | *any* | `grafana` | `grafana` — never scoped |
+
+!!! danger "Applications are deliberately not scoped"
+
+    An application's **slug appears in the URL** users are sent to when logging
+    in (`/application/o/<slug>/`), and its **name appears in every user's
+    application list**. Scoping either would publish your cluster naming to
+    anyone who reaches that page — including people who are not signed in.
+
+    So `cluster` scopes provider, outpost and service connection names, which
+    are only ever visible in authentik's admin interface. It does **not** touch
+    applications.
+
+    Two clusters cannot both own the slug `grafana` in any case: that is one URL
+    on one authentik, so it is a real conflict rather than something a suffix
+    can resolve. The operator refuses to take over an application it did not
+    create and says so; pick distinct slugs, which is a decision about what your
+    users see.
+
+!!! warning "Decide it up front"
+
+    `cluster` is part of an object's identity in authentik. Changing it later
+    **orphans everything created under the old value** — the operator does not
+    rename those objects, it creates new ones under the new scope and leaves the
+    old ones behind.
+
+Leave it unset when only one operator talks to the instance; names then stay
+exactly as declared. Runnable manifests are in
+[`examples/multi-cluster`](https://github.com/RashKash103/authentik-operator/tree/main/examples/multi-cluster).
+
+## Cross-namespace references
+
+By default a reference resolves in the referring resource's own namespace.
+Starting the operator with `--allow-cross-namespace-references` (chart value
+`allowCrossNamespaceReferences`) lets a reference name another namespace, so one
+team can publish shared `Flow` and `PropertyMapping` resources:
+
+```yaml
+authorizationFlow:
+  name: provider-authorization
+  namespace: platform
+```
+
+Two things to know:
+
+- **It does not apply to `connectionRef`.** Credentials are not configuration. A
+  cross-namespace `connectionRef` would let a consumer take another namespace's
+  credentials unilaterally; a
+  [`ClusterAuthentikConnection`](#clusterauthentikconnection) instead lets the
+  connection's *owner* grant access through `allowedNamespaces`. Those are
+  opposite directions of consent.
+- **A reference must point at the same authentik instance.** A `Flow` resolves a
+  slug to a UUID against one specific authentik, and that UUID means nothing on
+  another. The operator records which instance each object resolved against and
+  refuses a reference that disagrees, rather than sending a UUID the target
+  instance has never seen.

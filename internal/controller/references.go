@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,6 +40,55 @@ import (
 // It also means these resources gain the ability to *create* what they describe
 // without anything here changing — the referrer only ever reads a UUID.
 
+// ReferencePolicy decides whether a reference may cross namespaces.
+//
+// Off by default. Sharing a Flow between namespaces is a legitimate thing to
+// want, but it also means one team's configuration silently becomes another's
+// dependency, so it is an operator-level decision rather than something any
+// manifest author can turn on for themselves.
+type ReferencePolicy struct {
+	// AllowCrossNamespace permits a reference to name another namespace.
+	AllowCrossNamespace bool
+}
+
+// ErrCrossNamespaceDisabled reports a reference blocked by policy.
+var ErrCrossNamespaceDisabled = errors.New("cross-namespace references are disabled")
+
+// resolveNamespace decides which namespace a reference resolves in, and
+// refuses one that crosses namespaces when policy forbids it.
+//
+// A blocked reference is an error rather than a silent fallback to the local
+// namespace: falling back would resolve a different object than the manifest
+// names, which is worse than refusing.
+func resolveNamespace(policy ReferencePolicy, field, own, requested string) (string, error) {
+	if requested == "" || requested == own {
+		return own, nil
+	}
+	if !policy.AllowCrossNamespace {
+		return "", fmt.Errorf(
+			"%w: %s names namespace %q, but the operator was started without "+
+				"--allow-cross-namespace-references",
+			ErrCrossNamespaceDisabled, field, requested)
+	}
+	return requested, nil
+}
+
+// assertSameInstance refuses a reference resolved against a different authentik.
+//
+// A UUID only means anything on the instance that issued it. Without this,
+// referencing a Flow from a namespace wired to a different authentik would send
+// that instance a UUID it has never seen - and authentik's error for that is
+// not one anybody could act on.
+func assertSameInstance(field, kind, name, referenced, own string) error {
+	if referenced == "" || own == "" || referenced == own {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: %s: %s %q resolved against %s, but this resource uses %s; "+
+			"a reference must point at the same authentik instance",
+		authentik.ErrValidation, field, kind, name, referenced, own)
+}
+
 // referenceNotReady builds the error for a reference that cannot be resolved
 // yet.
 //
@@ -51,11 +101,16 @@ func referenceNotReady(field, kind, name, why string) error {
 
 // resolveFlowRef resolves a required Flow reference to its authentik UUID.
 func resolveFlowRef(
-	ctx context.Context, c client.Client, namespace, field string,
+	ctx context.Context, c client.Client, scope ReferenceScope, field string,
 	ref authentikv1alpha1.FlowReference,
 ) (string, error) {
+	ns, err := resolveNamespace(scope.Policy, field, scope.Namespace, ref.Namespace)
+	if err != nil {
+		return "", err
+	}
+
 	var flow authentikv1alpha1.Flow
-	key := types.NamespacedName{Name: ref.Name, Namespace: namespace}
+	key := types.NamespacedName{Name: ref.Name, Namespace: ns}
 	if err := c.Get(ctx, key, &flow); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", referenceNotReady(field, "Flow", ref.Name, "does not exist")
@@ -65,31 +120,39 @@ func resolveFlowRef(
 	if flow.Status.RemoteID == "" {
 		return "", referenceNotReady(field, "Flow", ref.Name, "has not resolved in authentik yet")
 	}
+	if err := assertSameInstance(field, "Flow", ref.Name, flow.Status.AuthentikURL, scope.AuthentikURL); err != nil {
+		return "", err
+	}
 	return flow.Status.RemoteID, nil
 }
 
 // resolveOptionalFlowRef resolves a Flow reference that may be unset.
 func resolveOptionalFlowRef(
-	ctx context.Context, c client.Client, namespace, field string,
+	ctx context.Context, c client.Client, scope ReferenceScope, field string,
 	ref *authentikv1alpha1.FlowReference,
 ) (string, error) {
 	if ref == nil || ref.Name == "" {
 		return "", nil
 	}
-	return resolveFlowRef(ctx, c, namespace, field, *ref)
+	return resolveFlowRef(ctx, c, scope, field, *ref)
 }
 
 // resolveKeyPairRef resolves an optional CertificateKeyPair reference.
 func resolveKeyPairRef(
-	ctx context.Context, c client.Client, namespace, field string,
+	ctx context.Context, c client.Client, scope ReferenceScope, field string,
 	ref *authentikv1alpha1.CertificateKeyPairReference,
 ) (string, error) {
 	if ref == nil || ref.Name == "" {
 		return "", nil
 	}
 
+	ns, err := resolveNamespace(scope.Policy, field, scope.Namespace, ref.Namespace)
+	if err != nil {
+		return "", err
+	}
+
 	var pair authentikv1alpha1.CertificateKeyPair
-	key := types.NamespacedName{Name: ref.Name, Namespace: namespace}
+	key := types.NamespacedName{Name: ref.Name, Namespace: ns}
 	if err := c.Get(ctx, key, &pair); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", referenceNotReady(field, "CertificateKeyPair", ref.Name, "does not exist")
@@ -100,20 +163,29 @@ func resolveKeyPairRef(
 		return "", referenceNotReady(field, "CertificateKeyPair", ref.Name,
 			"has not resolved in authentik yet")
 	}
+	if err := assertSameInstance(field, "CertificateKeyPair", ref.Name,
+		pair.Status.AuthentikURL, scope.AuthentikURL); err != nil {
+		return "", err
+	}
 	return pair.Status.RemoteID, nil
 }
 
 // resolvePropertyMappingRef resolves an optional PropertyMapping reference.
 func resolvePropertyMappingRef(
-	ctx context.Context, c client.Client, namespace, field string,
+	ctx context.Context, c client.Client, scope ReferenceScope, field string,
 	ref *authentikv1alpha1.PropertyMappingReference,
 ) (string, error) {
 	if ref == nil || ref.Name == "" {
 		return "", nil
 	}
 
+	ns, err := resolveNamespace(scope.Policy, field, scope.Namespace, ref.Namespace)
+	if err != nil {
+		return "", err
+	}
+
 	var mapping authentikv1alpha1.PropertyMapping
-	key := types.NamespacedName{Name: ref.Name, Namespace: namespace}
+	key := types.NamespacedName{Name: ref.Name, Namespace: ns}
 	if err := c.Get(ctx, key, &mapping); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", referenceNotReady(field, "PropertyMapping", ref.Name, "does not exist")
@@ -124,6 +196,10 @@ func resolvePropertyMappingRef(
 		return "", referenceNotReady(field, "PropertyMapping", ref.Name,
 			"has not resolved in authentik yet")
 	}
+	if err := assertSameInstance(field, "PropertyMapping", ref.Name,
+		mapping.Status.AuthentikURL, scope.AuthentikURL); err != nil {
+		return "", err
+	}
 	return mapping.Status.RemoteID, nil
 }
 
@@ -133,7 +209,7 @@ func resolvePropertyMappingRef(
 // a provider attached to half its property mappings issues tokens missing
 // claims, which fails somewhere far away from here.
 func resolvePropertyMappingRefs(
-	ctx context.Context, c client.Client, namespace, field string,
+	ctx context.Context, c client.Client, scope ReferenceScope, field string,
 	refs []authentikv1alpha1.PropertyMappingReference,
 ) ([]string, error) {
 	if len(refs) == 0 {
@@ -143,7 +219,7 @@ func resolvePropertyMappingRefs(
 	out := make([]string, 0, len(refs))
 	for i := range refs {
 		ref := refs[i]
-		resolved, err := resolvePropertyMappingRef(ctx, c, namespace,
+		resolved, err := resolvePropertyMappingRef(ctx, c, scope,
 			fmt.Sprintf("%s[%d]", field, i), &ref)
 		if err != nil {
 			return nil, err
@@ -153,4 +229,17 @@ func resolvePropertyMappingRefs(
 		}
 	}
 	return out, nil
+}
+
+// ReferenceScope is the context a reference resolves in: whose namespace it
+// defaults to, which authentik the referrer talks to, and whether crossing
+// namespaces is permitted.
+type ReferenceScope struct {
+	// Namespace of the referring resource.
+	Namespace string
+	// AuthentikURL the referring resource's connection points at. Empty skips
+	// the same-instance check, which is what unit tests want.
+	AuthentikURL string
+	// Policy decides whether a reference may name another namespace.
+	Policy ReferencePolicy
 }
