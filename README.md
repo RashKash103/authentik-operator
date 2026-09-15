@@ -107,6 +107,12 @@ proceeds but warns.
 > Supporting a genuine range would mean pinning a client generated from the
 > *oldest* version to support, or decoding tolerantly instead of through the
 > generated models. Until then, pinning per release is the honest arrangement.
+>
+> `just check-api-drift` compares authentik's published schema against the
+> pinned series and reports exactly which fields would break, so the next one
+> is found before a release carries it rather than by the E2E matrix failing. A
+> [scheduled workflow](.github/workflows/api-drift.yaml) runs it weekly against
+> authentik's unreleased tip.
 
 ## Implementation status
 

@@ -83,6 +83,38 @@ default   https://authentik.example.com   2026.8.2   True    4h
 | Within the range | `true` | Normal operation. |
 | Above the maximum tested | `true` | Reconciles normally; the operator logs a warning that it is running untested. |
 
+## Watching for the next break
+
+The pin moves when authentik adds a required response property, because a client
+generated from one release then cannot decode another's. That has happened
+without warning; the E2E matrix found it by failing.
+
+```sh
+just check-api-drift                      # pinned series vs authentik's main
+just check-api-drift --candidate 2026.9   # vs a named series
+just check-api-drift --list-schemas       # what is in scope, and why
+```
+
+It compares authentik's published OpenAPI schema between two series, restricted
+to the schemas this operator actually decodes or sends -- derived from the Go
+source and closed over `$ref`, so roughly 45 of the spec's 900-odd component
+schemas. Against 2026.2 it reports five breaking fields, including the two that
+caused the original failure:
+
+```
+Application.pbm_uuid: newly required (added field)
+SAMLProvider.url_issuer: newly required (added field)
+```
+
+A [scheduled workflow](https://github.com/RashKash103/authentik-operator/blob/main/.github/workflows/api-drift.yaml)
+runs it weekly and files an issue on a finding.
+
+!!! warning "Compatible shapes are not compatible behaviour"
+
+    An empty report says the two schemas agree, not that authentik behaves the
+    same. It tells you where to look; the E2E suite against a real instance is
+    still what decides whether a series is supported.
+
 !!! success "Failing early is the point"
 
     The alternative to a version gate is failing obscurely deep inside an API

@@ -1,0 +1,104 @@
+name: API drift
+
+# authentik adding a required response property is what pins this operator to a
+# single series: a client generated from one release cannot decode another's
+# response. It has happened silently and was found by the E2E matrix failing.
+#
+# This watches authentik's unreleased tip so the break is known before a release
+# carries it, and it says which field moved rather than just that something did.
+on:
+  schedule:
+    # Weekly, Monday 05:00 UTC. authentik ships roughly monthly; weekly is
+    # frequent enough to see a change land on main well before it is released.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: "Series to compare the pinned one against (or 'main')"
+        required: false
+        default: "main"
+  pull_request:
+    # A change to the checker or to what the operator decodes should be
+    # exercised on the PR that makes it.
+    paths:
+      - "hack/check-api-drift.py"
+      - "supported-versions.yaml"
+      - ".github/workflows/api-drift.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-drift-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  drift:
+    name: compare against authentik
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # file the finding where it will be seen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Ensure PyYAML is available
+        run: python3 -c 'import yaml' 2>/dev/null || pip3 install --quiet "pyyaml==6.0.3"
+
+      - name: Compare schemas
+        id: drift
+        run: |
+          set -uo pipefail
+          candidate="${{ github.event.inputs.candidate || 'main' }}"
+          {
+            echo "report<<DRIFT_EOF"
+            just check-api-drift --candidate "${candidate}" 2>&1 | tee /tmp/drift.txt
+            echo "DRIFT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          # The recipe exits non-zero on a finding; carry that as data rather
+          # than failing the step, so the issue can still be filed.
+          if grep -q "decode-breaking change" /tmp/drift.txt; then
+            echo "broken=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "broken=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A scheduled run has nobody watching its log, so a finding becomes an
+      # issue. One issue is reused rather than a new one each week.
+      - name: File or update the tracking issue
+        if: steps.drift.outputs.broken == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.drift.outputs.report }}
+        run: |
+          set -euo pipefail
+          title="authentik API drift: the pinned client cannot serve the newer schema"
+          body=$(printf '%s\n\n---\n\nFound by `%s` on %s.\nRun `just check-api-drift` locally to reproduce.\n' \
+            "${REPORT}" "${GITHUB_WORKFLOW}" "$(date -u +%Y-%m-%d)")
+
+          existing=$(gh issue list --state open --label api-drift \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "${existing}" ]; then
+            gh issue comment "${existing}" --body "${body}"
+            echo "commented on #${existing}"
+          else
+            gh issue create --title "${title}" --label api-drift --body "${body}"
+          fi
+
+      - name: Fail the run when the schema has drifted
+        if: steps.drift.outputs.broken == 'true'
+        run: |
+          echo "::error::authentik's schema has changed in a way the pinned client cannot decode"
+          cat /tmp/drift.txt
+          exit 1

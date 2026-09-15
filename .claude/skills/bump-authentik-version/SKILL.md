@@ -44,6 +44,21 @@ even month.
 
 Pick the newest **stable** patch tag, not an `-rc`.
 
+### 1b. See what will break before you touch anything
+
+```sh
+just check-api-drift --candidate <new-series>
+```
+
+This compares authentik's published schema against the pinned series and names
+the fields whose `required` status changed on schemas the operator decodes. It
+is the same class of break that pins the operator to one series at a time, so
+read it before starting: it tells you which adapters step 3 will touch.
+
+An empty report does not mean no work. It means no *decode-breaking* shape
+change; renamed Go symbols in the generated client are a separate matter and
+still show up as compile errors in step 2.
+
 ### 2. Bump the client
 
 ```sh
@@ -151,6 +166,7 @@ manifests.
 ## Checklist
 
 - [ ] New authentik image tag verified to exist
+- [ ] `just check-api-drift --candidate <series>` read before starting
 - [ ] Client bumped, `go mod tidy` clean
 - [ ] Every compile error fixed by reading the generated models
 - [ ] Enums re-extracted and markers updated

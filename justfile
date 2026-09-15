@@ -106,6 +106,14 @@ schemas: manifests
 check-crds: manifests
     python3 hack/check-crds.py
 
+# Needs the network, so it is deliberately outside `just verify`.
+# Defaults to comparing the pinned series against authentik's main.
+#
+# Report authentik API changes that would break decoding.
+[group('development')]
+check-api-drift *ARGS:
+    python3 hack/check-api-drift.py {{ ARGS }}
+
 # --------------------------------------------------------------------- verify
 
 # Fail if the version matrix has drifted out of sync.
