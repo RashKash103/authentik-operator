@@ -16,3 +16,7 @@
 .vscode/
 # Local test fixtures used by `helm template` in CI; never packaged.
 ci/
+test-values/
+
+# The values table template for the docs site. Build input, not chart content.
+*.gotmpl

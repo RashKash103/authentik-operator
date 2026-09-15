@@ -1,0 +1,16 @@
+{{- /*
+Values table for the documentation site.
+
+helm-docs' built-in table renders the Key column as bare text while every other
+identifier on the page is monospaced, which makes a long table harder to scan
+than it needs to be. This is the built-in table with the key wrapped in a code
+span; nothing else differs.
+
+It is passed explicitly with `-t` by hack/gen-helm-docs.py. The chart's own
+README.md is hand written and is not produced from any template.
+*/ -}}
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+{{- range .Values }}
+| `{{ .Key }}` | {{ .Type }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} | {{ if .Description }}{{ .Description }}{{ else }}{{ .AutoDescription }}{{ end }} |
+{{- end }}

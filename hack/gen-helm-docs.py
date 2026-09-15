@@ -20,6 +20,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CHART = ROOT / "charts" / "authentik-operator"
 TARGET = ROOT / "docs" / "reference" / "helm-values.md"
 HELM_DOCS = ROOT / "bin" / "helm-docs"
+# Relative to the chart directory, which is what helm-docs -t expects.
+TEMPLATE = "values-table.gotmpl"
 BEGIN = "<!-- BEGIN GENERATED: helm-values -->"
 END = "<!-- END GENERATED: helm-values -->"
 
@@ -32,8 +34,18 @@ def values_table() -> str:
 
     # Render to stdout so the chart's own README is never rewritten as a side
     # effect of building the docs site.
+    #
+    # -t selects the table template in the chart directory. It is the built-in
+    # values table with the Key column wrapped in a code span: helm-docs leaves
+    # it bare, which reads oddly next to a Default column that is monospaced,
+    # and makes a sixty-row table harder to scan.
     result = subprocess.run(
-        [str(HELM_DOCS), "--chart-search-root", str(CHART), "--dry-run"],
+        [
+            str(HELM_DOCS),
+            "--chart-search-root", str(CHART),
+            "-t", TEMPLATE,
+            "--dry-run",
+        ],
         capture_output=True,
         text=True,
         check=False,
