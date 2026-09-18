@@ -20,22 +20,17 @@ security decision in this API.
 
 ### Choosing
 
-```text
-  Do several teams share this cluster,
-  each with their own authentik access?
-            │
-      yes ──┴── no
-       │         │
-       ▼         ▼
-  AuthentikConnection      Is there exactly one authentik
-  per namespace            for the whole cluster?
-                                   │
-                             yes ──┴── no
-                              │         │
-                              ▼         ▼
-            ClusterAuthentikConnection   AuthentikConnection
-            (admin-created, with         per namespace
-             allowedNamespaces)
+```mermaid
+flowchart TD
+  Q1{"Do several teams share this cluster,<br/>each with their own authentik access?"}
+  Q2{"Is there exactly one authentik<br/>for the whole cluster?"}
+  N["AuthentikConnection<br/>per namespace"]
+  K["ClusterAuthentikConnection<br/>admin-created, with allowedNamespaces"]
+
+  Q1 -- yes --> N
+  Q1 -- no --> Q2
+  Q2 -- yes --> K
+  Q2 -- no --> N
 ```
 
 Use `AuthentikConnection` unless you have a specific reason not to. It is the

@@ -32,19 +32,13 @@ cluster-admin privilege in its own right. See [Security](../operations/security.
 
 Three object types, in a chain. Each one only knows about the layer below it.
 
-```text
-  AuthentikConnection              "which authentik, and with what token"
-  ClusterAuthentikConnection
-            ▲
-            │  spec.connectionRef
-            │
-      OAuth2Provider               "how a client authenticates"
-      SAMLProvider
-      ProxyProvider
-            ▲
-            │  spec.providerRef
-            │
-       Application                 "what users see in the authentik launcher"
+```mermaid
+flowchart BT
+  A["Application<br/><i>what users see in the launcher</i>"]
+  P["OAuth2Provider · SAMLProvider · ProxyProvider<br/><i>how a client authenticates</i>"]
+  C["AuthentikConnection · ClusterAuthentikConnection<br/><i>which authentik, and with what token</i>"]
+  A -- spec.providerRef --> P
+  P -- spec.connectionRef --> C
 ```
 
 Read it from the bottom up:

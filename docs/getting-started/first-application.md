@@ -6,18 +6,24 @@ OIDC configuration is short enough to fit on a page.
 
 ## What we are building
 
-```text
-  Secret: authentik-api-token          your authentik API token
-        │
-        ▼
-  AuthentikConnection/default          which authentik, and with what token
-        │
-        ▼
-  OAuth2Provider/grafana  ──────────▶  Secret: grafana-oidc
-        │                                 (client-id, client-secret — written
-        ▼                                  by the operator, read by Grafana)
-  Application/grafana                  what users click in the authentik library
+```mermaid
+flowchart TD
+  T[Secret: authentik-api-token] --> C
+  C[AuthentikConnection/default] --> P
+  P[OAuth2Provider/grafana] --> A[Application/grafana]
+  P --> S[Secret: grafana-oidc]
+
+  T@{ shape: doc }
+  S@{ shape: doc }
 ```
+
+| | |
+| --- | --- |
+| `authentik-api-token` | Your authentik API token. You create this one. |
+| `AuthentikConnection/default` | Which authentik, and with what token. |
+| `OAuth2Provider/grafana` | How Grafana authenticates. |
+| `Application/grafana` | What users click in the authentik library. |
+| `grafana-oidc` | `client-id`, `client-secret` and `issuer`, written by the operator and read by Grafana. |
 
 ## 0. Prerequisites
 
@@ -281,7 +287,7 @@ kubectl -n my-apps wait --for=condition=Ready application/grafana --timeout=120s
 
 ## 5. Consume the credentials
 
-The operator creates `grafana-oidc` in `my-apps` with two keys:
+The operator creates `grafana-oidc` in `my-apps` with three keys:
 
 | Key | Contents |
 | --- | --- |

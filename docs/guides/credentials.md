@@ -87,7 +87,7 @@ Rename any of them with `clientIDKey`, `clientSecretKey` and `issuerKey` under
 
 !!! success "Only the keys it manages"
 
-    Updating the `Secret` replaces `clientID` and `clientSecret` and leaves any
+    Updating the `Secret` replaces `client-id` and `client-secret` and leaves any
     other key untouched. You can keep extra keys — an issuer URL, a
     pre-rendered config file — in the same `Secret`, and the operator will not
     remove them.
@@ -110,12 +110,12 @@ how an operator breaks an unrelated workload.
         valueFrom:
           secretKeyRef:
             name: grafana-oidc
-            key: clientID
+            key: client-id
       - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
             name: grafana-oidc
-            key: clientSecret
+            key: client-secret
     ```
 
     Simple, and read **once at Pod start**. A rotated secret is not picked up
@@ -138,9 +138,9 @@ how an operator breaks an unrelated workload.
     If your application re-reads the file, rotation needs no restart. Most do
     not — check before relying on it.
 
-!!! warning "`envFrom` puts both keys in the environment"
+!!! warning "`envFrom` puts every key in the environment"
 
-    `envFrom.secretRef` injects every key, including `clientSecret`, under its
+    `envFrom.secretRef` injects every key, including `client-secret`, under its
     own name. Anything that dumps the environment on a crash — many language
     runtimes do — writes the client secret into a stack trace.
 

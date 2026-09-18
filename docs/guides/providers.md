@@ -127,12 +127,12 @@ spec:
 
 :   The client cannot keep a secret — a browser SPA or a mobile app. Only a
     client ID is generated. The written `Secret` contains `client-id` alone, with
-    no `clientSecret` key.
+    no `client-secret` key.
 
 !!! warning "Changing `clientType` is not a small edit"
 
     Switching `confidential` to `public` discards the client secret. Every
-    workload consuming `clientSecret` from the generated `Secret` breaks at its
+    workload consuming `client-secret` from the generated `Secret` breaks at its
     next restart, and the key simply vanishes rather than becoming empty.
 
 ### Redirect URIs

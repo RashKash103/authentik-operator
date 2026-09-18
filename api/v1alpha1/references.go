@@ -86,10 +86,15 @@ type CertificateKeyPairReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// ServiceConnectionReference points at a service connection resource in the
-// same namespace.
+// ServiceConnectionReference names the service connection authentik deploys an
+// outpost through.
 //
-// +kubebuilder:validation:XValidation:rule="has(self.kubernetesServiceConnectionName) != has(self.dockerServiceConnectionName)",message="exactly one of kubernetesServiceConnectionName or dockerServiceConnectionName must be set"
+// Either a resource this operator manages, or one that already exists in
+// authentik and is maintained elsewhere - a cluster may well have had service
+// connections set up long before this operator arrived, and taking one over to
+// refer to it would be the wrong trade.
+//
+// +kubebuilder:validation:XValidation:rule="(has(self.kubernetesServiceConnectionName) ? 1 : 0) + (has(self.dockerServiceConnectionName) ? 1 : 0) + (has(self.existingServiceConnectionName) ? 1 : 0) == 1",message="exactly one of kubernetesServiceConnectionName, dockerServiceConnectionName or existingServiceConnectionName must be set"
 type ServiceConnectionReference struct {
 	// KubernetesServiceConnectionName names a KubernetesServiceConnection
 	// resource.
@@ -101,6 +106,13 @@ type ServiceConnectionReference struct {
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	DockerServiceConnectionName string `json:"dockerServiceConnectionName,omitempty"`
+
+	// ExistingServiceConnectionName is the name of a service connection that
+	// already exists in authentik and is maintained outside the operator. Use
+	// it to deploy through one somebody else set up, of either kind.
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	ExistingServiceConnectionName string `json:"existingServiceConnectionName,omitempty"`
 
 	// Namespace holding the resource. Defaults to the referring resource's own
 	// namespace.

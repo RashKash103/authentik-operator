@@ -98,7 +98,7 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.fail(ctx, &outpost, err)
 	}
 
-	serviceConnection, err := r.resolveServiceConnection(ctx, &outpost)
+	serviceConnection, err := r.resolveServiceConnection(ctx, &outpost, akClient)
 	if err != nil {
 		return r.fail(ctx, &outpost, err)
 	}
@@ -324,7 +324,7 @@ func mergeMembership(current, managed, desired []int32) []int32 {
 // adopted by declaring a KubernetesServiceConnection or DockerServiceConnection
 // for it, rather than naming it inline here.
 func (r *OutpostReconciler) resolveServiceConnection(
-	ctx context.Context, outpost *authentikv1alpha1.Outpost,
+	ctx context.Context, outpost *authentikv1alpha1.Outpost, ak authentik.Client,
 ) (string, error) {
 	ref := outpost.Spec.ServiceConnectionRef
 	if ref == nil {
@@ -334,6 +334,15 @@ func (r *OutpostReconciler) resolveServiceConnection(
 	}
 
 	switch {
+	case ref.ExistingServiceConnectionName != "":
+		// Resolved against authentik rather than through a resource: there is
+		// no Kubernetes object to ask, which is the whole point of the field.
+		uuid, err := ak.ResolveServiceConnection(ctx, ref.ExistingServiceConnectionName)
+		if err != nil {
+			return "", fmt.Errorf("spec.serviceConnectionRef: %w", err)
+		}
+		return uuid, nil
+
 	case ref.KubernetesServiceConnectionName != "":
 		var sc authentikv1alpha1.KubernetesServiceConnection
 		key := types.NamespacedName{Name: ref.KubernetesServiceConnectionName, Namespace: outpost.Namespace}

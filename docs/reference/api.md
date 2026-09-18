@@ -1597,8 +1597,13 @@ _Appears in:_
 
 
 
-ServiceConnectionReference points at a service connection resource in the
-same namespace.
+ServiceConnectionReference names the service connection authentik deploys an
+outpost through.
+
+Either a resource this operator manages, or one that already exists in
+authentik and is maintained elsewhere - a cluster may well have had service
+connections set up long before this operator arrived, and taking one over to
+refer to it would be the wrong trade.
 
 
 
@@ -1609,6 +1614,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `kubernetesServiceConnectionName` _string_ | KubernetesServiceConnectionName names a KubernetesServiceConnection<br />resource. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
 | `dockerServiceConnectionName` _string_ | DockerServiceConnectionName names a DockerServiceConnection resource. |  | MaxLength: 253 <br />Optional: \{\} <br /> |
+| `existingServiceConnectionName` _string_ | ExistingServiceConnectionName is the name of a service connection that<br />already exists in authentik and is maintained outside the operator. Use<br />it to deploy through one somebody else set up, of either kind. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
 | `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 
 

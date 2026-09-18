@@ -341,12 +341,12 @@ env:
     valueFrom:
       secretKeyRef:
         name: grafana-oidc
-        key: clientID
+        key: client-id
   - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         name: grafana-oidc
-        key: clientSecret
+        key: client-secret
 ```
 
 ## CRD overview

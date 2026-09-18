@@ -394,7 +394,7 @@ func TestRecordIdentityWritesResolvedReferences(t *testing.T) {
 func TestResolveServiceConnectionSkipsEmptyReference(t *testing.T) {
 	r := &OutpostReconciler{}
 
-	got, err := r.resolveServiceConnection(context.Background(), newOutpost())
+	got, err := r.resolveServiceConnection(context.Background(), newOutpost(), testAuthentikClient())
 	if err != nil || got != "" {
 		t.Fatalf("resolveServiceConnection = (%q, %v), want (\"\", nil)", got, err)
 	}
@@ -420,7 +420,7 @@ func TestResolveServiceConnectionResolvesThroughResource(t *testing.T) {
 		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(ready).Build(),
 	}
 
-	got, err := r.resolveServiceConnection(context.Background(), outpost)
+	got, err := r.resolveServiceConnection(context.Background(), outpost, testAuthentikClient())
 	if err != nil {
 		t.Fatalf("resolveServiceConnection: %v", err)
 	}
@@ -440,12 +440,41 @@ func TestResolveServiceConnectionRequeuesWhenNotReady(t *testing.T) {
 
 	r := &OutpostReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
 
-	_, err := r.resolveServiceConnection(context.Background(), outpost)
+	_, err := r.resolveServiceConnection(context.Background(), outpost, testAuthentikClient())
 	if err == nil {
 		t.Fatal("expected an unresolved reference to fail")
 	}
 	reason, requeue := ResultFor(err)
 	if reason != authentikv1alpha1.ReasonReferenceNotFound || !requeue {
 		t.Errorf("ResultFor = (%s, %v), want (ReferenceNotFound, true)", reason, requeue)
+	}
+}
+
+// A service connection that already exists in authentik is resolved by name,
+// because there is no Kubernetes resource to read an ID from. A cluster may
+// well have had service connections set up long before this operator arrived.
+func TestResolveServiceConnectionByExistingName(t *testing.T) {
+	r := &OutpostReconciler{}
+	outpost := newOutpost()
+	outpost.Spec.ServiceConnectionRef = &authentikv1alpha1.ServiceConnectionReference{
+		ExistingServiceConnectionName: "hand-made-cluster",
+	}
+
+	ak := &stubAuthentikClient{
+		baseURL:            "https://authentik.example",
+		serviceConnections: map[string]string{"hand-made-cluster": "sc-uuid"},
+	}
+
+	got, err := r.resolveServiceConnection(context.Background(), outpost, ak)
+	if err != nil {
+		t.Fatalf("resolveServiceConnection: %v", err)
+	}
+	if got != "sc-uuid" {
+		t.Errorf("uuid = %q, want the one authentik reports", got)
+	}
+
+	outpost.Spec.ServiceConnectionRef.ExistingServiceConnectionName = "absent"
+	if _, err := r.resolveServiceConnection(context.Background(), outpost, ak); !authentik.IsNotFound(err) {
+		t.Fatalf("err = %v, want a not-found naming the authentik object", err)
 	}
 }
