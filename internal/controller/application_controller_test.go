@@ -116,7 +116,7 @@ func TestResolveProviderRefsRequeuesWhenReferenceIsNotResolvableYet(t *testing.T
 			app: newTestApplication(authentikv1alpha1.ProviderReference{
 				Kind: authentikv1alpha1.ProviderKindOAuth2, Name: "grafana-oauth",
 			}),
-			wantMessage: []string{"spec.providerRef", "grafana-oauth", "has not been created in authentik yet"},
+			wantMessage: []string{"spec.providerRef", "grafana-oauth", "has not been registered in authentik yet"},
 		},
 		{
 			// A back-channel reference must name its own index, otherwise an
@@ -150,7 +150,7 @@ func TestResolveProviderRefsRequeuesWhenReferenceIsNotResolvableYet(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			r := newReconciler(t, tc.objects...)
 
-			_, _, err := r.resolveProviderRefs(context.Background(), tc.app)
+			_, _, err := r.resolveProviderRefs(context.Background(), tc.app, testAuthentikClient())
 			if err == nil {
 				t.Fatal("expected an unresolved reference error")
 			}
@@ -186,7 +186,7 @@ func TestResolveProviderRefsReadsTheReferencedStatus(t *testing.T) {
 		authentikv1alpha1.ProviderReference{Kind: authentikv1alpha1.ProviderKindOAuth2, Name: "grafana-ldap"},
 	)
 
-	primary, backchannel, err := r.resolveProviderRefs(context.Background(), app)
+	primary, backchannel, err := r.resolveProviderRefs(context.Background(), app, testAuthentikClient())
 	if err != nil {
 		t.Fatalf("resolveProviderRefs: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestResolveProviderRefsReadsTheReferencedStatus(t *testing.T) {
 func TestResolveProviderRefsAllowsNoProvider(t *testing.T) {
 	r := newReconciler(t)
 
-	primary, backchannel, err := r.resolveProviderRefs(context.Background(), newTestApplication())
+	primary, backchannel, err := r.resolveProviderRefs(context.Background(), newTestApplication(), testAuthentikClient())
 	if err != nil {
 		t.Fatalf("resolveProviderRefs: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestResolveProviderRefsRequeuesForEveryKind(t *testing.T) {
 			r := newReconciler(t)
 			app := newTestApplication(authentikv1alpha1.ProviderReference{Kind: kind, Name: "whatever"})
 
-			_, _, err := r.resolveProviderRefs(context.Background(), app)
+			_, _, err := r.resolveProviderRefs(context.Background(), app, testAuthentikClient())
 			if err == nil {
 				t.Fatalf("expected an unresolvable %s reference to fail", kind)
 			}
@@ -262,7 +262,7 @@ func TestResolveProviderRefsRejectsUnknownKind(t *testing.T) {
 		Kind: authentikv1alpha1.ProviderKind("TelepathyProvider"), Name: "whatever",
 	})
 
-	_, _, err := r.resolveProviderRefs(context.Background(), app)
+	_, _, err := r.resolveProviderRefs(context.Background(), app, testAuthentikClient())
 	if err == nil {
 		t.Fatal("expected an unknown provider kind to be rejected")
 	}
@@ -283,7 +283,7 @@ func TestResolveProviderRefsDefaultsToOAuth2Kind(t *testing.T) {
 	r := newReconciler(t, oauth2Provider("apps", "grafana-oauth", ptr32(7)))
 	app := newTestApplication(authentikv1alpha1.ProviderReference{Name: "grafana-oauth"})
 
-	primary, _, err := r.resolveProviderRefs(context.Background(), app)
+	primary, _, err := r.resolveProviderRefs(context.Background(), app, testAuthentikClient())
 	if err != nil {
 		t.Fatalf("resolveProviderRefs: %v", err)
 	}
@@ -413,5 +413,15 @@ func TestProviderReferenceKeyIsStable(t *testing.T) {
 	}
 	if ref.Key() != "OAuth2Provider/x" {
 		t.Errorf("Key() = %q, want %q", ref.Key(), "OAuth2Provider/x")
+	}
+}
+
+// testAuthentikClient is the stub every provider-reference test resolves
+// against. It knows one pre-existing provider, which is what a reference using
+// existingProviderName names.
+func testAuthentikClient() *stubAuthentikClient {
+	return &stubAuthentikClient{
+		baseURL:   "https://authentik.example",
+		providers: map[string]int32{"hand-made-proxy": 42},
 	}
 }

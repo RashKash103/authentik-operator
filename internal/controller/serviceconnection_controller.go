@@ -91,7 +91,7 @@ func (r *KubernetesServiceConnectionReconciler) Reconcile(ctx context.Context, r
 		return r.fail(ctx, &conn, err)
 	}
 
-	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName())
+	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName(), akClient.BaseURL())
 
 	MarkReady(&conn.Status.Conditions, conn.Generation)
 	if err := r.Status().Update(ctx, &conn); err != nil {
@@ -240,7 +240,7 @@ func (r *DockerServiceConnectionReconciler) Reconcile(ctx context.Context, req c
 		return r.fail(ctx, &conn, err)
 	}
 
-	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName())
+	recordServiceConnectionIdentity(&conn.Status.ServiceConnectionStatus, outcome, adapter.DesiredName(), akClient.BaseURL())
 
 	MarkReady(&conn.Status.Conditions, conn.Generation)
 	if err := r.Status().Update(ctx, &conn); err != nil {
@@ -338,10 +338,11 @@ func parseKubeconfig(data []byte, secret types.NamespacedName, key string) (map[
 // name is the scoped name the adapter uses, not the declared one: with a
 // cluster identity set they differ, and status reports what authentik holds.
 func recordServiceConnectionIdentity(
-	status *authentikv1alpha1.ServiceConnectionStatus, outcome SyncOutcome, name string,
+	status *authentikv1alpha1.ServiceConnectionStatus, outcome SyncOutcome, name, authentikURL string,
 ) {
 	status.RemoteID = outcome.RemoteID
 	status.RemoteName = name
+	status.AuthentikURL = authentikURL
 	status.Adopted = status.Adopted || outcome.Adopted
 	status.ServiceConnectionID = outcome.RemoteID
 	now := metav1.Now()

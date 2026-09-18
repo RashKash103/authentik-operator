@@ -178,7 +178,7 @@ func TestParseKubeconfigRejectsNonMapping(t *testing.T) {
 func TestRecordServiceConnectionIdentity(t *testing.T) {
 	var status authentikv1alpha1.ServiceConnectionStatus
 
-	recordServiceConnectionIdentity(&status, SyncOutcome{RemoteID: "b1d1", Adopted: true}, "cluster")
+	recordServiceConnectionIdentity(&status, SyncOutcome{RemoteID: "b1d1", Adopted: true}, "cluster", "https://authentik.example")
 
 	if status.RemoteID != "b1d1" || status.ServiceConnectionID != "b1d1" {
 		t.Errorf("status = %+v, want the UUID recorded in both fields", status)
@@ -189,7 +189,7 @@ func TestRecordServiceConnectionIdentity(t *testing.T) {
 
 	// Adoption is sticky: a later reconcile that merely updates the object
 	// must not make it look like the operator created it after all.
-	recordServiceConnectionIdentity(&status, SyncOutcome{RemoteID: "b1d1"}, "cluster")
+	recordServiceConnectionIdentity(&status, SyncOutcome{RemoteID: "b1d1"}, "cluster", "https://authentik.example")
 	if !status.Adopted {
 		t.Error("a later reconcile must not clear the adoption record")
 	}

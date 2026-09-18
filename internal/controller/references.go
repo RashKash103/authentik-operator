@@ -243,3 +243,99 @@ type ReferenceScope struct {
 	// Policy decides whether a reference may name another namespace.
 	Policy ReferencePolicy
 }
+
+// resolveProviderReference resolves a ProviderReference to the authentik
+// primary key it names.
+//
+// A reference is one of two things, and they resolve by different routes:
+//
+//   - name: a provider resource this operator manages. Resolved through its
+//     status.providerID, so Kubernetes stays the source of truth.
+//   - existingProviderName: a provider that already exists in authentik and is
+//     maintained outside the operator. Resolved by name against authentik,
+//     because there is no Kubernetes object to ask.
+//
+// The second route is why this is not simply a Get. It also means the name is
+// used verbatim rather than through ScopedName: a cluster identity scopes what
+// this operator creates, and this provider is explicitly not that.
+func resolveProviderReference(
+	ctx context.Context,
+	kube client.Client,
+	ak authentik.Client,
+	scope ReferenceScope,
+	field string,
+	ref authentikv1alpha1.ProviderReference,
+) (int32, error) {
+	if ref.ExistingProviderName != "" {
+		pk, err := ak.ResolveProvider(ctx, ref.ExistingProviderName)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", field, err)
+		}
+		return pk, nil
+	}
+
+	if ref.Name == "" {
+		return 0, fmt.Errorf("%w: %s: neither name nor existingProviderName is set",
+			authentik.ErrValidation, field)
+	}
+
+	ns, err := resolveNamespace(scope.Policy, field, scope.Namespace, ref.Namespace)
+	if err != nil {
+		return 0, err
+	}
+
+	kind := ref.EffectiveKind()
+	key := types.NamespacedName{Name: ref.Name, Namespace: ns}
+
+	// Each kind is a distinct Go type, so the read cannot be shared; only the
+	// status fields it produces are common.
+	var (
+		providerID   *int32
+		authentikURL string
+	)
+	switch kind {
+	case authentikv1alpha1.ProviderKindOAuth2:
+		var p authentikv1alpha1.OAuth2Provider
+		if err := kube.Get(ctx, key, &p); err != nil {
+			if apierrors.IsNotFound(err) {
+				return 0, referenceNotReady(field, string(kind), ref.Name, "does not exist")
+			}
+			return 0, err
+		}
+		providerID, authentikURL = p.Status.ProviderID, p.Status.AuthentikURL
+
+	case authentikv1alpha1.ProviderKindSAML:
+		var p authentikv1alpha1.SAMLProvider
+		if err := kube.Get(ctx, key, &p); err != nil {
+			if apierrors.IsNotFound(err) {
+				return 0, referenceNotReady(field, string(kind), ref.Name, "does not exist")
+			}
+			return 0, err
+		}
+		providerID, authentikURL = p.Status.ProviderID, p.Status.AuthentikURL
+
+	case authentikv1alpha1.ProviderKindProxy:
+		var p authentikv1alpha1.ProxyProvider
+		if err := kube.Get(ctx, key, &p); err != nil {
+			if apierrors.IsNotFound(err) {
+				return 0, referenceNotReady(field, string(kind), ref.Name, "does not exist")
+			}
+			return 0, err
+		}
+		providerID, authentikURL = p.Status.ProviderID, p.Status.AuthentikURL
+
+	default:
+		return 0, fmt.Errorf("%w: %s: unknown provider kind %q",
+			authentik.ErrValidation, field, kind)
+	}
+
+	if providerID == nil {
+		return 0, referenceNotReady(field, string(kind), ref.Name,
+			"has not been registered in authentik yet")
+	}
+	if err := assertSameInstance(field, string(kind), ref.Name,
+		authentikURL, scope.AuthentikURL); err != nil {
+		return 0, err
+	}
+	return *providerID, nil
+}

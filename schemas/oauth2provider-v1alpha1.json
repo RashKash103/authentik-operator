@@ -369,6 +369,10 @@
           "description": "Adopted records that this resource took over a pre-existing authentik\nobject rather than creating it.",
           "type": "boolean"
         },
+        "authentikURL": {
+          "description": "AuthentikURL is the instance this object was reconciled against.\n\nA reference from another namespace compares this against its own\nconnection and refuses a mismatch. It matters more here than for a UUID:\nproviders are keyed by a small integer, so a primary key from a different\nauthentik will very likely name some other provider rather than fail.",
+          "type": "string"
+        },
         "clientID": {
           "description": "ClientID currently configured in authentik. The client id is not a\ncredential on its own, so it is safe to surface; the secret never is.",
           "type": "string"

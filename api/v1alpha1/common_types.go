@@ -164,6 +164,15 @@ type ManagedResourceStatus struct {
 	// +optional
 	RemoteName string `json:"remoteName,omitempty"`
 
+	// AuthentikURL is the instance this object was reconciled against.
+	//
+	// A reference from another namespace compares this against its own
+	// connection and refuses a mismatch. It matters more here than for a UUID:
+	// providers are keyed by a small integer, so a primary key from a different
+	// authentik will very likely name some other provider rather than fail.
+	// +optional
+	AuthentikURL string `json:"authentikURL,omitempty"`
+
 	// Adopted records that this resource took over a pre-existing authentik
 	// object rather than creating it.
 	// +optional

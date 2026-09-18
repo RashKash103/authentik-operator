@@ -44,6 +44,11 @@ type stubAuthentikClient struct {
 	// serviceConnections maps a service connection name to its UUID.
 	serviceConnections map[string]string
 
+	// providers maps the name of a provider that already exists in authentik
+	// to its primary key. Used by references that name one directly rather
+	// than naming a resource this operator manages.
+	providers map[string]int32
+
 	// cluster scopes managed object names. Empty in most tests, which is the
 	// single-operator case.
 	cluster string
@@ -60,6 +65,13 @@ func (c *stubAuthentikClient) ResolveCertificateKeyPair(_ context.Context, name 
 		return uuid, nil
 	}
 	return "", authentik.NotFound("resolve certificate keypair", "certificate keypair", name)
+}
+
+func (c *stubAuthentikClient) ResolveProvider(_ context.Context, name string) (int32, error) {
+	if pk, ok := c.providers[name]; ok {
+		return pk, nil
+	}
+	return 0, authentik.NotFound("resolve provider", "provider", name)
 }
 
 func (c *stubAuthentikClient) ResolveServiceConnection(_ context.Context, name string) (string, error) {

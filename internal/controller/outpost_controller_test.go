@@ -151,7 +151,7 @@ func TestResolveProviderIDsIsAllOrNothing(t *testing.T) {
 			}
 			outpost := newOutpost(tc.refs...)
 
-			ids, err := r.resolveProviderIDs(context.Background(), outpost)
+			ids, err := r.resolveProviderIDs(context.Background(), outpost, testAuthentikClient())
 
 			if tc.wantErr {
 				if err == nil {
@@ -185,7 +185,7 @@ func TestUnresolvedProviderRequeues(t *testing.T) {
 		Scheme: scheme,
 	}
 
-	_, err := r.resolveProviderIDs(context.Background(), newOutpost(oauth2Ref("grafana")))
+	_, err := r.resolveProviderIDs(context.Background(), newOutpost(oauth2Ref("grafana")), testAuthentikClient())
 	if err == nil {
 		t.Fatal("expected an error for a missing provider")
 	}

@@ -278,6 +278,7 @@ func (r *OAuth2ProviderReconciler) recordIdentity(
 	// The scoped name, not the declared one: with a cluster identity set they
 	// differ, and status has to report what authentik actually holds.
 	status.RemoteName = adapter.DesiredName()
+	status.AuthentikURL = adapter.client.BaseURL()
 	status.Adopted = status.Adopted || outcome.Adopted
 	now := metav1.Now()
 	status.LastSyncedTime = &now

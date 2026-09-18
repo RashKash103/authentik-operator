@@ -23,7 +23,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -85,7 +84,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	providerID, backchannelIDs, err := r.resolveProviderRefs(ctx, &app)
+	providerID, backchannelIDs, err := r.resolveProviderRefs(ctx, &app, akClient)
 	if err != nil {
 		// An Application applied before its provider is ordinary, not an
 		// error condition to give up on: fail() requeues for it.
@@ -161,102 +160,38 @@ func (r *ApplicationReconciler) reconcileDelete(
 
 // resolveProviderRefs turns every provider reference into the numeric primary
 // key authentik expects.
+//
+// Resolution is shared with every other consumer of ProviderReference, so a
+// reference to an existing authentik provider and a cross-namespace reference
+// behave identically wherever they appear.
 func (r *ApplicationReconciler) resolveProviderRefs(
-	ctx context.Context, app *authentikv1alpha1.Application,
+	ctx context.Context, app *authentikv1alpha1.Application, ak authentik.Client,
 ) (primary *int32, backchannel []int32, err error) {
+	scope := ReferenceScope{
+		Namespace:    app.Namespace,
+		AuthentikURL: ak.BaseURL(),
+		Policy:       r.References,
+	}
+
 	if app.Spec.ProviderRef != nil {
-		primary, err = r.resolveProviderRef(ctx, app.Namespace, "spec.providerRef", *app.Spec.ProviderRef)
-		if err != nil {
-			return nil, nil, err
+		id, refErr := resolveProviderReference(ctx, r.Client, ak, scope,
+			"spec.providerRef", *app.Spec.ProviderRef)
+		if refErr != nil {
+			return nil, nil, refErr
 		}
+		primary = &id
 	}
 
 	for i, ref := range app.Spec.BackchannelProviderRefs {
 		field := fmt.Sprintf("spec.backchannelProviderRefs[%d]", i)
-		id, refErr := r.resolveProviderRef(ctx, app.Namespace, field, ref)
+		id, refErr := resolveProviderReference(ctx, r.Client, ak, scope, field, ref)
 		if refErr != nil {
 			return nil, nil, refErr
 		}
-		backchannel = append(backchannel, *id)
+		backchannel = append(backchannel, id)
 	}
 
 	return primary, backchannel, nil
-}
-
-// resolveProviderRef reads one provider resource and returns the primary key
-// it has recorded in authentik.
-//
-// Resolution goes through the referenced resource's status.providerID rather
-// than looking the name up in authentik. That keeps the Kubernetes objects the
-// source of truth: renaming a provider inside authentik cannot repoint the
-// application at a different object, and two providers sharing a name in
-// authentik cannot make the lookup ambiguous.
-func (r *ApplicationReconciler) resolveProviderRef(
-	ctx context.Context,
-	namespace, field string,
-	ref authentikv1alpha1.ProviderReference,
-) (*int32, error) {
-	key := types.NamespacedName{Name: ref.Name, Namespace: namespace}
-
-	switch ref.EffectiveKind() {
-	case authentikv1alpha1.ProviderKindOAuth2:
-		var provider authentikv1alpha1.OAuth2Provider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, providerRefNotReady(field, ref, "does not exist")
-			}
-			return nil, err
-		}
-		if provider.Status.ProviderID == nil {
-			return nil, providerRefNotReady(field, ref,
-				"has not been created in authentik yet")
-		}
-		return provider.Status.ProviderID, nil
-
-	case authentikv1alpha1.ProviderKindSAML:
-		var provider authentikv1alpha1.SAMLProvider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, providerRefNotReady(field, ref, "does not exist")
-			}
-			return nil, err
-		}
-		if provider.Status.ProviderID == nil {
-			return nil, providerRefNotReady(field, ref,
-				"has not been created in authentik yet")
-		}
-		return provider.Status.ProviderID, nil
-
-	case authentikv1alpha1.ProviderKindProxy:
-		var provider authentikv1alpha1.ProxyProvider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, providerRefNotReady(field, ref, "does not exist")
-			}
-			return nil, err
-		}
-		if provider.Status.ProviderID == nil {
-			return nil, providerRefNotReady(field, ref,
-				"has not been created in authentik yet")
-		}
-		return provider.Status.ProviderID, nil
-
-	default:
-		return nil, fmt.Errorf("%w: %s: unknown provider kind %q",
-			authentik.ErrValidation, field, ref.Kind)
-	}
-}
-
-// providerRefNotReady builds the error for a reference that cannot be resolved
-// yet.
-//
-// It wraps authentik.ErrNotFound so that ResultFor classifies it as
-// ReferenceNotFound and requeues: an Application applied before its provider
-// is normal, and must converge once the provider appears rather than failing
-// permanently.
-func providerRefNotReady(field string, ref authentikv1alpha1.ProviderReference, why string) error {
-	return fmt.Errorf("%w: %s: %s %q %s",
-		authentik.ErrNotFound, field, ref.EffectiveKind(), ref.Name, why)
 }
 
 // recordIdentity writes the authentik identity of the application onto status.
@@ -268,6 +203,7 @@ func (r *ApplicationReconciler) recordIdentity(
 	// Applications are deliberately unscoped, so the slug is already what
 	// authentik holds; taking it from the adapter keeps the two in step.
 	status.RemoteName = adapter.DesiredName()
+	status.AuthentikURL = adapter.client.BaseURL()
 	status.Adopted = status.Adopted || outcome.Adopted
 	now := metav1.Now()
 	status.LastSyncedTime = &now

@@ -42,9 +42,6 @@ import (
 // on it instead of leaving them to the requeue timer.
 const outpostProviderRefIndexKey = ".spec.providerRefs"
 
-// resolveProviderRefsOp names the operation in reference-resolution errors.
-const resolveProviderRefsOp = "resolve outpost provider references"
-
 // OutpostReconciler reconciles an Outpost.
 type OutpostReconciler struct {
 	client.Client
@@ -92,7 +89,7 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Every reference is resolved before anything is sent to authentik, so a
 	// half-resolved outpost is never registered. See resolveProviderIDs.
-	providerIDs, err := r.resolveProviderIDs(ctx, &outpost)
+	providerIDs, err := r.resolveProviderIDs(ctx, &outpost, akClient)
 	if err != nil {
 		return r.fail(ctx, &outpost, err)
 	}
@@ -172,97 +169,33 @@ func (r *OutpostReconciler) reconcileDelete(
 // resolveProviderIDs turns every providerRef into the authentik primary key of
 // the provider it names.
 //
-// Resolution is all or nothing, and that is the whole decision here. During a
-// rollout it is normal for some referenced providers to be registered already
-// while others are still reconciling, and it is tempting to send whatever has
-// resolved so far and catch the rest up on a later pass. That is precisely the
-// wrong trade. An outpost registered with a partial provider set comes up and
-// serves the applications it knows about; requests for the ones that were left
-// out are not denied, they are simply not proxied at all, so those
-// applications sit exposed with no visible error anywhere. A few extra seconds
-// of requeueing is a much cheaper failure than an application that is silently
-// unprotected, so the first reference that does not resolve aborts the whole
-// set and leaves the outpost exactly as it was.
+// Every reference resolves before anything reaches authentik, so a
+// half-resolved outpost is never registered: an outpost serving a subset of its
+// providers comes up and silently leaves the rest unprotected, which is worse
+// than not coming up at all.
 //
-// The returned error satisfies authentik.IsNotFound, which ResultFor maps to
-// ReasonReferenceNotFound with a requeue, and it names the reference that is
-// missing so the condition message points at the thing to fix.
+// Resolution is shared with the other consumers of ProviderReference, so an
+// outpost can serve a provider that already exists in authentik and was not
+// created here.
 func (r *OutpostReconciler) resolveProviderIDs(
-	ctx context.Context, outpost *authentikv1alpha1.Outpost,
+	ctx context.Context, outpost *authentikv1alpha1.Outpost, ak authentik.Client,
 ) ([]int32, error) {
-	ids := make([]int32, 0, len(outpost.Spec.ProviderRefs))
+	scope := ReferenceScope{
+		Namespace:    outpost.Namespace,
+		AuthentikURL: ak.BaseURL(),
+		Policy:       r.References,
+	}
 
-	for _, ref := range outpost.Spec.ProviderRefs {
-		id, err := r.resolveProviderRef(ctx, outpost.Namespace, providerRefKind(ref), ref.Name)
+	ids := make([]int32, 0, len(outpost.Spec.ProviderRefs))
+	for i, ref := range outpost.Spec.ProviderRefs {
+		field := fmt.Sprintf("spec.providerRefs[%d]", i)
+		id, err := resolveProviderReference(ctx, r.Client, ak, scope, field, ref)
 		if err != nil {
 			return nil, err
 		}
 		ids = append(ids, id)
 	}
-
 	return ids, nil
-}
-
-// resolveProviderRef resolves one reference to an authentik provider primary
-// key, reading it from the referenced resource's status.
-//
-// The provider is looked up in the outpost's own namespace. Cross-namespace
-// references are deliberately impossible: they would let anyone who can create
-// an Outpost attach it to providers owned by another team.
-func (r *OutpostReconciler) resolveProviderRef(
-	ctx context.Context, namespace string, kind authentikv1alpha1.ProviderKind, name string,
-) (int32, error) {
-	key := types.NamespacedName{Namespace: namespace, Name: name}
-
-	switch kind {
-	case authentikv1alpha1.ProviderKindOAuth2:
-		var provider authentikv1alpha1.OAuth2Provider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return 0, authentik.NotFound(resolveProviderRefsOp, string(kind), name)
-			}
-			return 0, err
-		}
-		if provider.Status.ProviderID == nil {
-			// The resource exists but has not finished registering with
-			// authentik, so there is no primary key to attach yet.
-			return 0, fmt.Errorf("%w: %s %q is not registered in authentik yet (%s)",
-				authentik.ErrNotFound, kind, name, resolveProviderRefsOp)
-		}
-		return *provider.Status.ProviderID, nil
-
-	case authentikv1alpha1.ProviderKindSAML:
-		var provider authentikv1alpha1.SAMLProvider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return 0, authentik.NotFound(resolveProviderRefsOp, string(kind), name)
-			}
-			return 0, err
-		}
-		if provider.Status.ProviderID == nil {
-			return 0, fmt.Errorf("%w: %s %q is not registered in authentik yet (%s)",
-				authentik.ErrNotFound, kind, name, resolveProviderRefsOp)
-		}
-		return *provider.Status.ProviderID, nil
-
-	case authentikv1alpha1.ProviderKindProxy:
-		var provider authentikv1alpha1.ProxyProvider
-		if err := r.Get(ctx, key, &provider); err != nil {
-			if apierrors.IsNotFound(err) {
-				return 0, authentik.NotFound(resolveProviderRefsOp, string(kind), name)
-			}
-			return 0, err
-		}
-		if provider.Status.ProviderID == nil {
-			return 0, fmt.Errorf("%w: %s %q is not registered in authentik yet (%s)",
-				authentik.ErrNotFound, kind, name, resolveProviderRefsOp)
-		}
-		return *provider.Status.ProviderID, nil
-
-	default:
-		return 0, fmt.Errorf("%w: unknown provider kind %q (%s)",
-			authentik.ErrValidation, kind, resolveProviderRefsOp)
-	}
 }
 
 // resolveServiceConnection resolves the service connection reference to its
@@ -406,6 +339,7 @@ func (r *OutpostReconciler) recordIdentity(
 	// The scoped name, not the declared one: with a cluster identity set they
 	// differ, and status has to report what authentik actually holds.
 	status.RemoteName = adapter.DesiredName()
+	status.AuthentikURL = adapter.client.BaseURL()
 	status.Adopted = status.Adopted || outcome.Adopted
 	now := metav1.Now()
 	status.LastSyncedTime = &now

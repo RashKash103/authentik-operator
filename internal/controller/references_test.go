@@ -171,3 +171,119 @@ func TestUnresolvedFlowReferenceRequeues(t *testing.T) {
 		t.Error("an unresolved reference must be retried")
 	}
 }
+
+// existingProviderName names a provider that already exists in authentik and is
+// maintained outside the operator. It shipped in the CRD, passed admission and
+// was published in the API reference while no controller read it: resolution
+// built a lookup key from the empty name field and failed with "resource name
+// may not be empty". These assert the field does what it says.
+func TestResolveProviderReferenceByExistingName(t *testing.T) {
+	ctx := context.Background()
+	scheme := serviceConnectionScheme(t)
+	kube := fake.NewClientBuilder().WithScheme(scheme).Build()
+	ak := &stubAuthentikClient{
+		baseURL:   "https://authentik.example",
+		providers: map[string]int32{"hand-made-proxy": 42},
+	}
+	scope := ReferenceScope{Namespace: "apps", AuthentikURL: ak.baseURL}
+
+	pk, err := resolveProviderReference(ctx, kube, ak, scope, "spec.providerRef",
+		authentikv1alpha1.ProviderReference{
+			Kind:                 authentikv1alpha1.ProviderKindProxy,
+			ExistingProviderName: "hand-made-proxy",
+		})
+	if err != nil {
+		t.Fatalf("resolveProviderReference: %v", err)
+	}
+	if pk != 42 {
+		t.Errorf("pk = %d, want the primary key authentik reports", pk)
+	}
+
+	// No Kubernetes resource is consulted, so no resource needs to exist -- the
+	// whole point is attaching to something the operator did not create.
+	if _, err := resolveProviderReference(ctx, kube, ak, scope, "spec.providerRef",
+		authentikv1alpha1.ProviderReference{
+			Kind:                 authentikv1alpha1.ProviderKindProxy,
+			ExistingProviderName: "not-in-authentik",
+		}); !authentik.IsNotFound(err) {
+		t.Fatalf("err = %v, want a not-found naming the authentik provider", err)
+	}
+}
+
+// A provider primary key is a small integer, so one taken from a different
+// authentik will very likely name *some* provider on this one rather than fail.
+// That makes the same-instance check matter more here than for a UUID.
+func TestResolveProviderReferenceRefusesAnotherInstance(t *testing.T) {
+	ctx := context.Background()
+	scheme := serviceConnectionScheme(t)
+
+	provider := &authentikv1alpha1.OAuth2Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "grafana", Namespace: "platform"},
+	}
+	id := int32(7)
+	provider.Status.ProviderID = &id
+	provider.Status.AuthentikURL = "https://other.example"
+
+	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider).Build()
+	ak := &stubAuthentikClient{baseURL: "https://authentik.example"}
+
+	scope := ReferenceScope{
+		Namespace:    "apps",
+		AuthentikURL: ak.baseURL,
+		Policy:       ReferencePolicy{AllowCrossNamespace: true},
+	}
+	ref := authentikv1alpha1.ProviderReference{
+		Kind: authentikv1alpha1.ProviderKindOAuth2, Name: "grafana", Namespace: "platform",
+	}
+
+	_, err := resolveProviderReference(ctx, kube, ak, scope, "spec.providerRef", ref)
+	if !errors.Is(err, authentik.ErrValidation) {
+		t.Fatalf("err = %v, want the cross-instance reference refused", err)
+	}
+	if _, retry := ResultFor(err); retry {
+		t.Error("a cross-instance provider reference must not be retried")
+	}
+}
+
+// The namespace field was ignored too: every lookup used the referring
+// resource's namespace, so a reference naming another namespace silently
+// resolved a local provider of the same name -- binding the application to an
+// object the manifest did not name.
+func TestResolveProviderReferenceHonoursTheNamespace(t *testing.T) {
+	ctx := context.Background()
+	scheme := serviceConnectionScheme(t)
+
+	local, remote := int32(1), int32(2)
+	localProvider := &authentikv1alpha1.OAuth2Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "grafana", Namespace: "apps"},
+	}
+	localProvider.Status.ProviderID = &local
+	remoteProvider := &authentikv1alpha1.OAuth2Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "grafana", Namespace: "platform"},
+	}
+	remoteProvider.Status.ProviderID = &remote
+
+	kube := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(localProvider, remoteProvider).Build()
+	ak := &stubAuthentikClient{baseURL: "https://authentik.example"}
+	ref := authentikv1alpha1.ProviderReference{
+		Kind: authentikv1alpha1.ProviderKindOAuth2, Name: "grafana", Namespace: "platform",
+	}
+
+	// Closed: refused outright rather than resolving the local provider, which
+	// is the wrong object under the right name.
+	closed := ReferenceScope{Namespace: "apps", AuthentikURL: ak.baseURL}
+	if _, err := resolveProviderReference(ctx, kube, ak, closed, "spec.providerRef", ref); !errors.Is(err, ErrCrossNamespaceDisabled) {
+		t.Fatalf("err = %v, want the reference refused by policy", err)
+	}
+
+	open := closed
+	open.Policy.AllowCrossNamespace = true
+	pk, err := resolveProviderReference(ctx, kube, ak, open, "spec.providerRef", ref)
+	if err != nil {
+		t.Fatalf("resolveProviderReference: %v", err)
+	}
+	if pk != remote {
+		t.Errorf("pk = %d, want %d -- the provider in the namespace the reference names", pk, remote)
+	}
+}
