@@ -52,6 +52,16 @@ type ProviderCommonSpec struct {
 	// +optional
 	PropertyMappings []PropertyMappingReference `json:"propertyMappings,omitempty"`
 
+	// OutpostRefs are the outposts that should serve this provider.
+	//
+	// The provider names the outposts rather than the outpost naming its
+	// providers, so adding one provider is one manifest change. An outpost's
+	// membership is reconciled additively: providers attached to it outside
+	// this operator are left alone, and removing a reference here detaches only
+	// what this operator attached.
+	// +optional
+	OutpostRefs []OutpostReference `json:"outpostRefs,omitempty"`
+
 	// AdoptionPolicy controls what happens when a provider with this name
 	// already exists in authentik.
 	// +kubebuilder:default=FailOnConflict
@@ -75,3 +85,17 @@ type ProviderStatus struct {
 	// +optional
 	ProviderID *int32 `json:"providerID,omitempty"`
 }
+
+// OutpostReferences returns the outposts this provider says should serve it.
+//
+// Declared on each concrete type rather than reached through the embedded
+// spec, because the outpost controller finds members through an interface
+// assertion: a kind that did not implement this would index as having no
+// outposts and its providers would silently never be attached.
+func (p *OAuth2Provider) OutpostReferences() []OutpostReference { return p.Spec.OutpostRefs }
+
+// OutpostReferences implements the same accessor for SAMLProvider.
+func (p *SAMLProvider) OutpostReferences() []OutpostReference { return p.Spec.OutpostRefs }
+
+// OutpostReferences implements the same accessor for ProxyProvider.
+func (p *ProxyProvider) OutpostReferences() []OutpostReference { return p.Spec.OutpostRefs }

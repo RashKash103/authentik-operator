@@ -491,3 +491,112 @@ func TestServiceConnectionReferenceExactlyOneOf(t *testing.T) {
 		})
 	}
 }
+
+// TestOutpostManagedOrReferenced proves both rules on OutpostSpec fire.
+//
+// An Outpost either describes one for the operator to manage or points at one
+// that already exists. Admitting both at once, or neither, would leave the
+// controller guessing -- and for a referenced outpost the wrong guess is
+// destructive, because a full update built from an empty spec wipes the
+// outpost's type and configuration.
+func TestOutpostManagedOrReferenced(t *testing.T) {
+	c := envtestClient(t)
+	ctx := context.Background()
+	ns := newTestNamespace(t, ctx, c, "schema-outpost")
+
+	base := func() authentikv1alpha1.OutpostSpec {
+		return authentikv1alpha1.OutpostSpec{
+			ConnectionRef: authentikv1alpha1.ConnectionReference{Name: "primary"},
+		}
+	}
+
+	cases := []struct {
+		name    string
+		mutate  func(*authentikv1alpha1.OutpostSpec)
+		wantErr string
+	}{
+		{
+			name: "a managed outpost declares its type",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Type = authentikv1alpha1.OutpostTypeProxy
+			},
+		},
+		{
+			name: "the embedded outpost is referenced without a type",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Embedded = true
+			},
+		},
+		{
+			name: "an existing outpost is referenced by name",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.ExistingOutpostName = "shared-edge"
+			},
+		},
+		{
+			// Neither: nothing says whether to create one or find one.
+			name:    "an outpost that is neither managed nor referenced is rejected",
+			mutate:  func(_ *authentikv1alpha1.OutpostSpec) {},
+			wantErr: "exactly one",
+		},
+		{
+			name: "declaring a type and referencing the embedded outpost is rejected",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Type = authentikv1alpha1.OutpostTypeProxy
+				s.Embedded = true
+			},
+			wantErr: "exactly one",
+		},
+		{
+			name: "referencing by name and by the embedded marker is rejected",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.ExistingOutpostName = "shared-edge"
+				s.Embedded = true
+			},
+			wantErr: "exactly one",
+		},
+		{
+			// These describe an outpost the operator builds. Accepting them
+			// alongside a reference would promise changes never made, since a
+			// referenced outpost keeps the shape it already has.
+			name: "a name alongside a reference is rejected",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Embedded = true
+				s.Name = "renamed"
+			},
+			wantErr: "referencing an existing one",
+		},
+		{
+			name: "a service connection alongside a reference is rejected",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Embedded = true
+				s.ServiceConnectionRef = &authentikv1alpha1.ServiceConnectionReference{
+					KubernetesServiceConnectionName: "in-cluster",
+				}
+			},
+			wantErr: "referencing an existing one",
+		},
+		{
+			// Still accepted for a managed outpost.
+			name: "a service connection on a managed outpost is accepted",
+			mutate: func(s *authentikv1alpha1.OutpostSpec) {
+				s.Type = authentikv1alpha1.OutpostTypeProxy
+				s.ServiceConnectionRef = &authentikv1alpha1.ServiceConnectionReference{
+					KubernetesServiceConnectionName: "in-cluster",
+				}
+			},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := base()
+			tc.mutate(&spec)
+			obj := &authentikv1alpha1.Outpost{
+				ObjectMeta: metav1.ObjectMeta{Name: objName("outpost", i), Namespace: ns},
+				Spec:       spec,
+			}
+			assertAdmission(t, c.Create(ctx, obj), tc.wantErr)
+		})
+	}
+}

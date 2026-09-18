@@ -25,7 +25,7 @@
       "type": "object"
     },
     "spec": {
-      "description": "OutpostSpec defines an authentik outpost.",
+      "description": "OutpostSpec defines an authentik outpost.\n\nAn Outpost either describes an outpost for the operator to manage, in which\ncase type is required, or points at one that already exists in authentik and\nis maintained elsewhere. The second is what the embedded outpost needs:\nauthentik creates it, it is present in essentially every deployment, and it\nis the usual attachment point for proxy providers.",
       "properties": {
         "adoptionPolicy": {
           "default": "FailOnConflict",
@@ -40,7 +40,7 @@
           "additionalProperties": {
             "x-kubernetes-preserve-unknown-fields": true
           },
-          "description": "Config is passed to authentik verbatim as the outpost's configuration.\nThe schema differs per outpost type and per authentik version, so it is\ndeliberately not modelled here.\n\nWell-known keys include: \"log_level\", \"authentik_host\",\n\"authentik_host_browser\", \"authentik_host_insecure\",\n\"object_naming_template\", \"refresh_interval\", \"kubernetes_replicas\",\n\"kubernetes_namespace\", \"kubernetes_service_type\",\n\"kubernetes_ingress_class_name\", \"kubernetes_ingress_annotations\",\n\"kubernetes_ingress_secret_name\", \"kubernetes_image_pull_secrets\",\n\"kubernetes_json_patches\", \"kubernetes_disabled_components\",\n\"docker_network\", \"docker_map_ports\", \"docker_labels\" and \"docker_image\".\nConsult the authentik documentation for the set your version accepts.",
+          "description": "Config is passed to authentik verbatim as the outpost's configuration.\nThe schema differs per outpost type and per authentik version, so it is\ndeliberately not modelled here.\n\nWell-known keys include: \"log_level\", \"authentik_host\",\n\"authentik_host_browser\", \"authentik_host_insecure\",\n\"object_naming_template\", \"refresh_interval\", \"kubernetes_replicas\",\n\"kubernetes_namespace\", \"kubernetes_service_type\",\n\"kubernetes_ingress_class_name\", \"kubernetes_ingress_annotations\",\n\"kubernetes_ingress_secret_name\", \"kubernetes_image_pull_secrets\",\n\"kubernetes_json_patches\", \"kubernetes_disabled_components\",\n\"docker_network\", \"docker_map_ports\", \"docker_labels\" and \"docker_image\".\nConsult the authentik documentation for the set your version accepts.\n\nNot accepted when referencing an existing outpost, whose configuration is\nnot this operator's to change. That is rejected by the controller rather\nthan by a validation rule: the field preserves unknown fields, which puts\nit outside what CEL can see.",
           "type": "object",
           "x-kubernetes-preserve-unknown-fields": true
         },
@@ -76,50 +76,18 @@
           ],
           "type": "string"
         },
+        "embedded": {
+          "description": "Embedded selects authentik's built-in embedded outpost, which exists in\nevery deployment and serves proxy providers without anything being\ndeployed.\n\nIt is found by the marker authentik stamps on it rather than by its\ndisplay name, which is editable and translated.",
+          "type": "boolean"
+        },
+        "existingOutpostName": {
+          "description": "ExistingOutpostName names an outpost that already exists in authentik and\nis maintained outside the operator. The operator manages which providers\nit serves and nothing else about it.",
+          "maxLength": 255,
+          "type": "string"
+        },
         "name": {
           "description": "Name is the outpost's name in authentik. Defaults to the resource name.",
           "type": "string"
-        },
-        "providerRefs": {
-          "description": "ProviderRefs are the providers this outpost serves. Every reference must\nresolve before the outpost is registered or updated.",
-          "items": {
-            "description": "ProviderReference points at a provider, either one this operator manages in\nthe same namespace or one that already exists in authentik.\n\nDeclared here but shared with Outpost, which references providers the same\nway. It lives in this file rather than a shared one only because Application\nwas the first consumer.\n\nThe reference is resolved through the provider resource's own\nstatus.providerID rather than by looking its name up in authentik, so the\nKubernetes objects stay the source of truth and renaming a provider inside\nauthentik cannot silently repoint an application at something else.\n\nA namespaced provider is always resolved in the application's own namespace.\nCross-namespace references are deliberately not supported: they would let\nanyone who can create a referring resource in one namespace attach a\nprovider, and therefore credentials, owned by another.",
-            "properties": {
-              "existingProviderName": {
-                "description": "ExistingProviderName is the name of a provider that already exists in\nauthentik and is maintained outside the operator. Use it to attach to a\nprovider somebody else created, rather than one this operator manages.",
-                "maxLength": 255,
-                "type": "string"
-              },
-              "kind": {
-                "default": "OAuth2Provider",
-                "description": "Kind of provider resource being referenced.",
-                "enum": [
-                  "OAuth2Provider",
-                  "SAMLProvider",
-                  "ProxyProvider"
-                ],
-                "type": "string"
-              },
-              "name": {
-                "description": "Name of the provider resource. Mutually exclusive with\nexistingProviderName.",
-                "maxLength": 255,
-                "type": "string"
-              },
-              "namespace": {
-                "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
-                "maxLength": 63,
-                "type": "string"
-              }
-            },
-            "type": "object",
-            "x-kubernetes-validations": [
-              {
-                "message": "exactly one of name or existingProviderName must be set",
-                "rule": "has(self.name) != has(self.existingProviderName)"
-              }
-            ]
-          },
-          "type": "array"
         },
         "serviceConnectionRef": {
           "description": "ServiceConnectionRef selects the service connection authentik uses to\ndeploy this outpost. Leave unset when you deploy the outpost yourself.",
@@ -149,7 +117,7 @@
           ]
         },
         "type": {
-          "description": "Type selects which outpost implementation authentik registers.",
+          "description": "Type selects which outpost implementation authentik registers. Required\nwhen this resource manages the outpost; omitted when it references one\nthat already exists, whose type is not this operator's to change.",
           "enum": [
             "proxy",
             "ldap",
@@ -184,10 +152,19 @@
         }
       },
       "required": [
-        "connectionRef",
-        "type"
+        "connectionRef"
       ],
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "set exactly one of type (to manage an outpost), existingOutpostName, or embedded",
+          "rule": "(has(self.type) ? 1 : 0) + (has(self.existingOutpostName) ? 1 : 0) + ((has(self.embedded) && self.embedded) ? 1 : 0) == 1"
+        },
+        {
+          "message": "name and serviceConnectionRef describe an outpost this operator manages, so they cannot be set when referencing an existing one",
+          "rule": "has(self.type) || (!has(self.serviceConnectionRef) && !has(self.name))"
+        }
+      ]
     },
     "status": {
       "description": "OutpostStatus reports the outpost's state in authentik.",
@@ -264,6 +241,14 @@
           "format": "date-time",
           "type": "string"
         },
+        "managedProviderIDs": {
+          "description": "ManagedProviderIDs are the providers this operator attached.\n\nMembership is additive, and the difference between \"someone attached this\nby hand\" and \"the operator attached it and the reference is now gone\"\ncannot be read from the spec -- the two demand opposite actions. This is\nthe record that tells them apart, so detaching only ever removes what the\noperator put there.",
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "observedGeneration": {
           "description": "ObservedGeneration is the .metadata.generation this status reflects.",
           "format": "int64",
@@ -274,7 +259,7 @@
           "type": "string"
         },
         "providerIDs": {
-          "description": "ProviderIDs are the authentik primary keys every providerRef resolved\nto, in spec order. It is empty until all of them resolve.",
+          "description": "ProviderIDs are the authentik primary keys of every provider currently\nattached to this outpost, including any attached outside the operator.",
           "items": {
             "format": "int32",
             "type": "integer"

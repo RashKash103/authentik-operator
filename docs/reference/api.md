@@ -866,6 +866,7 @@ _Appears in:_
 | `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
 | `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
 | `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
+| `outpostRefs` _[OutpostReference](#outpostreference) array_ | OutpostRefs are the outposts that should serve this provider.<br />The provider names the outposts rather than the outpost naming its<br />providers, so adding one provider is one manifest change. An outpost's<br />membership is reconciled additively: providers attached to it outside<br />this operator are left alone, and removing a reference here detaches only<br />what this operator attached. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `clientType` _string_ | ClientType is confidential for clients that can keep a secret, public<br />for those that cannot (SPAs, native apps). | confidential | Enum: [confidential public] <br />Optional: \{\} <br /> |
@@ -932,11 +933,42 @@ Outpost manages an authentik outpost and the set of providers it serves.
 | `status` _[OutpostStatus](#outpoststatus)_ |  |  |  |
 
 
+#### OutpostReference
+
+
+
+OutpostReference points at an Outpost resource.
+
+Providers name the outposts that should serve them, rather than an outpost
+listing its providers. Membership therefore lives with the thing being added:
+onboarding an application edits that application's manifests and nothing
+else, instead of also editing a shared outpost every team has to touch.
+
+
+
+_Appears in:_
+- [OAuth2ProviderSpec](#oauth2providerspec)
+- [ProviderCommonSpec](#providercommonspec)
+- [ProxyProviderSpec](#proxyproviderspec)
+- [SAMLProviderSpec](#samlproviderspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the Outpost resource. |  | MaxLength: 253 <br />MinLength: 1 <br /> |
+| `namespace` _string_ | Namespace holding the resource. Defaults to the referring resource's own<br />namespace.<br />Naming another namespace requires the operator to be started with<br />cross-namespace references enabled; otherwise the reference is refused<br />rather than quietly resolved somewhere else. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+
+
 #### OutpostSpec
 
 
 
 OutpostSpec defines an authentik outpost.
+
+An Outpost either describes an outpost for the operator to manage, in which
+case type is required, or points at one that already exists in authentik and
+is maintained elsewhere. The second is what the embedded outpost needs:
+authentik creates it, it is present in essentially every deployment, and it
+is the usual attachment point for proxy providers.
 
 
 
@@ -947,10 +979,11 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connectionRef` _[ConnectionReference](#connectionreference)_ | ConnectionRef selects the authentik instance this outpost is registered<br />with. |  |  |
 | `name` _string_ | Name is the outpost's name in authentik. Defaults to the resource name. |  | Optional: \{\} <br /> |
-| `type` _[OutpostType](#outposttype)_ | Type selects which outpost implementation authentik registers. |  | Enum: [proxy ldap radius rac] <br /> |
-| `providerRefs` _[ProviderReference](#providerreference) array_ | ProviderRefs are the providers this outpost serves. Every reference must<br />resolve before the outpost is registered or updated. |  | Optional: \{\} <br /> |
+| `type` _[OutpostType](#outposttype)_ | Type selects which outpost implementation authentik registers. Required<br />when this resource manages the outpost; omitted when it references one<br />that already exists, whose type is not this operator's to change. |  | Enum: [proxy ldap radius rac] <br />Optional: \{\} <br /> |
+| `existingOutpostName` _string_ | ExistingOutpostName names an outpost that already exists in authentik and<br />is maintained outside the operator. The operator manages which providers<br />it serves and nothing else about it. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `embedded` _boolean_ | Embedded selects authentik's built-in embedded outpost, which exists in<br />every deployment and serves proxy providers without anything being<br />deployed.<br />It is found by the marker authentik stamps on it rather than by its<br />display name, which is editable and translated. |  | Optional: \{\} <br /> |
 | `serviceConnectionRef` _[ServiceConnectionReference](#serviceconnectionreference)_ | ServiceConnectionRef selects the service connection authentik uses to<br />deploy this outpost. Leave unset when you deploy the outpost yourself. |  | Optional: \{\} <br /> |
-| `config` _object (keys:string, values:[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#json-v1-apiextensions-k8s-io))_ | Config is passed to authentik verbatim as the outpost's configuration.<br />The schema differs per outpost type and per authentik version, so it is<br />deliberately not modelled here.<br />Well-known keys include: "log_level", "authentik_host",<br />"authentik_host_browser", "authentik_host_insecure",<br />"object_naming_template", "refresh_interval", "kubernetes_replicas",<br />"kubernetes_namespace", "kubernetes_service_type",<br />"kubernetes_ingress_class_name", "kubernetes_ingress_annotations",<br />"kubernetes_ingress_secret_name", "kubernetes_image_pull_secrets",<br />"kubernetes_json_patches", "kubernetes_disabled_components",<br />"docker_network", "docker_map_ports", "docker_labels" and "docker_image".<br />Consult the authentik documentation for the set your version accepts. |  | Optional: \{\} <br /> |
+| `config` _object (keys:string, values:[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#json-v1-apiextensions-k8s-io))_ | Config is passed to authentik verbatim as the outpost's configuration.<br />The schema differs per outpost type and per authentik version, so it is<br />deliberately not modelled here.<br />Well-known keys include: "log_level", "authentik_host",<br />"authentik_host_browser", "authentik_host_insecure",<br />"object_naming_template", "refresh_interval", "kubernetes_replicas",<br />"kubernetes_namespace", "kubernetes_service_type",<br />"kubernetes_ingress_class_name", "kubernetes_ingress_annotations",<br />"kubernetes_ingress_secret_name", "kubernetes_image_pull_secrets",<br />"kubernetes_json_patches", "kubernetes_disabled_components",<br />"docker_network", "docker_map_ports", "docker_labels" and "docker_image".<br />Consult the authentik documentation for the set your version accepts.<br />Not accepted when referencing an existing outpost, whose configuration is<br />not this operator's to change. That is rejected by the controller rather<br />than by a validation rule: the field preserves unknown fields, which puts<br />it outside what CEL can see. |  | Optional: \{\} <br /> |
 | `writeTokenTo` _[OutpostTokenSecretRef](#outposttokensecretref)_ | WriteTokenTo creates a Secret holding the outpost's API token and the<br />authentik base URL, which is what a self-hosted outpost needs in order to<br />connect back. Leave unset when authentik deploys the outpost itself. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when an outpost with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik outpost when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
@@ -977,7 +1010,8 @@ _Appears in:_
 | `adopted` _boolean_ | Adopted records that this resource took over a pre-existing authentik<br />object rather than creating it. |  | Optional: \{\} <br /> |
 | `lastSyncedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | LastSyncedTime is when the resource last reconciled successfully. |  | Optional: \{\} <br /> |
 | `outpostID` _string_ | OutpostID is authentik's UUID for this outpost. |  | Optional: \{\} <br /> |
-| `providerIDs` _integer array_ | ProviderIDs are the authentik primary keys every providerRef resolved<br />to, in spec order. It is empty until all of them resolve. |  | Optional: \{\} <br /> |
+| `providerIDs` _integer array_ | ProviderIDs are the authentik primary keys of every provider currently<br />attached to this outpost, including any attached outside the operator. |  | Optional: \{\} <br /> |
+| `managedProviderIDs` _integer array_ | ManagedProviderIDs are the providers this operator attached.<br />Membership is additive, and the difference between "someone attached this<br />by hand" and "the operator attached it and the reference is now gone"<br />cannot be read from the spec -- the two demand opposite actions. This is<br />the record that tells them apart, so detaching only ever removes what the<br />operator put there. |  | Optional: \{\} <br /> |
 | `serviceConnectionID` _string_ | ServiceConnectionID is the UUID serviceConnectionRef resolved to. |  | Optional: \{\} <br /> |
 | `tokenIdentifier` _string_ | TokenIdentifier names the authentik token this outpost authenticates<br />with. It is an identifier, not the token itself, which is never placed<br />in status. |  | Optional: \{\} <br /> |
 | `tokenSecretName` _string_ | TokenSecretName is the Secret the outpost token was written to. |  | Optional: \{\} <br /> |
@@ -1124,6 +1158,7 @@ _Appears in:_
 | `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
 | `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
 | `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
+| `outpostRefs` _[OutpostReference](#outpostreference) array_ | OutpostRefs are the outposts that should serve this provider.<br />The provider names the outposts rather than the outpost naming its<br />providers, so adding one provider is one manifest change. An outpost's<br />membership is reconciled additively: providers attached to it outside<br />this operator are left alone, and removing a reference here detaches only<br />what this operator attached. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 
@@ -1172,7 +1207,6 @@ provider, and therefore credentials, owned by another.
 
 _Appears in:_
 - [ApplicationSpec](#applicationspec)
-- [OutpostSpec](#outpostspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -1273,6 +1307,7 @@ _Appears in:_
 | `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
 | `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
 | `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
+| `outpostRefs` _[OutpostReference](#outpostreference) array_ | OutpostRefs are the outposts that should serve this provider.<br />The provider names the outposts rather than the outpost naming its<br />providers, so adding one provider is one manifest change. An outpost's<br />membership is reconciled additively: providers attached to it outside<br />this operator are left alone, and removing a reference here detaches only<br />what this operator attached. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `externalHost` _string_ | ExternalHost is the URL the application is reached on by users, for<br />example "https://grafana.example.com". It is what the outpost matches<br />incoming requests against. |  | MinLength: 1 <br /> |
@@ -1446,6 +1481,7 @@ _Appears in:_
 | `invalidationFlow` _[FlowReference](#flowreference)_ | InvalidationFlow is the flow used when ending a session. |  |  |
 | `authenticationFlow` _[FlowReference](#flowreference)_ | AuthenticationFlow is the flow used to authenticate a user who reaches<br />the application unauthenticated. Leave unset to use authentik's default. |  | Optional: \{\} <br /> |
 | `propertyMappings` _[PropertyMappingReference](#propertymappingreference) array_ | PropertyMappings attached to this provider, in order. |  | Optional: \{\} <br /> |
+| `outpostRefs` _[OutpostReference](#outpostreference) array_ | OutpostRefs are the outposts that should serve this provider.<br />The provider names the outposts rather than the outpost naming its<br />providers, so adding one provider is one manifest change. An outpost's<br />membership is reconciled additively: providers attached to it outside<br />this operator are left alone, and removing a reference here detaches only<br />what this operator attached. |  | Optional: \{\} <br /> |
 | `adoptionPolicy` _[AdoptionPolicy](#adoptionpolicy)_ | AdoptionPolicy controls what happens when a provider with this name<br />already exists in authentik. | FailOnConflict | Enum: [FailOnConflict AdoptExisting] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to the authentik provider when this<br />resource is deleted. | Delete | Enum: [Delete Orphan] <br />Optional: \{\} <br /> |
 | `acsURL` _string_ | ACSURL is the service provider's Assertion Consumer Service endpoint,<br />where authentik posts the SAML response. |  | MinLength: 1 <br /> |

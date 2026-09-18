@@ -53,7 +53,14 @@ spec:
           metadata:
             type: object
           spec:
-            description: OutpostSpec defines an authentik outpost.
+            description: |-
+              OutpostSpec defines an authentik outpost.
+
+              An Outpost either describes an outpost for the operator to manage, in which
+              case type is required, or points at one that already exists in authentik and
+              is maintained elsewhere. The second is what the embedded outpost needs:
+              authentik creates it, it is present in essentially every deployment, and it
+              is the usual attachment point for proxy providers.
             properties:
               adoptionPolicy:
                 default: FailOnConflict
@@ -81,6 +88,11 @@ spec:
                   "kubernetes_json_patches", "kubernetes_disabled_components",
                   "docker_network", "docker_map_ports", "docker_labels" and "docker_image".
                   Consult the authentik documentation for the set your version accepts.
+
+                  Not accepted when referencing an existing outpost, whose configuration is
+                  not this operator's to change. That is rejected by the controller rather
+                  than by a validation rule: the field preserves unknown fields, which puts
+                  it outside what CEL can see.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               connectionRef:
@@ -111,69 +123,26 @@ spec:
                 - Delete
                 - Orphan
                 type: string
+              embedded:
+                description: |-
+                  Embedded selects authentik's built-in embedded outpost, which exists in
+                  every deployment and serves proxy providers without anything being
+                  deployed.
+
+                  It is found by the marker authentik stamps on it rather than by its
+                  display name, which is editable and translated.
+                type: boolean
+              existingOutpostName:
+                description: |-
+                  ExistingOutpostName names an outpost that already exists in authentik and
+                  is maintained outside the operator. The operator manages which providers
+                  it serves and nothing else about it.
+                maxLength: 255
+                type: string
               name:
                 description: Name is the outpost's name in authentik. Defaults to
                   the resource name.
                 type: string
-              providerRefs:
-                description: |-
-                  ProviderRefs are the providers this outpost serves. Every reference must
-                  resolve before the outpost is registered or updated.
-                items:
-                  description: |-
-                    ProviderReference points at a provider, either one this operator manages in
-                    the same namespace or one that already exists in authentik.
-
-                    Declared here but shared with Outpost, which references providers the same
-                    way. It lives in this file rather than a shared one only because Application
-                    was the first consumer.
-
-                    The reference is resolved through the provider resource's own
-                    status.providerID rather than by looking its name up in authentik, so the
-                    Kubernetes objects stay the source of truth and renaming a provider inside
-                    authentik cannot silently repoint an application at something else.
-
-                    A namespaced provider is always resolved in the application's own namespace.
-                    Cross-namespace references are deliberately not supported: they would let
-                    anyone who can create a referring resource in one namespace attach a
-                    provider, and therefore credentials, owned by another.
-                  properties:
-                    existingProviderName:
-                      description: |-
-                        ExistingProviderName is the name of a provider that already exists in
-                        authentik and is maintained outside the operator. Use it to attach to a
-                        provider somebody else created, rather than one this operator manages.
-                      maxLength: 255
-                      type: string
-                    kind:
-                      default: OAuth2Provider
-                      description: Kind of provider resource being referenced.
-                      enum:
-                      - OAuth2Provider
-                      - SAMLProvider
-                      - ProxyProvider
-                      type: string
-                    name:
-                      description: |-
-                        Name of the provider resource. Mutually exclusive with
-                        existingProviderName.
-                      maxLength: 255
-                      type: string
-                    namespace:
-                      description: |-
-                        Namespace holding the resource. Defaults to the referring resource's own
-                        namespace.
-
-                        Naming another namespace requires the operator to be started with
-                        cross-namespace references enabled; otherwise the reference is refused
-                        rather than quietly resolved somewhere else.
-                      maxLength: 63
-                      type: string
-                  type: object
-                  x-kubernetes-validations:
-                  - message: exactly one of name or existingProviderName must be set
-                    rule: has(self.name) != has(self.existingProviderName)
-                type: array
               serviceConnectionRef:
                 description: |-
                   ServiceConnectionRef selects the service connection authentik uses to
@@ -206,7 +175,10 @@ spec:
                     must be set
                   rule: has(self.kubernetesServiceConnectionName) != has(self.dockerServiceConnectionName)
               type:
-                description: Type selects which outpost implementation authentik registers.
+                description: |-
+                  Type selects which outpost implementation authentik registers. Required
+                  when this resource manages the outpost; omitted when it references one
+                  that already exists, whose type is not this operator's to change.
                 enum:
                 - proxy
                 - ldap
@@ -240,8 +212,15 @@ spec:
                 type: object
             required:
             - connectionRef
-            - type
             type: object
+            x-kubernetes-validations:
+            - message: set exactly one of type (to manage an outpost), existingOutpostName,
+                or embedded
+              rule: '(has(self.type) ? 1 : 0) + (has(self.existingOutpostName) ? 1
+                : 0) + ((has(self.embedded) && self.embedded) ? 1 : 0) == 1'
+            - message: name and serviceConnectionRef describe an outpost this operator
+                manages, so they cannot be set when referencing an existing one
+              rule: has(self.type) || (!has(self.serviceConnectionRef) && !has(self.name))
           status:
             description: OutpostStatus reports the outpost's state in authentik.
             properties:
@@ -323,6 +302,19 @@ spec:
                 description: LastSyncedTime is when the resource last reconciled successfully.
                 format: date-time
                 type: string
+              managedProviderIDs:
+                description: |-
+                  ManagedProviderIDs are the providers this operator attached.
+
+                  Membership is additive, and the difference between "someone attached this
+                  by hand" and "the operator attached it and the reference is now gone"
+                  cannot be read from the spec -- the two demand opposite actions. This is
+                  the record that tells them apart, so detaching only ever removes what the
+                  operator put there.
+                items:
+                  format: int32
+                  type: integer
+                type: array
               observedGeneration:
                 description: ObservedGeneration is the .metadata.generation this status
                   reflects.
@@ -333,8 +325,8 @@ spec:
                 type: string
               providerIDs:
                 description: |-
-                  ProviderIDs are the authentik primary keys every providerRef resolved
-                  to, in spec order. It is empty until all of them resolve.
+                  ProviderIDs are the authentik primary keys of every provider currently
+                  attached to this outpost, including any attached outside the operator.
                 items:
                   format: int32
                   type: integer

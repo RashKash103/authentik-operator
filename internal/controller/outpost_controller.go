@@ -19,6 +19,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,10 +39,12 @@ import (
 	"rka.sh/authentik-operator/internal/authentik"
 )
 
-// outpostProviderRefIndexKey indexes outposts by the providers they reference,
-// so that a provider finishing its own registration wakes the outposts waiting
-// on it instead of leaving them to the requeue timer.
-const outpostProviderRefIndexKey = ".spec.providerRefs"
+// providerOutpostRefIndexKey indexes providers by the outposts they name.
+//
+// Membership is declared on the provider, so this is how an outpost finds the
+// providers that belong to it. A provider finishing its own registration wakes
+// the outposts it names rather than leaving them to the requeue timer.
+const providerOutpostRefIndexKey = ".spec.outpostRefs"
 
 // OutpostReconciler reconciles an Outpost.
 type OutpostReconciler struct {
@@ -87,9 +91,9 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	// Every reference is resolved before anything is sent to authentik, so a
-	// half-resolved outpost is never registered. See resolveProviderIDs.
-	providerIDs, err := r.resolveProviderIDs(ctx, &outpost, akClient)
+	// Every reference resolves before anything reaches authentik, so a
+	// half-resolved outpost is never registered. See desiredProviderIDs.
+	desiredIDs, err := r.desiredProviderIDs(ctx, &outpost, akClient)
 	if err != nil {
 		return r.fail(ctx, &outpost, err)
 	}
@@ -100,10 +104,11 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	adapter := &outpostAdapter{
-		client:            akClient,
-		outpost:           &outpost,
-		providerIDs:       providerIDs,
-		serviceConnection: serviceConnection,
+		client:             akClient,
+		outpost:            &outpost,
+		desiredProviderIDs: desiredIDs,
+		managedProviderIDs: outpost.Status.ManagedProviderIDs,
+		serviceConnection:  serviceConnection,
 	}
 	outcome, err := Sync(ctx, SyncRequest{
 		Object: &outpost, Adapter: adapter, Recorder: r.Recorder, Scheme: r.Scheme,
@@ -112,7 +117,7 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.fail(ctx, &outpost, err)
 	}
 
-	r.recordIdentity(&outpost, outcome, adapter, providerIDs, serviceConnection)
+	r.recordIdentity(&outpost, outcome, adapter, desiredIDs, serviceConnection)
 
 	if err := r.writeToken(ctx, &outpost, adapter); err != nil {
 		return r.fail(ctx, &outpost, err)
@@ -125,7 +130,8 @@ func (r *OutpostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	logger.V(1).Info("reconciled outpost",
 		"outpost", outpost.OutpostName(), "remoteID", outcome.RemoteID,
-		"providers", len(providerIDs),
+		"providers", len(adapter.attachedProviderIDs()),
+		"managed", len(desiredIDs),
 		"created", outcome.Created, "adopted", outcome.Adopted, "updated", outcome.Updated)
 	return ctrl.Result{}, nil
 }
@@ -166,36 +172,148 @@ func (r *OutpostReconciler) reconcileDelete(
 	return ctrl.Result{}, client.IgnoreNotFound(r.Update(ctx, outpost))
 }
 
-// resolveProviderIDs turns every providerRef into the authentik primary key of
-// the provider it names.
+// desiredProviderIDs collects the providers that name this outpost.
 //
-// Every reference resolves before anything reaches authentik, so a
-// half-resolved outpost is never registered: an outpost serving a subset of its
-// providers comes up and silently leaves the rest unprotected, which is worse
-// than not coming up at all.
+// Membership is declared on the provider, so this lists each provider kind by
+// the outpost index rather than reading a list off the outpost. The result is
+// what the operator wants attached; it is not the whole membership, because
+// providers attached outside the operator stay attached. See mergeMembership.
 //
-// Resolution is shared with the other consumers of ProviderReference, so an
-// outpost can serve a provider that already exists in authentik and was not
-// created here.
-func (r *OutpostReconciler) resolveProviderIDs(
+// Every reference resolves before anything reaches authentik. An outpost
+// serving a subset of its providers comes up and silently leaves the rest
+// unprotected: not denied, not erroring, just unproxied, with nothing saying
+// so. Anything short of the full set aborts and requeues.
+func (r *OutpostReconciler) desiredProviderIDs(
 	ctx context.Context, outpost *authentikv1alpha1.Outpost, ak authentik.Client,
 ) ([]int32, error) {
-	scope := ReferenceScope{
-		Namespace:    outpost.Namespace,
-		AuthentikURL: ak.BaseURL(),
-		Policy:       r.References,
-	}
+	key := outpost.Namespace + "/" + outpost.Name
 
-	ids := make([]int32, 0, len(outpost.Spec.ProviderRefs))
-	for i, ref := range outpost.Spec.ProviderRefs {
-		field := fmt.Sprintf("spec.providerRefs[%d]", i)
-		id, err := resolveProviderReference(ctx, r.Client, ak, scope, field, ref)
+	var members []providerMember
+	for _, collect := range []func(context.Context, string) ([]providerMember, error){
+		r.oauth2Members, r.samlMembers, r.proxyMembers,
+	} {
+		found, err := collect(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		members = append(members, found...)
+	}
+
+	// Sorted by name so the set sent to authentik does not churn with listing
+	// order, which would make every reconcile look like drift.
+	slices.SortFunc(members, func(a, b providerMember) int {
+		return strings.Compare(a.name, b.name)
+	})
+
+	ids := make([]int32, 0, len(members))
+	for _, m := range members {
+		if m.id == nil {
+			return nil, referenceNotReady("spec.outpostRefs", string(m.kind), m.name,
+				"has not been registered in authentik yet")
+		}
+		if err := assertSameInstance("spec.outpostRefs", string(m.kind), m.name,
+			m.authentikURL, ak.BaseURL()); err != nil {
+			return nil, err
+		}
+		ids = append(ids, *m.id)
 	}
 	return ids, nil
+}
+
+// providerMember is one provider that named this outpost.
+type providerMember struct {
+	kind         authentikv1alpha1.ProviderKind
+	name         string
+	id           *int32
+	authentikURL string
+}
+
+func (r *OutpostReconciler) oauth2Members(ctx context.Context, key string) ([]providerMember, error) {
+	var list authentikv1alpha1.OAuth2ProviderList
+	if err := r.List(ctx, &list, client.MatchingFields{providerOutpostRefIndexKey: key}); err != nil {
+		return nil, err
+	}
+	out := make([]providerMember, 0, len(list.Items))
+	for i := range list.Items {
+		p := &list.Items[i]
+		out = append(out, providerMember{
+			kind: authentikv1alpha1.ProviderKindOAuth2, name: p.Name,
+			id: p.Status.ProviderID, authentikURL: p.Status.AuthentikURL,
+		})
+	}
+	return out, nil
+}
+
+func (r *OutpostReconciler) samlMembers(ctx context.Context, key string) ([]providerMember, error) {
+	var list authentikv1alpha1.SAMLProviderList
+	if err := r.List(ctx, &list, client.MatchingFields{providerOutpostRefIndexKey: key}); err != nil {
+		return nil, err
+	}
+	out := make([]providerMember, 0, len(list.Items))
+	for i := range list.Items {
+		p := &list.Items[i]
+		out = append(out, providerMember{
+			kind: authentikv1alpha1.ProviderKindSAML, name: p.Name,
+			id: p.Status.ProviderID, authentikURL: p.Status.AuthentikURL,
+		})
+	}
+	return out, nil
+}
+
+func (r *OutpostReconciler) proxyMembers(ctx context.Context, key string) ([]providerMember, error) {
+	var list authentikv1alpha1.ProxyProviderList
+	if err := r.List(ctx, &list, client.MatchingFields{providerOutpostRefIndexKey: key}); err != nil {
+		return nil, err
+	}
+	out := make([]providerMember, 0, len(list.Items))
+	for i := range list.Items {
+		p := &list.Items[i]
+		out = append(out, providerMember{
+			kind: authentikv1alpha1.ProviderKindProxy, name: p.Name,
+			id: p.Status.ProviderID, authentikURL: p.Status.AuthentikURL,
+		})
+	}
+	return out, nil
+}
+
+// mergeMembership computes the provider set to send to authentik.
+//
+// The outpost may serve providers this operator knows nothing about - attached
+// by hand, or by another operator instance sharing the authentik. Sending only
+// the desired set would silently detach them, which for a proxy outpost means
+// the application behind it stops being protected.
+//
+//	keep  = attached now, minus what this operator attached   (somebody else's)
+//	final = keep, plus what is desired now
+//
+// Removing a provider's outpostRef therefore detaches it, because it leaves
+// desired while being present in managed; an unmanaged provider survives both
+// ways, because it was never in managed to begin with.
+func mergeMembership(current, managed, desired []int32) []int32 {
+	wasManaged := make(map[int32]bool, len(managed))
+	for _, id := range managed {
+		wasManaged[id] = true
+	}
+
+	final := make([]int32, 0, len(current)+len(desired))
+	seen := make(map[int32]bool, len(current)+len(desired))
+	for _, id := range current {
+		if wasManaged[id] || seen[id] {
+			continue
+		}
+		seen[id] = true
+		final = append(final, id)
+	}
+	for _, id := range desired {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		final = append(final, id)
+	}
+
+	slices.Sort(final)
+	return final
 }
 
 // resolveServiceConnection resolves the service connection reference to its
@@ -331,7 +449,7 @@ func (r *OutpostReconciler) recordIdentity(
 	outpost *authentikv1alpha1.Outpost,
 	outcome SyncOutcome,
 	adapter *outpostAdapter,
-	providerIDs []int32,
+	desiredProviderIDs []int32,
 	serviceConnection string,
 ) {
 	status := outpost.ManagedStatus()
@@ -345,7 +463,12 @@ func (r *OutpostReconciler) recordIdentity(
 	status.LastSyncedTime = &now
 
 	outpost.Status.OutpostID = outcome.RemoteID
-	outpost.Status.ProviderIDs = providerIDs
+	// What is attached, and separately what this operator put there. The second
+	// is what the next reconcile diffs against to detach precisely; recording
+	// only the first would make every hand-attached provider look like one of
+	// ours on the following pass.
+	outpost.Status.ProviderIDs = adapter.attachedProviderIDs()
+	outpost.Status.ManagedProviderIDs = desiredProviderIDs
 	outpost.Status.ServiceConnectionID = serviceConnection
 	if adapter.observed != nil {
 		outpost.Status.TokenIdentifier = adapter.observed.TokenIdentifier
@@ -375,10 +498,19 @@ func (r *OutpostReconciler) fail(
 // SetupWithManager registers the controller, the provider index and the
 // watches that feed it.
 func (r *OutpostReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(
-		context.Background(), &authentikv1alpha1.Outpost{}, outpostProviderRefIndexKey, indexOutpostProviderRefs,
-	); err != nil {
-		return err
+	// Each provider kind is indexed by the outposts it names, which is how an
+	// outpost finds its members now that membership is declared on the
+	// provider.
+	for _, obj := range []client.Object{
+		&authentikv1alpha1.OAuth2Provider{},
+		&authentikv1alpha1.SAMLProvider{},
+		&authentikv1alpha1.ProxyProvider{},
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(
+			context.Background(), obj, providerOutpostRefIndexKey, indexProviderOutpostRefs,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Watching every provider kind is what turns "applied out of order" into a
@@ -390,78 +522,69 @@ func (r *OutpostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Watches(
 			&authentikv1alpha1.OAuth2Provider{},
-			handler.EnqueueRequestsFromMapFunc(
-				r.outpostsForProvider(authentikv1alpha1.ProviderKindOAuth2)),
+			handler.EnqueueRequestsFromMapFunc(r.outpostsForProvider()),
 		).
 		Watches(
 			&authentikv1alpha1.SAMLProvider{},
-			handler.EnqueueRequestsFromMapFunc(
-				r.outpostsForProvider(authentikv1alpha1.ProviderKindSAML)),
+			handler.EnqueueRequestsFromMapFunc(r.outpostsForProvider()),
 		).
 		Watches(
 			&authentikv1alpha1.ProxyProvider{},
-			handler.EnqueueRequestsFromMapFunc(
-				r.outpostsForProvider(authentikv1alpha1.ProviderKindProxy)),
+			handler.EnqueueRequestsFromMapFunc(r.outpostsForProvider()),
 		).
 		Named("outpost").
 		Complete(r)
 }
 
-// indexOutpostProviderRefs indexes an Outpost by every provider it references.
-func indexOutpostProviderRefs(obj client.Object) []string {
-	outpost, ok := obj.(*authentikv1alpha1.Outpost)
+// indexProviderOutpostRefs indexes any provider by the outposts it names.
+//
+// The three provider kinds are distinct Go types with no common interface for
+// this, so the spec is reached through the accessor each of them implements.
+func indexProviderOutpostRefs(obj client.Object) []string {
+	provider, ok := obj.(interface {
+		OutpostReferences() []authentikv1alpha1.OutpostReference
+	})
 	if !ok {
 		return nil
 	}
-	keys := make([]string, 0, len(outpost.Spec.ProviderRefs))
-	for _, ref := range outpost.Spec.ProviderRefs {
-		keys = append(keys, providerRefIndexValue(providerRefKind(ref), ref.Name))
+	refs := provider.OutpostReferences()
+	keys := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		ns := ref.Namespace
+		if ns == "" {
+			ns = obj.GetNamespace()
+		}
+		keys = append(keys, ns+"/"+ref.Name)
 	}
 	return keys
 }
 
-// outpostsForProvider builds the map function that turns an event on a
-// provider of the given kind into reconcile requests for the outposts that
-// reference it.
-func (r *OutpostReconciler) outpostsForProvider(kind authentikv1alpha1.ProviderKind) handler.MapFunc {
+// outpostsForProvider turns an event on a provider into reconcile requests for
+// the outposts that provider names.
+//
+// Membership is declared on the provider, so the references are read straight
+// off the object rather than through an index: the provider already knows which
+// outposts it belongs to.
+func (r *OutpostReconciler) outpostsForProvider() handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		var list authentikv1alpha1.OutpostList
-		err := r.List(ctx, &list,
-			client.InNamespace(obj.GetNamespace()),
-			client.MatchingFields{
-				outpostProviderRefIndexKey: providerRefIndexValue(kind, obj.GetName()),
-			},
-		)
-		if err != nil && !apierrors.IsNotFound(err) {
-			log.FromContext(ctx).Error(err, "listing outposts for provider",
-				"kind", kind, "provider", obj.GetName())
+		provider, ok := obj.(interface {
+			OutpostReferences() []authentikv1alpha1.OutpostReference
+		})
+		if !ok {
 			return nil
 		}
 
-		requests := make([]reconcile.Request, 0, len(list.Items))
-		for i := range list.Items {
+		refs := provider.OutpostReferences()
+		requests := make([]reconcile.Request, 0, len(refs))
+		for _, ref := range refs {
+			ns := ref.Namespace
+			if ns == "" {
+				ns = obj.GetNamespace()
+			}
 			requests = append(requests, reconcile.Request{
-				NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+				NamespacedName: types.NamespacedName{Namespace: ns, Name: ref.Name},
 			})
 		}
 		return requests
 	}
-}
-
-// providerRefKind returns the reference's kind, applying the default that the
-// CRD schema would normally have filled in. Defaulting here too keeps the
-// index and the resolver agreeing about a reference written before the default
-// existed, or built in a test.
-func providerRefKind(ref authentikv1alpha1.ProviderReference) authentikv1alpha1.ProviderKind {
-	if ref.Kind == "" {
-		return authentikv1alpha1.ProviderKindOAuth2
-	}
-	return ref.Kind
-}
-
-// providerRefIndexValue builds the index key for one provider reference. Kind
-// is part of the key so that an OAuth2Provider and a SAMLProvider sharing a
-// name never wake each other's outposts.
-func providerRefIndexValue(kind authentikv1alpha1.ProviderKind, name string) string {
-	return string(kind) + "/" + name
 }

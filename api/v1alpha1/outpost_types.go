@@ -56,6 +56,15 @@ type OutpostTokenSecretRef struct {
 }
 
 // OutpostSpec defines an authentik outpost.
+//
+// An Outpost either describes an outpost for the operator to manage, in which
+// case type is required, or points at one that already exists in authentik and
+// is maintained elsewhere. The second is what the embedded outpost needs:
+// authentik creates it, it is present in essentially every deployment, and it
+// is the usual attachment point for proxy providers.
+//
+// +kubebuilder:validation:XValidation:rule="(has(self.type) ? 1 : 0) + (has(self.existingOutpostName) ? 1 : 0) + ((has(self.embedded) && self.embedded) ? 1 : 0) == 1",message="set exactly one of type (to manage an outpost), existingOutpostName, or embedded"
+// +kubebuilder:validation:XValidation:rule="has(self.type) || (!has(self.serviceConnectionRef) && !has(self.name))",message="name and serviceConnectionRef describe an outpost this operator manages, so they cannot be set when referencing an existing one"
 type OutpostSpec struct {
 	// ConnectionRef selects the authentik instance this outpost is registered
 	// with.
@@ -65,13 +74,27 @@ type OutpostSpec struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// Type selects which outpost implementation authentik registers.
-	Type OutpostType `json:"type"`
-
-	// ProviderRefs are the providers this outpost serves. Every reference must
-	// resolve before the outpost is registered or updated.
+	// Type selects which outpost implementation authentik registers. Required
+	// when this resource manages the outpost; omitted when it references one
+	// that already exists, whose type is not this operator's to change.
 	// +optional
-	ProviderRefs []ProviderReference `json:"providerRefs,omitempty"`
+	Type OutpostType `json:"type,omitempty"`
+
+	// ExistingOutpostName names an outpost that already exists in authentik and
+	// is maintained outside the operator. The operator manages which providers
+	// it serves and nothing else about it.
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	ExistingOutpostName string `json:"existingOutpostName,omitempty"`
+
+	// Embedded selects authentik's built-in embedded outpost, which exists in
+	// every deployment and serves proxy providers without anything being
+	// deployed.
+	//
+	// It is found by the marker authentik stamps on it rather than by its
+	// display name, which is editable and translated.
+	// +optional
+	Embedded bool `json:"embedded,omitempty"`
 
 	// ServiceConnectionRef selects the service connection authentik uses to
 	// deploy this outpost. Leave unset when you deploy the outpost yourself.
@@ -91,6 +114,11 @@ type OutpostSpec struct {
 	// "kubernetes_json_patches", "kubernetes_disabled_components",
 	// "docker_network", "docker_map_ports", "docker_labels" and "docker_image".
 	// Consult the authentik documentation for the set your version accepts.
+	//
+	// Not accepted when referencing an existing outpost, whose configuration is
+	// not this operator's to change. That is rejected by the controller rather
+	// than by a validation rule: the field preserves unknown fields, which puts
+	// it outside what CEL can see.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Config map[string]apiextensionsv1.JSON `json:"config,omitempty"`
@@ -122,10 +150,20 @@ type OutpostStatus struct {
 	// +optional
 	OutpostID string `json:"outpostID,omitempty"`
 
-	// ProviderIDs are the authentik primary keys every providerRef resolved
-	// to, in spec order. It is empty until all of them resolve.
+	// ProviderIDs are the authentik primary keys of every provider currently
+	// attached to this outpost, including any attached outside the operator.
 	// +optional
 	ProviderIDs []int32 `json:"providerIDs,omitempty"`
+
+	// ManagedProviderIDs are the providers this operator attached.
+	//
+	// Membership is additive, and the difference between "someone attached this
+	// by hand" and "the operator attached it and the reference is now gone"
+	// cannot be read from the spec -- the two demand opposite actions. This is
+	// the record that tells them apart, so detaching only ever removes what the
+	// operator put there.
+	// +optional
+	ManagedProviderIDs []int32 `json:"managedProviderIDs,omitempty"`
 
 	// ServiceConnectionID is the UUID serviceConnectionRef resolved to.
 	// +optional
@@ -172,7 +210,23 @@ type OutpostList struct {
 func (o *Outpost) ConnectionRef() ConnectionReference { return o.Spec.ConnectionRef }
 
 // DeletionPolicy implements controller.ManagedObject.
-func (o *Outpost) DeletionPolicy() DeletionPolicy { return o.Spec.Deletion }
+//
+// An outpost the operator did not create is never deleted, whatever the spec
+// says. Removing the resource that references the embedded outpost must not
+// remove the embedded outpost, and that mistake is not recoverable by
+// reapplying the manifest.
+func (o *Outpost) DeletionPolicy() DeletionPolicy {
+	if o.ReferencesExisting() {
+		return DeletionPolicyOrphan
+	}
+	return o.Spec.Deletion
+}
+
+// ReferencesExisting reports whether this resource points at an outpost that
+// already exists in authentik rather than describing one to manage.
+func (o *Outpost) ReferencesExisting() bool {
+	return o.Spec.Embedded || o.Spec.ExistingOutpostName != ""
+}
 
 // AdoptionPolicy implements controller.ManagedObject.
 func (o *Outpost) AdoptionPolicy() AdoptionPolicy { return o.Spec.Adoption }
@@ -182,7 +236,14 @@ func (o *Outpost) ManagedStatus() *ManagedResourceStatus { return &o.Status.Mana
 
 // OutpostName is the name the outpost carries in authentik, defaulting to the
 // resource name when the spec does not override it.
+//
+// For a referenced outpost this is the name to find it by, and it is used
+// verbatim: cluster scoping applies to objects this operator creates, and this
+// one belongs to somebody else.
 func (o *Outpost) OutpostName() string {
+	if o.Spec.ExistingOutpostName != "" {
+		return o.Spec.ExistingOutpostName
+	}
 	if o.Spec.Name != "" {
 		return o.Spec.Name
 	}

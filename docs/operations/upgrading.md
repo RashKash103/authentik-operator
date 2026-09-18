@@ -22,6 +22,74 @@ anything new and silently drops fields it cannot see.
 
 ---
 
+## v0.2.0 → v0.3.0
+
+Outpost membership moved from the outpost to the provider, and
+`Outpost.providerRefs` is gone.
+
+### Why
+
+An outpost listing its providers meant every new application edited two
+manifests, and made the outpost a shared file every team had to touch. A
+provider now names the outposts that should serve it.
+
+### Move each reference to its provider
+
+```yaml
+# Before, on the Outpost
+spec:
+  type: proxy
+  providerRefs:
+    - kind: ProxyProvider
+      name: tool-a
+```
+
+```yaml
+# After, on the ProxyProvider
+spec:
+  outpostRefs:
+    - name: edge
+```
+
+The `Outpost` keeps everything else; delete only its `providerRefs`. Manifests
+that still carry the field are rejected, so nothing silently keeps the old
+meaning.
+
+!!! warning "Move them in one apply"
+
+    A provider whose reference has been deleted from the outpost but not yet
+    added to itself is attached to nothing, and whatever it protects is served
+    without authentication until the next reconcile fixes it. Apply both
+    changes together.
+
+### Membership is now additive
+
+The operator records what it attached in `status.managedProviderIDs` and
+detaches only from that set. A provider attached by hand, or by a second
+operator instance sharing the authentik, is left alone instead of being
+silently removed on the next reconcile — which is what the previous
+full-overwrite behaviour did.
+
+An outpost adopted from v0.2.0 starts with an empty `managedProviderIDs`, so its
+existing providers read as somebody else's and survive. Add the matching
+`outpostRefs` and the operator takes ownership of them again.
+
+### New: outposts the operator does not own
+
+`Outpost` can now reference one instead of creating it — `embedded: true` for
+authentik's built-in outpost, or `existingOutpostName` for one somebody else
+set up. `type`, `config`, `serviceConnectionRef` and `name` are rejected there,
+and `deletionPolicy` is forced to `Orphan`. See
+[Outposts the operator does not own](../guides/outposts.md#outposts-the-operator-does-not-own).
+
+### New: attach to a provider the operator did not create
+
+`providerRef.existingProviderName` names a provider that already exists in
+authentik. The field has been in the CRD since v0.1.0 and never worked; it does
+now. If you tried it and got `resource name may not be empty`, that was this.
+
+---
+
 ## v0.1.0 → v0.2.0
 
 This release changes how a provider names the flows, property mappings and

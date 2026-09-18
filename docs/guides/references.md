@@ -56,7 +56,8 @@ had to change instead.
 | `Flow` | An authentik flow | `authorizationFlow`, `invalidationFlow`, `authenticationFlow` |
 | `PropertyMapping` | A property mapping | `propertyMappings`, `nameIDMapping`, `authnContextClassRefMapping` |
 | `CertificateKeyPair` | A certificate-key pair | `signingKeyPair`, `encryptionKeyPair`, `verificationKeyPair`, `certificate`, `tlsVerification`, `tlsAuthentication` |
-| `OAuth2Provider`, `SAMLProvider`, `ProxyProvider` | A provider | `providerRef`, `providerRefs` |
+| `OAuth2Provider`, `SAMLProvider`, `ProxyProvider` | A provider | `providerRef`, `backchannelProviderRefs` |
+| `Outpost` | An outpost | `outpostRefs` on a provider |
 | `KubernetesServiceConnection`, `DockerServiceConnection` | A service connection | `serviceConnectionRef` |
 
 All of them resolve through the referenced resource's `status.remoteID`, never

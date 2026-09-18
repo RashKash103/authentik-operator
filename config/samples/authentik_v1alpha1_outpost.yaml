@@ -1,9 +1,12 @@
-# A proxy outpost serving one provider, deployed by you rather than by
-# authentik.
+# A proxy outpost you deploy yourself, plus authentik's embedded one.
 #
-# All referenced providers must resolve before the outpost is registered. A
-# partially registered outpost comes up and silently leaves the missing
-# applications unprotected, so the operator waits instead.
+# Membership is declared on the provider, not here: a provider names the
+# outposts that should serve it, so onboarding an application is one manifest
+# change rather than two. See authentik_v1alpha1_proxyprovider.yaml.
+#
+# Every provider naming an outpost must resolve before the outpost is
+# registered. A partially registered outpost comes up and silently leaves the
+# rest of its applications unprotected, so the operator waits instead.
 apiVersion: authentik.k8s.rka.sh/v1alpha1
 kind: Outpost
 metadata:
@@ -14,10 +17,6 @@ spec:
     name: primary
   type: proxy
 
-  providerRefs:
-    - kind: ProxyProvider
-      name: internal-tools
-
   # The token a self-hosted outpost needs to call back to authentik, written
   # into a Secret alongside the authentik URL. Mount it into your outpost
   # Deployment as AUTHENTIK_TOKEN and AUTHENTIK_HOST.
@@ -25,3 +24,17 @@ spec:
     name: edge-proxy-outpost
     tokenKey: token
     hostKey: authentik-host
+---
+# authentik's built-in outpost, which exists in every deployment and needs
+# nothing deployed. Referencing it lets providers attach to it; the operator
+# changes which providers it serves and nothing else about it, and never
+# deletes it.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Outpost
+metadata:
+  name: embedded
+  namespace: default
+spec:
+  connectionRef:
+    name: primary
+  embedded: true

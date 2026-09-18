@@ -282,7 +282,7 @@ The request reached authentik and was refused — so this is a `Ready=False` wit
 - A field combination authentik forbids, e.g. a signing key on a provider type
   that has none.
 - A duplicate slug that passed the adoption check but collides on write.
-- `providerRefs` on an `Outpost` mixing kinds, or not matching `spec.type`.
+- Providers naming one `Outpost` that mix kinds, or do not match its `spec.type`.
 
 **Fix**
 

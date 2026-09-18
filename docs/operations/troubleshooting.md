@@ -218,7 +218,7 @@ to avoid the collision, or delete the pre-existing object in authentik. See
 authentik rejected the request. The message is authentik's own and names the
 field it objects to. Common cases: a malformed redirect URI, a flow of the wrong
 designation, a field combination the provider type forbids, or an `Outpost`
-whose `providerRefs` do not match its `type`.
+whose members do not match its `type`.
 
 ## Deletion hangs
 
@@ -259,7 +259,7 @@ controller automates the step people forget.
 **Cause:** the `ProxyProvider` is not assigned to any outpost. A proxy provider
 enforces nothing on its own.
 
-Check the outpost's `providerRefs` includes it, and that the outpost is actually
+Check the provider's `outpostRefs` names the outpost, and that the outpost is actually
 running — `Ready=True` on the `Outpost` means authentik accepted the
 configuration, **not** that the outpost Pods started and connected.
 

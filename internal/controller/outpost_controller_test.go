@@ -37,33 +37,20 @@ import (
 	"rka.sh/authentik-operator/internal/authentik"
 )
 
-// registeredProvider builds an OAuth2Provider that has finished registering
-// with authentik and therefore carries a primary key.
-func registeredProvider(namespace, name string, id int32) *authentikv1alpha1.OAuth2Provider {
+// memberProvider builds an OAuth2Provider that names an outpost. id is nil for
+// a provider that exists but has not registered with authentik yet, which is
+// the normal state mid-rollout.
+func memberProvider(namespace, name string, id *int32, outpost string) *authentikv1alpha1.OAuth2Provider {
 	provider := &authentikv1alpha1.OAuth2Provider{}
 	provider.Name = name
 	provider.Namespace = namespace
-	provider.Status.ProviderID = &id
+	provider.Spec.OutpostRefs = []authentikv1alpha1.OutpostReference{{Name: outpost}}
+	provider.Status.ProviderID = id
+	provider.Status.AuthentikURL = "https://authentik.example"
 	return provider
 }
 
-// pendingProvider builds an OAuth2Provider that exists but has not been
-// registered with authentik yet, which is the normal state mid-rollout.
-func pendingProvider(namespace, name string) *authentikv1alpha1.OAuth2Provider {
-	provider := &authentikv1alpha1.OAuth2Provider{}
-	provider.Name = name
-	provider.Namespace = namespace
-	return provider
-}
-
-func oauth2Ref(name string) authentikv1alpha1.ProviderReference {
-	return authentikv1alpha1.ProviderReference{
-		Kind: authentikv1alpha1.ProviderKindOAuth2,
-		Name: name,
-	}
-}
-
-// TestResolveProviderIDsIsAllOrNothing is the case this controller exists to
+// TestDesiredProviderIDsIsAllOrNothing is the case this controller exists to
 // get right.
 //
 // A partially resolved provider set is the normal state during a rollout, and
@@ -71,74 +58,49 @@ func oauth2Ref(name string) authentikv1alpha1.ProviderReference {
 // had not resolved yet completely unproxied: not denied, not erroring, just
 // unprotected, with nothing anywhere saying so. So anything short of the full
 // set must abort and requeue, leaving the outpost exactly as it was.
-func TestResolveProviderIDsIsAllOrNothing(t *testing.T) {
+func TestDesiredProviderIDsIsAllOrNothing(t *testing.T) {
 	scheme := serviceConnectionScheme(t)
 
 	cases := []struct {
 		name        string
-		refs        []authentikv1alpha1.ProviderReference
 		objects     []client.Object
 		wantIDs     []int32
 		wantErr     bool
 		wantInError string
 	}{
 		{
-			name:    "no references resolve to an empty set",
+			name:    "no provider names this outpost",
 			wantIDs: []int32{},
 		},
 		{
-			name:    "every reference resolves, in spec order",
-			refs:    []authentikv1alpha1.ProviderReference{oauth2Ref("grafana"), oauth2Ref("wiki")},
-			objects: []client.Object{registeredProvider("team-a", "wiki", 9), registeredProvider("team-a", "grafana", 7)},
+			// Sorted by provider name, not by listing order, so the set sent to
+			// authentik does not churn and look like drift on every reconcile.
+			name: "every provider that names the outpost is collected",
+			objects: []client.Object{
+				memberProvider("team-a", "wiki", ptr32(9), "edge"),
+				memberProvider("team-a", "grafana", ptr32(7), "edge"),
+			},
 			wantIDs: []int32{7, 9},
 		},
 		{
-			// The reference names a resource nobody has created. Naming it in
-			// the error is what turns "the outpost is not ready" into an
-			// actionable message.
-			name:        "a missing provider resource aborts the whole set",
-			refs:        []authentikv1alpha1.ProviderReference{oauth2Ref("grafana"), oauth2Ref("absent")},
-			objects:     []client.Object{registeredProvider("team-a", "grafana", 7)},
-			wantErr:     true,
-			wantInError: "absent",
-		},
-		{
-			// The mid-rollout case: the provider resource is there, but its
-			// own controller has not registered it with authentik yet, so
-			// there is no primary key to attach.
-			name:        "a provider still registering aborts the whole set",
-			refs:        []authentikv1alpha1.ProviderReference{oauth2Ref("grafana"), oauth2Ref("wiki")},
-			objects:     []client.Object{registeredProvider("team-a", "grafana", 7), pendingProvider("team-a", "wiki")},
+			// The mid-rollout case: the provider resource names the outpost but
+			// its own controller has not registered it yet, so there is no
+			// primary key to attach.
+			name: "a provider still registering aborts the whole set",
+			objects: []client.Object{
+				memberProvider("team-a", "grafana", ptr32(7), "edge"),
+				memberProvider("team-a", "wiki", nil, "edge"),
+			},
 			wantErr:     true,
 			wantInError: "wiki",
 		},
 		{
-			// A provider of the same name in another namespace must not
-			// satisfy the reference; that would let an Outpost in one
-			// namespace attach itself to another team's provider.
-			name:        "a provider in another namespace does not resolve",
-			refs:        []authentikv1alpha1.ProviderReference{oauth2Ref("grafana")},
-			objects:     []client.Object{registeredProvider("team-b", "grafana", 7)},
-			wantErr:     true,
-			wantInError: "grafana",
-		},
-		{
-			// Kinds the operator cannot resolve yet are reported as
-			// unresolved, never quietly dropped: dropping one is exactly the
-			// partial-set failure this function exists to prevent.
-			name:        "an unsupported provider kind aborts the whole set",
-			refs:        []authentikv1alpha1.ProviderReference{oauth2Ref("grafana"), {Kind: authentikv1alpha1.ProviderKindSAML, Name: "sso"}},
-			objects:     []client.Object{registeredProvider("team-a", "grafana", 7)},
-			wantErr:     true,
-			wantInError: "SAMLProvider",
-		},
-		{
-			// A reference written without a kind is an OAuth2Provider, which
-			// is what the CRD default fills in. The resolver applies the same
-			// default so a hand-built object behaves identically.
-			name:    "an omitted kind defaults to OAuth2Provider",
-			refs:    []authentikv1alpha1.ProviderReference{{Name: "grafana"}},
-			objects: []client.Object{registeredProvider("team-a", "grafana", 7)},
+			// A provider naming a different outpost must not be collected.
+			name: "providers naming another outpost are ignored",
+			objects: []client.Object{
+				memberProvider("team-a", "grafana", ptr32(7), "edge"),
+				memberProvider("team-a", "wiki", ptr32(9), "other"),
+			},
 			wantIDs: []int32{7},
 		},
 	}
@@ -146,12 +108,16 @@ func TestResolveProviderIDsIsAllOrNothing(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &OutpostReconciler{
-				Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(tc.objects...).Build(),
+				Client: fake.NewClientBuilder().WithScheme(scheme).
+					WithObjects(tc.objects...).
+					WithIndex(&authentikv1alpha1.OAuth2Provider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+					WithIndex(&authentikv1alpha1.SAMLProvider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+					WithIndex(&authentikv1alpha1.ProxyProvider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+					Build(),
 				Scheme: scheme,
 			}
-			outpost := newOutpost(tc.refs...)
 
-			ids, err := r.resolveProviderIDs(context.Background(), outpost, testAuthentikClient())
+			ids, err := r.desiredProviderIDs(context.Background(), newOutpost(), testAuthentikClient())
 
 			if tc.wantErr {
 				if err == nil {
@@ -166,7 +132,7 @@ func TestResolveProviderIDsIsAllOrNothing(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("resolveProviderIDs: %v", err)
+				t.Fatalf("desiredProviderIDs: %v", err)
 			}
 			if !slices.Equal(ids, tc.wantIDs) {
 				t.Errorf("ids = %v, want %v", ids, tc.wantIDs)
@@ -175,19 +141,24 @@ func TestResolveProviderIDsIsAllOrNothing(t *testing.T) {
 	}
 }
 
-// An unresolved reference is "not yet", not "never": the provider will finish
+// An unresolved member is "not yet", not "never": the provider will finish
 // registering, so the outpost has to keep retrying rather than wedging until
-// someone edits the spec.
-func TestUnresolvedProviderRequeues(t *testing.T) {
+// someone edits a spec.
+func TestUnresolvedMemberRequeues(t *testing.T) {
 	scheme := serviceConnectionScheme(t)
 	r := &OutpostReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		Client: fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(memberProvider("team-a", "grafana", nil, "edge")).
+			WithIndex(&authentikv1alpha1.OAuth2Provider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+			WithIndex(&authentikv1alpha1.SAMLProvider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+			WithIndex(&authentikv1alpha1.ProxyProvider{}, providerOutpostRefIndexKey, indexProviderOutpostRefs).
+			Build(),
 		Scheme: scheme,
 	}
 
-	_, err := r.resolveProviderIDs(context.Background(), newOutpost(oauth2Ref("grafana")), testAuthentikClient())
+	_, err := r.desiredProviderIDs(context.Background(), newOutpost(), testAuthentikClient())
 	if err == nil {
-		t.Fatal("expected an error for a missing provider")
+		t.Fatal("expected an error for a provider that has not registered")
 	}
 	if !authentik.IsNotFound(err) {
 		t.Fatalf("err = %v, want a not-found", err)
@@ -199,62 +170,98 @@ func TestUnresolvedProviderRequeues(t *testing.T) {
 	}
 }
 
-// An outpost has to be reconciled the moment a provider it waits on finishes
-// registering. Without the index and the watch it would sit out the requeue
-// timer instead, which is the difference between an application coming back in
-// a second and coming back in half a minute.
-func TestOutpostsAreWokenByTheProvidersTheyReference(t *testing.T) {
+// mergeMembership is the whole point of inverting the relationship: an outpost
+// can serve providers this operator knows nothing about, and a full-overwrite
+// update would silently detach them. For a proxy outpost that means the
+// application behind it stops being protected.
+func TestMergeMembership(t *testing.T) {
+	cases := []struct {
+		name                      string
+		current, managed, desired []int32
+		want                      []int32
+	}{
+		{
+			name:    "first reconcile attaches what is desired",
+			desired: []int32{2, 1}, want: []int32{1, 2},
+		},
+		{
+			// The case the record exists for. 9 was attached by hand; it is not
+			// in managed, so it survives.
+			name:    "a provider attached outside the operator is kept",
+			current: []int32{9}, desired: []int32{1}, want: []int32{1, 9},
+		},
+		{
+			// 1 was ours and its reference is gone, so it detaches. 9 was never
+			// ours and stays.
+			name:    "removing a reference detaches only what the operator attached",
+			current: []int32{1, 9}, managed: []int32{1}, desired: nil, want: []int32{9},
+		},
+		{
+			name:    "an unchanged set stays unchanged",
+			current: []int32{1, 9}, managed: []int32{1}, desired: []int32{1}, want: []int32{1, 9},
+		},
+		{
+			// A provider attached by hand and then also declared is not
+			// duplicated; authentik would reject the repeat.
+			name:    "a provider both attached by hand and declared appears once",
+			current: []int32{1}, desired: []int32{1}, want: []int32{1},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mergeMembership(tc.current, tc.managed, tc.desired)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("mergeMembership(%v, %v, %v) = %v, want %v",
+					tc.current, tc.managed, tc.desired, got, tc.want)
+			}
+		})
+	}
+}
+
+// An outpost has to be reconciled the moment a provider naming it finishes
+// registering. Without the watch it would sit out the requeue timer instead,
+// which is the difference between an application coming back in a second and
+// coming back in half a minute.
+func TestOutpostsAreWokenByTheProvidersThatNameThem(t *testing.T) {
 	scheme := serviceConnectionScheme(t)
-
-	waiting := newOutpost(oauth2Ref("grafana"))
-	waiting.Name = "edge"
-
-	unrelated := newOutpost(oauth2Ref("wiki"))
-	unrelated.Name = "other"
-
-	// A same-named provider of a different kind must not wake the outpost,
-	// which is why the index key carries the kind.
-	sameNameOtherKind := newOutpost(authentikv1alpha1.ProviderReference{
-		Kind: authentikv1alpha1.ProviderKindSAML, Name: "grafana",
-	})
-	sameNameOtherKind.Name = "saml-edge"
-
 	r := &OutpostReconciler{
-		Client: fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(waiting, unrelated, sameNameOtherKind).
-			WithIndex(&authentikv1alpha1.Outpost{}, outpostProviderRefIndexKey, indexOutpostProviderRefs).
-			Build(),
+		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		Scheme: scheme,
 	}
 
-	provider := registeredProvider("team-a", "grafana", 7)
-	requests := r.outpostsForProvider(authentikv1alpha1.ProviderKindOAuth2)(context.Background(), provider)
+	provider := memberProvider("team-a", "grafana", ptr32(7), "edge")
+	requests := r.outpostsForProvider()(context.Background(), provider)
 
 	want := []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "team-a", Name: "edge"}}}
 	if !slices.Equal(requests, want) {
 		t.Errorf("requests = %v, want exactly %v", requests, want)
 	}
+
+	// Anything that does not carry outpost references maps to nothing rather
+	// than panicking; the handler is given whatever the cache holds.
+	if got := r.outpostsForProvider()(context.Background(), &corev1.Secret{}); got != nil {
+		t.Errorf("requests for a Secret = %v, want none", got)
+	}
 }
 
-// The index has to key on the same value the map function looks up, including
-// the default kind, or a reference written without one is never woken.
-func TestIndexOutpostProviderRefsKeysOnKindAndName(t *testing.T) {
-	outpost := newOutpost(
-		authentikv1alpha1.ProviderReference{Name: "grafana"},
-		authentikv1alpha1.ProviderReference{Kind: authentikv1alpha1.ProviderKindProxy, Name: "wiki"},
-	)
+// The index has to key on the same value desiredProviderIDs looks up, including
+// the namespace default, or a provider is never collected.
+func TestIndexProviderOutpostRefsKeysOnNamespaceAndName(t *testing.T) {
+	provider := memberProvider("team-a", "grafana", ptr32(7), "edge")
+	provider.Spec.OutpostRefs = append(provider.Spec.OutpostRefs,
+		authentikv1alpha1.OutpostReference{Name: "shared", Namespace: "platform"})
 
-	got := indexOutpostProviderRefs(outpost)
-	want := []string{"OAuth2Provider/grafana", "ProxyProvider/wiki"}
+	got := indexProviderOutpostRefs(provider)
+	want := []string{"team-a/edge", "platform/shared"}
 	if !slices.Equal(got, want) {
 		t.Errorf("index keys = %v, want %v", got, want)
 	}
 
-	// Anything that is not an Outpost must index to nothing rather than panic;
-	// the indexer is handed whatever the cache holds.
-	if keys := indexOutpostProviderRefs(&corev1.Secret{}); keys != nil {
-		t.Errorf("index keys for a non-Outpost = %v, want none", keys)
+	// Anything without outpost references indexes to nothing rather than
+	// panicking.
+	if keys := indexProviderOutpostRefs(&corev1.Secret{}); keys != nil {
+		t.Errorf("index keys for a Secret = %v, want none", keys)
 	}
 }
 
@@ -344,12 +351,14 @@ func TestWriteTokenIsSkippedWhenNotRequested(t *testing.T) {
 }
 
 func TestRecordIdentityWritesResolvedReferences(t *testing.T) {
-	outpost := newOutpost(oauth2Ref("grafana"))
+	outpost := newOutpost()
 	r := &OutpostReconciler{}
 	adapter := &outpostAdapter{
-		client:   &stubAuthentikClient{},
-		outpost:  outpost,
-		observed: &api.Outpost{Pk: "uuid", TokenIdentifier: "ak-outpost-edge"},
+		client:             &stubAuthentikClient{},
+		outpost:            outpost,
+		desiredProviderIDs: []int32{7},
+		// 9 is attached in authentik but was not attached by this operator.
+		observed: &api.Outpost{Pk: "uuid", TokenIdentifier: "ak-outpost-edge", Providers: []int32{9}},
 	}
 
 	r.recordIdentity(outpost, SyncOutcome{RemoteID: "uuid"}, adapter, []int32{7}, "sc-uuid")
@@ -357,8 +366,15 @@ func TestRecordIdentityWritesResolvedReferences(t *testing.T) {
 	if outpost.Status.OutpostID != "uuid" || outpost.Status.RemoteID != "uuid" {
 		t.Errorf("status = %+v, want the UUID recorded", outpost.Status)
 	}
-	if !slices.Equal(outpost.Status.ProviderIDs, []int32{7}) {
-		t.Errorf("status.providerIDs = %v, want the resolved set", outpost.Status.ProviderIDs)
+	// Status reports what is attached, including the provider somebody else
+	// attached, and separately what this operator put there. The second is what
+	// the next reconcile diffs against to detach precisely.
+	if !slices.Equal(outpost.Status.ProviderIDs, []int32{7, 9}) {
+		t.Errorf("status.providerIDs = %v, want everything attached", outpost.Status.ProviderIDs)
+	}
+	if !slices.Equal(outpost.Status.ManagedProviderIDs, []int32{7}) {
+		t.Errorf("status.managedProviderIDs = %v, want only what the operator attached",
+			outpost.Status.ManagedProviderIDs)
 	}
 	if outpost.Status.ServiceConnectionID != "sc-uuid" {
 		t.Errorf("status.serviceConnectionID = %q, want the resolved UUID", outpost.Status.ServiceConnectionID)

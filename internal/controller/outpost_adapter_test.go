@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -28,15 +29,26 @@ import (
 	"rka.sh/authentik-operator/internal/authentik"
 )
 
-// newOutpost builds an Outpost with the fields these tests care about.
-func newOutpost(refs ...authentikv1alpha1.ProviderReference) *authentikv1alpha1.Outpost {
+// newOutpost builds an Outpost the operator manages.
+//
+// Membership is declared on providers now, so an outpost names no providers;
+// the adapter is handed the resolved set the controller computed.
+func newOutpost() *authentikv1alpha1.Outpost {
 	outpost := &authentikv1alpha1.Outpost{
-		Spec: authentikv1alpha1.OutpostSpec{
-			Type:         authentikv1alpha1.OutpostTypeProxy,
-			ProviderRefs: refs,
-		},
+		Spec: authentikv1alpha1.OutpostSpec{Type: authentikv1alpha1.OutpostTypeProxy},
 	}
 	outpost.Name = "edge"
+	outpost.Namespace = "team-a"
+	return outpost
+}
+
+// newReferencedOutpost builds an Outpost that points at authentik's embedded
+// outpost rather than describing one to create.
+func newReferencedOutpost() *authentikv1alpha1.Outpost {
+	outpost := &authentikv1alpha1.Outpost{
+		Spec: authentikv1alpha1.OutpostSpec{Embedded: true},
+	}
+	outpost.Name = "embedded"
 	outpost.Namespace = "team-a"
 	return outpost
 }
@@ -49,10 +61,10 @@ func TestOutpostRequestCarriesResolvedReferences(t *testing.T) {
 	}
 
 	adapter := &outpostAdapter{
-		client:            &stubAuthentikClient{},
-		outpost:           outpost,
-		providerIDs:       []int32{7, 9},
-		serviceConnection: "sc-uuid",
+		client:             &stubAuthentikClient{},
+		outpost:            outpost,
+		desiredProviderIDs: []int32{7, 9},
+		serviceConnection:  "sc-uuid",
 	}
 
 	req, err := adapter.buildRequest()
@@ -200,3 +212,101 @@ func TestConfigEquivalenceIgnoresNumericRepresentation(t *testing.T) {
 		t.Error("an integer and the float64 authentik echoes back must compare equal")
 	}
 }
+
+// An outpost this operator did not create must come back from a reconcile with
+// only its provider set changed.
+//
+// authentik updates outposts with a full PUT, so every field the request omits
+// is cleared. Building the request from the spec the way a managed outpost is
+// built would send an empty type and an empty config -- wiping the outpost. For
+// the embedded outpost that is authentik's own, shipped in every deployment,
+// with every proxy provider hanging off it.
+func TestReferencedOutpostRequestChangesOnlyMembership(t *testing.T) {
+	adapter := &outpostAdapter{
+		client:             &stubAuthentikClient{},
+		outpost:            newReferencedOutpost(),
+		desiredProviderIDs: []int32{7},
+		observed: &api.Outpost{
+			Pk:                "uuid",
+			Name:              "authentik Embedded Outpost",
+			Type:              api.OUTPOSTTYPEENUM_PROXY,
+			Providers:         []int32{9},
+			Config:            map[string]any{"log_level": "info"},
+			Managed:           *api.NewNullableString(ptrString("goauthentik.io/outposts/embedded")),
+			ServiceConnection: *api.NewNullableString(nil),
+		},
+	}
+
+	req, err := adapter.buildRequest()
+	if err != nil {
+		t.Fatalf("buildRequest: %v", err)
+	}
+
+	if req.Name != "authentik Embedded Outpost" {
+		t.Errorf("name = %q, want the observed name carried through", req.Name)
+	}
+	if req.Type != api.OUTPOSTTYPEENUM_PROXY {
+		t.Errorf("type = %q, want the observed type carried through", req.Type)
+	}
+	if got := req.Config["log_level"]; got != "info" {
+		t.Errorf("config = %v, want the observed config carried through", req.Config)
+	}
+	// Clearing this would leave authentik believing its built-in outpost no
+	// longer exists.
+	if req.GetManaged() != "goauthentik.io/outposts/embedded" {
+		t.Errorf("managed = %q, want the marker preserved", req.GetManaged())
+	}
+	// The one field this operator moves: 9 was attached by somebody else and
+	// survives, 7 is what we want attached.
+	if !slices.Equal(req.Providers, []int32{7, 9}) {
+		t.Errorf("providers = %v, want the merged set", req.Providers)
+	}
+}
+
+// A referenced outpost that is not there is reported, never created: creating
+// one would produce a second outpost under a name that was meant to find an
+// existing one, and for the embedded outpost a duplicate of a singleton.
+func TestReferencedOutpostIsNeverCreated(t *testing.T) {
+	adapter := &outpostAdapter{
+		client:  &stubAuthentikClient{},
+		outpost: newReferencedOutpost(),
+	}
+
+	_, err := adapter.Create(context.Background())
+	if !authentik.IsNotFound(err) {
+		t.Fatalf("err = %v, want a not-found rather than a create", err)
+	}
+	if !strings.Contains(err.Error(), "embedded outpost") {
+		t.Errorf("err = %q, want it to name what was referenced", err)
+	}
+}
+
+// Deleting the resource that references the embedded outpost must not delete
+// the embedded outpost, whatever deletionPolicy says. That mistake is not
+// recoverable by reapplying the manifest.
+func TestReferencedOutpostIsNeverDeleted(t *testing.T) {
+	outpost := newReferencedOutpost()
+	outpost.Spec.Deletion = authentikv1alpha1.DeletionPolicyDelete
+
+	if got := outpost.DeletionPolicy(); got != authentikv1alpha1.DeletionPolicyOrphan {
+		t.Errorf("DeletionPolicy() = %q, want Orphan for an outpost the operator does not own", got)
+	}
+}
+
+// A referenced outpost keeps its name verbatim. Cluster scoping marks objects
+// this operator creates, and this one belongs to somebody else.
+func TestReferencedOutpostNameIsNotScoped(t *testing.T) {
+	outpost := newReferencedOutpost()
+	outpost.Spec.Embedded = false
+	outpost.Spec.ExistingOutpostName = "shared-edge"
+
+	adapter := &outpostAdapter{
+		client:  &stubAuthentikClient{cluster: "prod-eu"},
+		outpost: outpost,
+	}
+	if got := adapter.DesiredName(); got != "shared-edge" {
+		t.Errorf("DesiredName() = %q, want the name unscoped", got)
+	}
+}
+
+func ptrString(s string) *string { return &s }

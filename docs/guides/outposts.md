@@ -7,21 +7,19 @@ the connection → provider → application chain rather than in it.
 
 ## Where outposts sit
 
-```text
-   ProxyProvider/tool-a  ─┐
-   ProxyProvider/tool-b  ─┼──▶  Outpost/edge  ──▶  KubernetesServiceConnection
-   ProxyProvider/tool-c  ─┘        │                        │
-                                   │                        ▼
-                                   │              authentik deploys the
-                                   │              outpost Pods itself
-                                   ▼
-                         one deployment serving
-                         all three providers
+```mermaid
+flowchart LR
+  A[ProxyProvider/tool-a] -- outpostRefs --> O
+  B[ProxyProvider/tool-b] -- outpostRefs --> O
+  C[ProxyProvider/tool-c] -- outpostRefs --> O
+  O[Outpost/edge] --> S[KubernetesServiceConnection]
+  S --> P((authentik deploys<br/>the outpost Pods))
 ```
 
-The relationship runs the opposite way to everything else in this API. A
-provider is referenced by *one* application; an outpost references *many*
-providers at once.
+One outpost serves many providers, and each provider says which outposts should
+serve it. Membership is declared on the provider, so onboarding an application
+edits that application's manifests and nothing else — the outpost is not a
+shared file every team has to touch.
 
 !!! note "An outpost is a deployment, not a policy"
 
@@ -46,18 +44,10 @@ spec:
 
   type: proxy                     # proxy | ldap | radius
 
-  providerRefs:                   # (1)!
-    - kind: ProxyProvider
-      name: tool-a
-    - kind: ProxyProvider
-      name: tool-b
-    - kind: ProxyProvider
-      name: tool-c
-
-  serviceConnectionRef:           # (2)!
+  serviceConnectionRef:           # (1)!
     kubernetesServiceConnectionName: in-cluster
 
-  config:                         # (3)!
+  config:                         # (2)!
     authentik_host: https://authentik.example.com
     authentik_host_insecure: false
     log_level: info
@@ -65,22 +55,54 @@ spec:
     kubernetes_namespace: my-apps
 ```
 
-1. A **list**. One outpost serves many providers, and this is the only place in
-   the API where a resource fans out like this.
-2. Optional, and it names the kind by which field is set:
+1. Optional, and it names the kind by which field is set:
    `kubernetesServiceConnectionName` or `dockerServiceConnectionName`, never
    both. Omit it entirely for a manually deployed outpost — see
-   [Embedded and manual outposts](#embedded-and-manual-outposts).
-3. Passed through to authentik. The accepted keys are authentik's, not this
+   [Outposts the operator does not own](#outposts-the-operator-does-not-own).
+2. Passed through to authentik. The accepted keys are authentik's, not this
    operator's.
 
-### `providerRefs` is a set, and order does not matter
+## Membership is declared on the provider
 
-Every reference is resolved to a provider's numeric `status.remoteID` before
+A provider names the outposts that should serve it:
+
+```yaml
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: ProxyProvider
+metadata:
+  name: tool-a
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  authorizationFlow:
+    name: provider-authorization
+  invalidationFlow:
+    name: provider-invalidation
+  externalHost: https://tool-a.example.com
+  mode: forward_single
+
+  outpostRefs:
+    - name: edge
+```
+
+Each reference is resolved to the provider's numeric `status.remoteID` before
 anything is written, for the same reason as
 [`Application.providerRef`](applications.md#the-provider-is-an-int32-primary-key):
 authentik keys providers by primary key, and the operator refuses to put
 unreviewable integers in manifests.
+
+!!! success "An outpost keeps providers it did not get from the operator"
+
+    Membership is **additive**. The operator remembers which providers it
+    attached, in `status.managedProviderIDs`, and on each reconcile sends that
+    set plus anything already attached that it did not put there.
+
+    So a provider attached by hand, or by a second operator instance sharing the
+    authentik, stays attached. Without the record the two cases are
+    indistinguishable — "somebody added this" and "the operator added this and
+    the reference is gone" look identical from the spec, and they need opposite
+    actions.
 
 !!! success "Partial readiness waits rather than partially applying"
 
@@ -96,14 +118,14 @@ unreviewable integers in manifests.
 The condition message names which references are outstanding, so a stuck
 outpost after a bulk apply tells you which provider to investigate.
 
-!!! warning "Removing a provider from the list unprotects it immediately"
+!!! warning "Removing an outpostRef unprotects that application immediately"
 
-    Deleting an entry from `providerRefs` removes the assignment on the next
-    reconcile. Whatever that provider was protecting is served without
-    authentication from then on, unless another outpost also carries it.
+    Deleting the reference detaches the provider on the next reconcile.
+    Whatever it was protecting is served without authentication from then on,
+    unless another outpost also carries it.
 
-    There is no confirmation and no grace period. Treat an edit to this list as
-    a change to your security posture, not a configuration tidy-up.
+    There is no confirmation and no grace period. Treat an edit to `outpostRefs`
+    as a change to your security posture, not a configuration tidy-up.
 
 ### Types
 
@@ -120,8 +142,8 @@ outpost after a bulk apply tells you which provider to investigate.
 
 :   A RADIUS endpoint, typically for network equipment and VPNs.
 
-The types are not mixable: one outpost serves one type, and its `providerRefs`
-must all be of the matching provider kind.
+The types are not mixable: one outpost serves one type, and every provider
+naming it must be of the matching kind.
 
 ## Service connections
 
@@ -206,23 +228,43 @@ operator references like any other.
     reachable from your cluster is a serious exposure regardless of this
     operator.
 
-## Embedded and manual outposts
+## Outposts the operator does not own
 
-authentik ships an **embedded outpost** that runs inside the authentik server
-itself. It is the right choice for most proxy setups: no service connection, no
-extra deployment, nothing for this operator to place.
-
-To assign providers to it, or to an outpost you deploy by hand, omit
-`serviceConnectionRef`:
+Not every outpost is one to create. authentik ships an **embedded outpost**
+running inside the authentik server, and a cluster may already have outposts
+somebody else set up. An `Outpost` can point at either instead of describing a
+new one:
 
 ```yaml
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: Outpost
+metadata:
+  name: embedded
+  namespace: my-apps
 spec:
-  type: proxy
-  providerRefs:
-    - kind: ProxyProvider
-      name: tool-a
-  # no serviceConnectionRef — authentik configures, you deploy
+  connectionRef:
+    name: default
+  embedded: true          # or: existingOutpostName: shared-edge
 ```
+
+Providers then name it like any other outpost. `type`, `config`,
+`serviceConnectionRef` and `name` are rejected here: they describe an outpost
+this operator builds, and a referenced one keeps the shape it already has.
+
+The embedded outpost is found by the marker authentik stamps on it, not by its
+display name — the name is editable and translated, and matching on it would
+break the moment somebody renamed it.
+
+!!! danger "A referenced outpost is never created and never deleted"
+
+    `deletionPolicy` is forced to `Orphan`, whatever the manifest says. Deleting
+    the resource detaches the providers the operator attached and leaves the
+    outpost itself alone.
+
+    This is not a convenience. authentik updates outposts with a full replace,
+    so an operator that treated the embedded outpost as its own would wipe its
+    type and configuration on the first reconcile — and deleting it because a
+    manifest was removed is not something reapplying the manifest fixes.
 
 !!! tip "Prefer the embedded outpost until you need not to"
 
@@ -240,6 +282,8 @@ spec:
 | `status.remoteID` | authentik's identifier — a **UUID** for outposts, unlike the numeric key providers get. |
 | `status.remoteName` | Name last observed in authentik. |
 | `status.adopted` | Whether this took over a pre-existing outpost. |
+| `status.providerIDs` | Every provider attached, including any attached outside the operator. |
+| `status.managedProviderIDs` | The providers this operator attached. Detaching only ever removes from this set. |
 | `status.lastSyncedTime` | Last successful reconcile. |
 
 !!! note "`Ready` means configured, not running"
@@ -260,8 +304,8 @@ spec:
 | `ReferenceNotFound`, message names the service connection | Typo, or the resource is in another namespace | References resolve within the outpost's own namespace. |
 | `Ready=True` but no outpost Pods | No `serviceConnectionRef`, or authentik lacks rights in the target | Check authentik's own outpost view for its deployment errors. |
 | Outpost Pods run but do not connect | `config.authentik_host` unreachable from where the outpost runs | It must be reachable from the outpost, which may be a different network from the operator. |
-| Application served unauthenticated | Its provider is not in any outpost's `providerRefs` | A `ProxyProvider` enforces nothing until an outpost carries it. |
-| `InvalidSpec` mentioning type | `providerRefs` mixes kinds, or does not match `spec.type` | One outpost, one type. |
+| Application served unauthenticated | Its provider names no outpost | A `ProxyProvider` enforces nothing until an outpost carries it. Check its `outpostRefs`. |
+| `InvalidSpec` mentioning type | Providers naming this outpost mix kinds, or do not match `spec.type` | One outpost, one type. |
 
 More at [Troubleshooting](../operations/troubleshooting.md).
 

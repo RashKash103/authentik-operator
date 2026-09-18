@@ -256,6 +256,43 @@ spec:
                 description: Name is the provider's name in authentik. Defaults to
                   the resource name.
                 type: string
+              outpostRefs:
+                description: |-
+                  OutpostRefs are the outposts that should serve this provider.
+
+                  The provider names the outposts rather than the outpost naming its
+                  providers, so adding one provider is one manifest change. An outpost's
+                  membership is reconciled additively: providers attached to it outside
+                  this operator are left alone, and removing a reference here detaches only
+                  what this operator attached.
+                items:
+                  description: |-
+                    OutpostReference points at an Outpost resource.
+
+                    Providers name the outposts that should serve them, rather than an outpost
+                    listing its providers. Membership therefore lives with the thing being added:
+                    onboarding an application edits that application's manifests and nothing
+                    else, instead of also editing a shared outpost every team has to touch.
+                  properties:
+                    name:
+                      description: Name of the Outpost resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace holding the resource. Defaults to the referring resource's own
+                        namespace.
+
+                        Naming another namespace requires the operator to be started with
+                        cross-namespace references enabled; otherwise the reference is refused
+                        rather than quietly resolved somewhere else.
+                      maxLength: 63
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               propertyMappings:
                 description: PropertyMappings attached to this provider, in order.
                 items:

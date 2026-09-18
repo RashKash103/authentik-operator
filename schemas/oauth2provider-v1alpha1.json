@@ -237,6 +237,30 @@
           "description": "Name is the provider's name in authentik. Defaults to the resource name.",
           "type": "string"
         },
+        "outpostRefs": {
+          "description": "OutpostRefs are the outposts that should serve this provider.\n\nThe provider names the outposts rather than the outpost naming its\nproviders, so adding one provider is one manifest change. An outpost's\nmembership is reconciled additively: providers attached to it outside\nthis operator are left alone, and removing a reference here detaches only\nwhat this operator attached.",
+          "items": {
+            "description": "OutpostReference points at an Outpost resource.\n\nProviders name the outposts that should serve them, rather than an outpost\nlisting its providers. Membership therefore lives with the thing being added:\nonboarding an application edits that application's manifests and nothing\nelse, instead of also editing a shared outpost every team has to touch.",
+            "properties": {
+              "name": {
+                "description": "Name of the Outpost resource.",
+                "maxLength": 253,
+                "minLength": 1,
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace holding the resource. Defaults to the referring resource's own\nnamespace.\n\nNaming another namespace requires the operator to be started with\ncross-namespace references enabled; otherwise the reference is refused\nrather than quietly resolved somewhere else.",
+                "maxLength": 63,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "propertyMappings": {
           "description": "PropertyMappings attached to this provider, in order.",
           "items": {

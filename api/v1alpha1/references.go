@@ -123,3 +123,26 @@ func PropertyMappingNames(refs []PropertyMappingReference) []string {
 	}
 	return out
 }
+
+// OutpostReference points at an Outpost resource.
+//
+// Providers name the outposts that should serve them, rather than an outpost
+// listing its providers. Membership therefore lives with the thing being added:
+// onboarding an application edits that application's manifests and nothing
+// else, instead of also editing a shared outpost every team has to touch.
+type OutpostReference struct {
+	// Name of the Outpost resource.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+
+	// Namespace holding the resource. Defaults to the referring resource's own
+	// namespace.
+	//
+	// Naming another namespace requires the operator to be started with
+	// cross-namespace references enabled; otherwise the reference is refused
+	// rather than quietly resolved somewhere else.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}

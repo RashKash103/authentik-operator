@@ -19,6 +19,14 @@ spec:
   externalHost: https://tools.example.com
   mode: forward_single
 
+  # The outposts that should serve this provider. Declaring it here rather than
+  # on the outpost means adding a provider is one manifest change; the outpost's
+  # membership is reconciled additively, so providers attached to it outside the
+  # operator are left alone.
+  outpostRefs:
+    - name: edge-proxy
+    - name: embedded
+
   # Paths that bypass authentication entirely, one regular expression per line.
   skipPathRegex: |
     ^/healthz$
