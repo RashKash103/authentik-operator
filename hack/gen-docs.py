@@ -38,6 +38,7 @@ SOURCE = ROOT / "supported-versions.yaml"
 VERSIONS_PAGE = DOCS / "operations" / "supported-versions.md"
 CRD_DIR = ROOT / "config" / "crd" / "bases"
 INDEX_PAGE = DOCS / "index.md"
+GETTING_STARTED = DOCS / "getting-started" / "index.md"
 API_PAGE = DOCS / "reference" / "api.md"
 README = ROOT / "README.md"
 
@@ -221,6 +222,12 @@ def main() -> int:
         },
         args.check,
     )
+    # The home and getting-started pages show the supported table too: it is
+    # the first thing someone checks, and sending them to another page to find
+    # out whether their authentik is supported is a page too far.
+    for page in (INDEX_PAGE, GETTING_STARTED):
+        ok = sync_page(page, {"SUPPORTED-VERSIONS": render_table(data)}, args.check) and ok
+
     kinds = render_kinds()
     ok = sync_page(INDEX_PAGE, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok
     ok = sync_page(README, {"IMPLEMENTATION-STATUS": kinds}, args.check) and ok

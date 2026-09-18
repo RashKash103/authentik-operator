@@ -27,6 +27,7 @@ COMPOSE = ROOT / "test" / "authentik" / "docker-compose.yaml"
 COMPOSE_LIB = ROOT / "test" / "authentik" / "lib.sh"
 RELEASES_URL = "https://github.com/RashKash103/authentik-operator/releases/tag"
 VERSIONS_PAGE = ROOT / "docs" / "operations" / "supported-versions.md"
+DOCS_INDEX = ROOT / "docs" / "index.md"
 VERSION_GO = ROOT / "internal" / "authentik" / "version.go"
 
 BEGIN = "<!-- BEGIN SUPPORTED-VERSIONS -->"
@@ -254,8 +255,16 @@ def main() -> int:
         (PREVIOUS_BEGIN, PREVIOUS_END, render_previous(data)),
     )
 
+    # The homepage carries only the older-authentik lookup; its supported table
+    # comes from gen-docs.py, which owns that block on every docs page.
+    index_blocks = ((PREVIOUS_BEGIN, PREVIOUS_END, render_previous(data)),)
+
     ok = True
-    for page, blocks in ((README, readme_blocks), (VERSIONS_PAGE, docs_blocks)):
+    for page, blocks in (
+        (README, readme_blocks),
+        (VERSIONS_PAGE, docs_blocks),
+        (DOCS_INDEX, index_blocks),
+    ):
         ok = sync_page(page, data, args.check, blocks) and ok
     ok = sync_local_stack(data, args.check) and ok
     ok = check_go_constants(data) and ok

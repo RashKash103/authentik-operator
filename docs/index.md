@@ -57,6 +57,28 @@ Everything is addressed through a **connection object** holding the authentik
 URL and a reference to a `Secret` containing an API token. See
 [Connections](guides/connections.md).
 
+## Supported authentik versions
+
+One operator release targets one authentik series, because the generated API
+client is built from a single release and cannot decode another.
+
+<!-- BEGIN SUPPORTED-VERSIONS -->
+| authentik series | Tested image                          | Status    |
+| ---------------- | ------------------------------------- | --------- |
+| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.3` | Supported |
+<!-- END SUPPORTED-VERSIONS -->
+
+Running something older? The release built for it is still published:
+
+<!-- BEGIN PREVIOUS-VERSIONS -->
+| authentik | Use operator                                                                    | Status    |
+| --------- | ------------------------------------------------------------------------------- | --------- |
+| `2026.8`  | [v0.3.1](https://github.com/RashKash103/authentik-operator/releases/tag/v0.3.1) | Supported |
+<!-- END PREVIOUS-VERSIONS -->
+
+Full detail, including the runtime version gate, is on
+[Supported versions](operations/supported-versions.md).
+
 ## Implementation status
 
 The API group is `authentik.k8s.rka.sh` and the API version is `v1alpha1`.

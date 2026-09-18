@@ -24,6 +24,19 @@ in four steps:
 | A Kubernetes cluster, 1.29 or newer | The chart declares `kubeVersion: ">=1.29.0-0"`. | Server-side apply and metrics filtering are relied upon. |
 | `kubectl`, and `helm` if you install via the chart | Installing. | Either install path works. |
 
+### Which authentik this release supports
+
+<!-- BEGIN SUPPORTED-VERSIONS -->
+| authentik series | Tested image                          | Status    |
+| ---------------- | ------------------------------------- | --------- |
+| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.3` | Supported |
+<!-- END SUPPORTED-VERSIONS -->
+
+The operator checks this at runtime: below the floor it refuses to reconcile and
+says so in a condition, rather than failing obscurely mid-call. Running a
+different series? [Supported versions](../operations/supported-versions.md) has
+the release built for it.
+
 You do **not** need cluster-admin to *use* the operator — but you do need it to
 install the CRDs, and creating a `ClusterAuthentikConnection` is effectively a
 cluster-admin privilege in its own right. See [Security](../operations/security.md).
