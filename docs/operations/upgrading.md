@@ -7,13 +7,13 @@ Helm installs `crds/` on first install and **never touches them again** — not 
 them applied by hand, before the new operator starts:
 
 ```sh
-kubectl apply --server-side -f https://github.com/RashKash103/authentik-operator/releases/download/v0.2.0/install.yaml
+kubectl apply --server-side -f https://github.com/RashKash103/authentik-operator/releases/download/v0.3.0/install.yaml
 ```
 
 or, for a chart-only install, from the chart you are about to upgrade to:
 
 ```sh
-helm show crds oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0 \
+helm show crds oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0 \
   | kubectl apply --server-side -f -
 ```
 

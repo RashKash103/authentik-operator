@@ -15,7 +15,7 @@ kind: Kustomization
 namespace: my-apps
 
 components:
-  - github.com/RashKash103/authentik-operator/examples/property-mappings/oidc?ref=v0.2.0
+  - github.com/RashKash103/authentik-operator/examples/property-mappings/oidc?ref=v0.3.0
 ```
 
 Providers then reference them by resource name:

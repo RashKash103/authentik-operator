@@ -86,6 +86,12 @@ def rules(version: str) -> list[tuple[pathlib.Path, str, str]]:
         (ROOT / "docs" / "getting-started" / "installation.md",
          rf"authentik-operator:v{SEMVER}", f"authentik-operator:v{version}"),
 
+        # The kustomize component is pinned to a git tag, so it moves too.
+        (ROOT / "docs" / "guides" / "references.md",
+         rf"\?ref=v{SEMVER}", f"?ref=v{version}"),
+        (ROOT / "examples" / "property-mappings" / "README.md",
+         rf"\?ref=v{SEMVER}", f"?ref=v{version}"),
+
         # Flux OCIRepository tags and the semver range beside them.
         (ROOT / "docs" / "guides" / "gitops-flux.md",
          rf'tag: "{SEMVER}"', f'tag: "{version}"'),

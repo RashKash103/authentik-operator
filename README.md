@@ -85,9 +85,11 @@ So:
   operator with it. The compatibility matrix below says which pairs.
 
 <!-- BEGIN COMPATIBILITY-MATRIX -->
-| Operator / chart | authentik | Notes                                    |
-| ---------------- | --------- | ---------------------------------------- |
-| `0.1.x`          | `2026.8`  | First release. API version `v1alpha1`.   |
+| Operator / chart | authentik | Notes                                                             |
+| ---------------- | --------- | ----------------------------------------------------------------- |
+| `0.1.x`          | `2026.8`  | First release. API version `v1alpha1`.                            |
+| `0.2.x`          | `2026.8`  | References became objects; `signingKey` became `signingKeyPair`.  |
+| `0.3.x`          | `2026.8`  | Providers declare their outposts; `Outpost.providerRefs` removed. |
 <!-- END COMPATIBILITY-MATRIX -->
 
 The operator checks the version it is talking to at runtime. Below the
@@ -155,7 +157,7 @@ There is no chart repository to add — Helm pulls it from the registry directly
 ```sh
 helm install authentik-operator \
   oci://ghcr.io/rashkash103/charts/authentik-operator \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace authentik-operator-system \
   --create-namespace
 ```
@@ -164,8 +166,8 @@ Pin `--version` to the release matching your authentik; see
 [Version policy](#version-policy). Inspect before installing with:
 
 ```sh
-helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
-helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
+helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
+helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
 ```
 
 The chart is also attached to each GitHub release as a `.tgz`, and the source
@@ -209,7 +211,7 @@ kubectl apply -f dist/install.yaml
 Set a different image with `IMG`:
 
 ```sh
-IMG=ghcr.io/rashkash103/authentik-operator:v0.2.0 just bundle
+IMG=ghcr.io/rashkash103/authentik-operator:v0.3.0 just bundle
 ```
 
 ### From a checkout

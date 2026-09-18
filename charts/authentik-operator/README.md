@@ -4,8 +4,8 @@ Helm chart for the **authentik-operator** — a Kubernetes operator that manages
 [authentik](https://goauthentik.io/) resources declaratively from custom
 resources in your cluster.
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational)
-![AppVersion: 0.2.0](https://img.shields.io/badge/AppVersion-0.2.0-informational)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational)
+![AppVersion: 0.3.0](https://img.shields.io/badge/AppVersion-0.3.0-informational)
 ![Type: application](https://img.shields.io/badge/Type-application-informational)
 
 ## What this chart installs — and what it does not
@@ -43,7 +43,7 @@ add:
 
 ```sh
 helm install authentik-operator oci://ghcr.io/rashkash103/charts/authentik-operator \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace authentik-operator-system --create-namespace
 ```
 

@@ -21,7 +21,7 @@ there is no chart repository to add.
     ```sh
     helm install authentik-operator \
       oci://ghcr.io/rashkash103/charts/authentik-operator \
-      --version 0.2.0 \
+      --version 0.3.0 \
       --namespace authentik-operator-system \
       --create-namespace
     ```
@@ -29,8 +29,8 @@ there is no chart repository to add.
     Inspect it first if you would rather:
 
     ```sh
-    helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
-    helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.2.0
+    helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
+    helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
     ```
 
 === "From a checkout"
@@ -138,8 +138,8 @@ The chart's `crds/` directory may be empty in a fresh checkout where
 "no CRDs to install".
 
 A release that changes the API needs more than new CRDs — see
-[Upgrading](../operations/upgrading.md) for the per-release migration, including
-the manifest changes v0.2.0 requires.
+[Upgrading](../operations/upgrading.md) for the per-release migration. Both
+v0.2.0 and v0.3.0 require manifest changes.
 
 ## Raw manifests
 
@@ -153,7 +153,7 @@ kubectl apply -f dist/install.yaml
 Override the image with `IMG`:
 
 ```sh
-IMG=ghcr.io/example/authentik-operator:v0.2.0 just bundle
+IMG=ghcr.io/example/authentik-operator:v0.3.0 just bundle
 ```
 
 !!! note

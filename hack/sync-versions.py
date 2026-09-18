@@ -27,6 +27,8 @@ VERSION_GO = ROOT / "internal" / "authentik" / "version.go"
 
 BEGIN = "<!-- BEGIN SUPPORTED-VERSIONS -->"
 END = "<!-- END SUPPORTED-VERSIONS -->"
+MATRIX_BEGIN = "<!-- BEGIN COMPATIBILITY-MATRIX -->"
+MATRIX_END = "<!-- END COMPATIBILITY-MATRIX -->"
 BOUNDS_BEGIN = "<!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->"
 BOUNDS_END = "<!-- END SUPPORTED-VERSIONS-BOUNDS -->"
 
@@ -43,6 +45,31 @@ def render_table(data: dict) -> str:
 
     widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
     line = lambda cells: "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
+
+    out = [line(headers), "| " + " | ".join("-" * w for w in widths) + " |"]
+    out.extend(line(r) for r in rows)
+    return "\n".join(out)
+
+
+def render_matrix(data: dict) -> str:
+    """Render the operator-to-authentik pairing table.
+
+    Hand-maintained, this table still advertised only 0.1.x after 0.2.0 had
+    shipped. Rendering it from the same file the rest of the version facts come
+    from means a release that forgets it fails the check instead.
+    """
+    headers = ("Operator / chart", "authentik", "Notes")
+    rows = [
+        (f"`{e['operator']}`", f"`{e['authentik']}`", e["notes"])
+        for e in data.get("releases", [])
+    ]
+    if not rows:
+        return "| " + " | ".join(headers) + " |\n| --- | --- | --- |"
+
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+
+    def line(cells: tuple[str, ...]) -> str:
+        return "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
 
     out = [line(headers), "| " + " | ".join("-" * w for w in widths) + " |"]
     out.extend(line(r) for r in rows)
@@ -69,6 +96,7 @@ def sync_readme(data: dict, check: bool) -> bool:
     for begin, end, body in (
         (BEGIN, END, render_table(data)),
         (BOUNDS_BEGIN, BOUNDS_END, render_bounds(data)),
+        (MATRIX_BEGIN, MATRIX_END, render_matrix(data)),
     ):
         if begin not in updated:
             # The bounds block is optional in files that only carry the table.

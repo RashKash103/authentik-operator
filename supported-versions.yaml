@@ -42,3 +42,20 @@ minimum: "2026.8"
 
 # Versions above this still reconcile, but the operator logs a warning.
 maximum: "2026.8"
+
+# Which operator release pairs with which authentik, oldest first.
+#
+# Historical, so it cannot be derived from the tree: an older operator release
+# is immutable and keeps working against the authentik it was built for. The
+# README table is rendered from this, because the hand-maintained one went a
+# whole release out of date without anything noticing.
+releases:
+  - operator: "0.1.x"
+    authentik: "2026.8"
+    notes: "First release. API version `v1alpha1`."
+  - operator: "0.2.x"
+    authentik: "2026.8"
+    notes: "References became objects; `signingKey` became `signingKeyPair`."
+  - operator: "0.3.x"
+    authentik: "2026.8"
+    notes: "Providers declare their outposts; `Outpost.providerRefs` removed."
