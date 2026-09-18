@@ -8,8 +8,8 @@ type: application
 
 # version  - the chart version, bumped on every chart change (SemVer 2).
 # appVersion - the operator version this chart defaults to deploying.
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.3.1
+appVersion: "0.3.1"
 
 # The operator relies on server-side apply, CEL-free structural CRDs and
 # metrics filtering that are all stable from 1.29 onwards.

@@ -27,7 +27,7 @@ spec:
   interval: 30m
   url: oci://ghcr.io/rashkash103/charts/authentik-operator
   ref:
-    tag: "0.3.0"
+    tag: "0.3.1"
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
@@ -71,7 +71,7 @@ spec:
     See [Supported versions](../operations/supported-versions.md).
 
     If you do want automatic updates inside a series, use
-    `ref: {semver: ">=0.3.0 <0.4.0"}`.
+    `ref: {semver: ">=0.3.1 <0.4.0"}`.
 
 ## Declaring authentik resources
 

@@ -57,7 +57,7 @@ over its REST API using a token you supply.
 <!-- BEGIN SUPPORTED-VERSIONS -->
 | authentik series | Tested image                          | Status    |
 | ---------------- | ------------------------------------- | --------- |
-| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.2` | Supported |
+| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.3` | Supported |
 <!-- END SUPPORTED-VERSIONS -->
 
 <!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->
@@ -85,12 +85,24 @@ So:
   operator with it. The compatibility matrix below says which pairs.
 
 <!-- BEGIN COMPATIBILITY-MATRIX -->
-| Operator / chart | authentik | Notes                                                             |
-| ---------------- | --------- | ----------------------------------------------------------------- |
-| `0.1.x`          | `2026.8`  | First release. API version `v1alpha1`.                            |
-| `0.2.x`          | `2026.8`  | References became objects; `signingKey` became `signingKeyPair`.  |
-| `0.3.x`          | `2026.8`  | Providers declare their outposts; `Outpost.providerRefs` removed. |
+| Operator / chart                                                                 | authentik | Notes                                                             |
+| -------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
+| [`0.1.x`](https://github.com/RashKash103/authentik-operator/releases/tag/v0.1.0) | `2026.8`  | First release. API version `v1alpha1`.                            |
+| [`0.2.x`](https://github.com/RashKash103/authentik-operator/releases/tag/v0.2.0) | `2026.8`  | References became objects; `signingKey` became `signingKeyPair`.  |
+| [`0.3.x`](https://github.com/RashKash103/authentik-operator/releases/tag/v0.3.1) | `2026.8`  | Providers declare their outposts; `Outpost.providerRefs` removed. |
 <!-- END COMPATIBILITY-MATRIX -->
+
+### Running an older authentik?
+
+Each operator release targets one authentik series, so the release you want is
+the one built for the authentik you already run. Older releases stay published
+and keep working; they simply stop gaining features.
+
+<!-- BEGIN PREVIOUS-VERSIONS -->
+| authentik | Use operator                                                                    | Status    |
+| --------- | ------------------------------------------------------------------------------- | --------- |
+| `2026.8`  | [v0.3.1](https://github.com/RashKash103/authentik-operator/releases/tag/v0.3.1) | Supported |
+<!-- END PREVIOUS-VERSIONS -->
 
 The operator checks the version it is talking to at runtime. Below the
 supported floor it refuses to reconcile and says so in a condition, rather than
@@ -157,7 +169,7 @@ There is no chart repository to add — Helm pulls it from the registry directly
 ```sh
 helm install authentik-operator \
   oci://ghcr.io/rashkash103/charts/authentik-operator \
-  --version 0.3.0 \
+  --version 0.3.1 \
   --namespace authentik-operator-system \
   --create-namespace
 ```
@@ -166,8 +178,8 @@ Pin `--version` to the release matching your authentik; see
 [Version policy](#version-policy). Inspect before installing with:
 
 ```sh
-helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
-helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
+helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.1
+helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.1
 ```
 
 The chart is also attached to each GitHub release as a `.tgz`, and the source
@@ -211,7 +223,7 @@ kubectl apply -f dist/install.yaml
 Set a different image with `IMG`:
 
 ```sh
-IMG=ghcr.io/rashkash103/authentik-operator:v0.3.0 just bundle
+IMG=ghcr.io/rashkash103/authentik-operator:v0.3.1 just bundle
 ```
 
 ### From a checkout

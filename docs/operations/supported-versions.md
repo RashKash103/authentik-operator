@@ -56,13 +56,25 @@ operator and its Helm chart**, targeting the new authentik.
 <!-- BEGIN SUPPORTED-VERSIONS -->
 | authentik series | Tested image                          | Status    |
 | ---------------- | ------------------------------------- | --------- |
-| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.2` | Supported |
+| `2026.8`         | `ghcr.io/goauthentik/server:2026.8.3` | Supported |
 <!-- END SUPPORTED-VERSIONS -->
 
 <!-- BEGIN SUPPORTED-VERSIONS-BOUNDS -->
 - **Minimum:** `2026.8` — an inclusive lower bound enforced by the runtime gate.
 - **Maximum tested:** `2026.8` — newer versions still reconcile, with a warning.
 <!-- END SUPPORTED-VERSIONS-BOUNDS -->
+
+### Running an older authentik?
+
+Each operator release targets one authentik series, so the release you want is
+the one built for the authentik you already run. Older releases stay published
+and keep working; they simply stop gaining features.
+
+<!-- BEGIN PREVIOUS-VERSIONS -->
+| authentik | Use operator                                                                    | Status    |
+| --------- | ------------------------------------------------------------------------------- | --------- |
+| `2026.8`  | [v0.3.1](https://github.com/RashKash103/authentik-operator/releases/tag/v0.3.1) | Supported |
+<!-- END PREVIOUS-VERSIONS -->
 
 The pinned patch tags are what CI runs against. Any patch within a supported
 series is expected to work; only the pinned one is actually tested.

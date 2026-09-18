@@ -73,7 +73,7 @@ resolve_config() {
   : "${COMPOSE_PROJECT_NAME:=authentik-operator-test}"
 
   : "${AUTHENTIK_IMAGE:=ghcr.io/goauthentik/server}"
-  : "${AUTHENTIK_TAG:=2026.8.2}"
+  : "${AUTHENTIK_TAG:=2026.8.3}"
 
   # AUTHENTIK_IMAGE is the repository; the compose file appends AUTHENTIK_TAG.
   # Callers naturally hand over a fully pinned reference instead, which would

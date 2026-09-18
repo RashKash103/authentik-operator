@@ -3,7 +3,7 @@ module rka.sh/authentik-operator
 go 1.27.1
 
 require (
-	goauthentik.io/api/v3 v3.2026080.2
+	goauthentik.io/api/v3 v3.2026080.3
 	k8s.io/api v0.37.0
 	k8s.io/apiextensions-apiserver v0.37.0
 	k8s.io/apimachinery v0.37.0

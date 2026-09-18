@@ -79,7 +79,7 @@ kind: Kustomization
 namespace: my-apps
 
 components:
-  - github.com/RashKash103/authentik-operator/examples/property-mappings/oidc?ref=v0.3.0
+  - github.com/RashKash103/authentik-operator/examples/property-mappings/oidc?ref=v0.3.1
 ```
 
 That creates `oidc-openid`, `oidc-email` and `oidc-profile` in the namespace,

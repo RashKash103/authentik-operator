@@ -21,7 +21,7 @@ there is no chart repository to add.
     ```sh
     helm install authentik-operator \
       oci://ghcr.io/rashkash103/charts/authentik-operator \
-      --version 0.3.0 \
+      --version 0.3.1 \
       --namespace authentik-operator-system \
       --create-namespace
     ```
@@ -29,8 +29,8 @@ there is no chart repository to add.
     Inspect it first if you would rather:
 
     ```sh
-    helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
-    helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.0
+    helm show values oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.1
+    helm show crds   oci://ghcr.io/rashkash103/charts/authentik-operator --version 0.3.1
     ```
 
 === "From a checkout"
@@ -153,7 +153,7 @@ kubectl apply -f dist/install.yaml
 Override the image with `IMG`:
 
 ```sh
-IMG=ghcr.io/example/authentik-operator:v0.3.0 just bundle
+IMG=ghcr.io/example/authentik-operator:v0.3.1 just bundle
 ```
 
 !!! note

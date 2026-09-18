@@ -35,7 +35,7 @@
 # Changing this file without running `just sync-versions` will fail CI.
 supported:
   - series: "2026.8"
-    image: "ghcr.io/goauthentik/server:2026.8.2"
+    image: "ghcr.io/goauthentik/server:2026.8.3"
 
 # Inclusive lower bound enforced by the runtime version gate.
 minimum: "2026.8"
@@ -49,13 +49,19 @@ maximum: "2026.8"
 # is immutable and keeps working against the authentik it was built for. The
 # README table is rendered from this, because the hand-maintained one went a
 # whole release out of date without anything noticing.
+# `tag` is the newest published release on that line, and is what the docs link
+# to. Someone running an older authentik needs to reach a specific release, not
+# a version range.
 releases:
   - operator: "0.1.x"
+    tag: "v0.1.0"
     authentik: "2026.8"
     notes: "First release. API version `v1alpha1`."
   - operator: "0.2.x"
+    tag: "v0.2.0"
     authentik: "2026.8"
     notes: "References became objects; `signingKey` became `signingKeyPair`."
   - operator: "0.3.x"
+    tag: "v0.3.1"
     authentik: "2026.8"
     notes: "Providers declare their outposts; `Outpost.providerRefs` removed."
