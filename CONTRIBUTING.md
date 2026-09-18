@@ -96,6 +96,7 @@ not in this list, the documentation is wrong — please fix it or open an issue.
 | `just vet`      | `go vet ./...`                                                       |
 | `just lint`     | Run `golangci-lint`.                                                 |
 | `just lint-fix` | Run `golangci-lint --fix`.                                           |
+| `just vulncheck`| Scan dependencies for known vulnerabilities. Needs the network.       |
 | `just test`     | Unit + envtest tests with `-race` and coverage into `cover.out`.     |
 | `just test-unit`| Fast unit tests only — no envtest, no Docker.                        |
 | `just verify`   | Fail if generated artifacts are out of date.                         |

@@ -19,6 +19,7 @@ KUSTOMIZE_VERSION := "v5.7.1"
 ENVTEST_VERSION := "v0.25.1"
 GOLANGCI_LINT_VERSION := "v2.13.2"
 HELM_DOCS_VERSION := "v1.14.2"
+GOVULNCHECK_VERSION := "v1.1.4"
 CRD_REF_DOCS_VERSION := "v0.3.0"
 ZENSICAL_VERSION := "0.0.62"
 
@@ -28,6 +29,7 @@ KUSTOMIZE := LOCALBIN / "kustomize"
 ENVTEST := LOCALBIN / "setup-envtest"
 GOLANGCI_LINT := LOCALBIN / "golangci-lint"
 HELM_DOCS := LOCALBIN / "helm-docs"
+GOVULNCHECK := LOCALBIN / "govulncheck"
 CRD_REF_DOCS := LOCALBIN / "crd-ref-docs"
 
 # Show the recipe list.
@@ -74,6 +76,15 @@ lint: golangci-lint
 [group('development')]
 lint-fix: golangci-lint
     {{ GOLANGCI_LINT }} run --fix
+
+# Scan dependencies for known vulnerabilities on a reachable code path.
+#
+# CI runs this as its own job, and it once failed there while the local gate was
+# green, because nothing here ran it. Needs the network for the vulnerability
+# database, so it stays out of `just verify`.
+[group('development')]
+vulncheck: govulncheck
+    {{ GOVULNCHECK }} ./...
 
 # Run unit and envtest tests.
 [group('development')]
@@ -298,6 +309,10 @@ golangci-lint: _localbin
 [group('tooling')]
 helm-docs: _localbin
     @test -x {{ HELM_DOCS }} || GOBIN={{ LOCALBIN }} go install github.com/norwoodj/helm-docs/cmd/helm-docs@{{ HELM_DOCS_VERSION }}
+
+[group('tooling')]
+govulncheck: _localbin
+    @test -x {{ GOVULNCHECK }} || GOBIN={{ LOCALBIN }} go install golang.org/x/vuln/cmd/govulncheck@{{ GOVULNCHECK_VERSION }}
 
 [group('tooling')]
 crd-ref-docs: _localbin
