@@ -229,7 +229,17 @@ func (o *Outpost) ReferencesExisting() bool {
 }
 
 // AdoptionPolicy implements controller.ManagedObject.
-func (o *Outpost) AdoptionPolicy() AdoptionPolicy { return o.Spec.Adoption }
+//
+// Referencing an existing outpost *is* the intent to use one the operator did
+// not create, so the adoption question is already answered. Leaving the default
+// FailOnConflict to apply would refuse every reference as a conflict with the
+// very object it was asked to find.
+func (o *Outpost) AdoptionPolicy() AdoptionPolicy {
+	if o.ReferencesExisting() {
+		return AdoptionPolicyAdoptExisting
+	}
+	return o.Spec.Adoption
+}
 
 // ManagedStatus implements controller.ManagedObject.
 func (o *Outpost) ManagedStatus() *ManagedResourceStatus { return &o.Status.ManagedResourceStatus }

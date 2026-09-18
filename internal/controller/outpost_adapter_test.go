@@ -293,6 +293,30 @@ func TestReferencedOutpostIsNeverDeleted(t *testing.T) {
 	}
 }
 
+// Referencing an existing outpost is itself the intent to use one the operator
+// did not create, so the default FailOnConflict must not apply to it.
+//
+// Found by running it: the first live reconcile against the embedded outpost
+// refused with AdoptionConflict, naming a conflict with the very object it had
+// been asked to find. Nothing in the unit tests noticed, because adoption is
+// decided by the sync engine rather than by the adapter.
+func TestReferencedOutpostAdoptsWithoutConflict(t *testing.T) {
+	outpost := newReferencedOutpost()
+	outpost.Spec.Adoption = authentikv1alpha1.AdoptionPolicyFailOnConflict
+
+	if got := outpost.AdoptionPolicy(); got != authentikv1alpha1.AdoptionPolicyAdoptExisting {
+		t.Errorf("AdoptionPolicy() = %q, want AdoptExisting for a referenced outpost", got)
+	}
+
+	// A managed outpost keeps whatever the spec says, so the guard against
+	// silently taking over a same-named outpost is untouched.
+	managed := newOutpost()
+	managed.Spec.Adoption = authentikv1alpha1.AdoptionPolicyFailOnConflict
+	if got := managed.AdoptionPolicy(); got != authentikv1alpha1.AdoptionPolicyFailOnConflict {
+		t.Errorf("AdoptionPolicy() = %q, want the spec honoured for a managed outpost", got)
+	}
+}
+
 // A referenced outpost keeps its name verbatim. Cluster scoping marks objects
 // this operator creates, and this one belongs to somebody else.
 func TestReferencedOutpostNameIsNotScoped(t *testing.T) {

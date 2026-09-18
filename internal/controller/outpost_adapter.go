@@ -87,10 +87,16 @@ func (a *outpostAdapter) referencedDescription() string {
 // A referenced outpost keeps its name verbatim: cluster scoping distinguishes
 // objects this operator creates, and a referenced one belongs to somebody else.
 func (a *outpostAdapter) DesiredName() string {
-	if a.outpost.ReferencesExisting() {
-		return a.outpost.OutpostName()
+	if !a.outpost.ReferencesExisting() {
+		return ScopedName(a.client.Cluster(), a.outpost.OutpostName())
 	}
-	return ScopedName(a.client.Cluster(), a.outpost.OutpostName())
+	// Once found, the name authentik actually holds. The embedded outpost has
+	// no name in the spec to fall back on - it is selected by a marker - so
+	// before it is found there is nothing truthful to report.
+	if a.observed != nil {
+		return a.observed.Name
+	}
+	return a.outpost.Spec.ExistingOutpostName
 }
 
 // attachedProviderIDs is the provider set this reconcile will send: everything
