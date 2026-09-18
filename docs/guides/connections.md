@@ -362,6 +362,10 @@ cluster's object.
     rename those objects, it creates new ones under the new scope and leaves the
     old ones behind.
 
+Names are only half of it: deletion is keyed on the recorded object ID rather
+than on a name, which is what stops one operator removing another's object. See
+[Ownership and deletion](ownership.md).
+
 Leave it unset when only one operator talks to the instance; names then stay
 exactly as declared. Runnable manifests are in
 [`examples/multi-cluster`](https://github.com/RashKash103/authentik-operator/tree/main/examples/multi-cluster).

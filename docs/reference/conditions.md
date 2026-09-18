@@ -186,8 +186,10 @@ Fix the connection. Everything referencing it recovers without intervention.
 
 **A pre-existing authentik object with the same name or slug blocks creation.**
 
-The operator found an object it cannot prove it created, and
-`spec.adoptionPolicy` is `FailOnConflict` (the default).
+The operator found an object it cannot prove it created — the ID recorded in
+`status.remoteID` does not match the one it found by name — and
+`spec.adoptionPolicy` is `FailOnConflict` (the default). See
+[Ownership and deletion](../guides/ownership.md) for how that record works.
 
 !!! success "Nothing was modified"
 

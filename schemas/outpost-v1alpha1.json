@@ -272,7 +272,7 @@
           "type": "array"
         },
         "remoteID": {
-          "description": "RemoteID is authentik's own identifier for the managed object: a numeric\nprimary key for providers and applications, a UUID elsewhere.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
+          "description": "RemoteID is authentik's own identifier for the managed object. Its shape\ndiffers by kind: a numeric primary key for providers, the slug for an\napplication, and a UUID for everything else.\n\nOnce set this is the authoritative handle for the object. Lookups prefer\nit over the name, so that renaming the object on either side does not\ncause the operator to lose track of it and create a duplicate.",
           "type": "string"
         },
         "remoteName": {

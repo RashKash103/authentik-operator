@@ -342,8 +342,9 @@ spec:
                 type: array
               remoteID:
                 description: |-
-                  RemoteID is authentik's own identifier for the managed object: a numeric
-                  primary key for providers and applications, a UUID elsewhere.
+                  RemoteID is authentik's own identifier for the managed object. Its shape
+                  differs by kind: a numeric primary key for providers, the slug for an
+                  application, and a UUID for everything else.
 
                   Once set this is the authoritative handle for the object. Lookups prefer
                   it over the name, so that renaming the object on either side does not

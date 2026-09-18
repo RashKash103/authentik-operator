@@ -21,6 +21,7 @@ nav = [
   { "Guides" = [
     "guides/connections.md",
     "guides/references.md",
+    "guides/ownership.md",
     "guides/providers.md",
     "guides/applications.md",
     "guides/outposts.md",
