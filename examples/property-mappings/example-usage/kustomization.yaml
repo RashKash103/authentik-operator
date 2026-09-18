@@ -1,0 +1,19 @@
+# What including the component looks like from a consuming kustomization.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: my-apps
+
+components:
+  - ../oidc
+
+# The component names a connection called "primary". Point it at a differently
+# named connection here rather than editing the component, so the component
+# stays shared between namespaces that name their connections differently.
+patches:
+  - target:
+      kind: PropertyMapping
+    patch: |
+      - op: replace
+        path: /spec/connectionRef/name
+        value: default

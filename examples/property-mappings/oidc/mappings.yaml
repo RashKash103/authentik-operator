@@ -1,0 +1,32 @@
+# The three scope mappings almost every OIDC provider attaches.
+#
+# Each adopts one of authentik's shipped defaults: the resource resolves an
+# existing object by name and creates nothing. The names are authentik's, quoted
+# because they contain a colon and single quotes, and checked against a running
+# authentik 2026.8 rather than transcribed.
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-openid
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'openid'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-email
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'email'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-profile
+spec:
+  connectionRef:
+    name: primary
+  existingName: "authentik default OAuth Mapping: OpenID 'profile'"

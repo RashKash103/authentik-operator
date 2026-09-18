@@ -65,6 +65,87 @@ by looking the name up in authentik. That keeps the Kubernetes object the source
 of truth: renaming something inside authentik cannot silently repoint a provider
 at a different object.
 
+## Sharing the boilerplate ones
+
+Almost every OIDC provider attaches the same three scope mappings, and declaring
+them by hand in every namespace invites copy-paste drift. A kustomize
+[component](https://kubectl.docs.kubernetes.io/guides/config_management/components/)
+ships them:
+
+```yaml title="kustomization.yaml"
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: my-apps
+
+components:
+  - github.com/RashKash103/authentik-operator/examples/property-mappings/oidc?ref=v0.2.0
+```
+
+That creates `oidc-openid`, `oidc-email` and `oidc-profile` in the namespace,
+each adopting one of authentik's shipped defaults. Providers reference them by
+resource name as usual:
+
+```yaml
+propertyMappings:
+  - name: oidc-openid
+  - name: oidc-email
+  - name: oidc-profile
+```
+
+Or paste the three resources directly, if you would rather not take a dependency
+on this repository:
+
+```yaml title="oidc-mappings.yaml"
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-openid
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'openid'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-email
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'email'"
+---
+apiVersion: authentik.k8s.rka.sh/v1alpha1
+kind: PropertyMapping
+metadata:
+  name: oidc-profile
+  namespace: my-apps
+spec:
+  connectionRef:
+    name: default
+  existingName: "authentik default OAuth Mapping: OpenID 'profile'"
+```
+
+Quote the names: they contain a colon and single quotes, and YAML reads an
+unquoted one as a mapping key.
+
+!!! question "Why does the operator not just attach these by default?"
+
+    Because authentik **replaces** a provider's mapping list rather than merging
+    it. If defaults appeared whenever `propertyMappings` was empty, then adding
+    one custom mapping would silently drop them, and the field would mean two
+    different things depending on whether it was set. The failure shows up as an
+    application missing a claim, weeks later.
+
+    The names are also authentik's to rename, and what claims a token carries is
+    a security surface that should be readable from the manifest rather than
+    from knowing what the operator adds when you leave a field out.
+
+    More in
+    [`examples/property-mappings`](https://github.com/RashKash103/authentik-operator/tree/main/examples/property-mappings).
+
 ## Ordering does not matter
 
 A provider applied before its `Flow` reports `Ready=False` with reason

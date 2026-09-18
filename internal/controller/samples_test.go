@@ -99,39 +99,55 @@ func TestSamplesAreValid(t *testing.T) {
 	t.Logf("validated %d sample objects", applied)
 }
 
-// TestFluxExamplesAreValid applies the authentik resources from the Flux
-// examples to a real API server.
+// TestExampleManifestsAreValid applies every authentik resource under
+// examples/ to a real API server.
 //
-// Examples in a README rot silently: nothing compiles them, and a field renamed
-// in the CRD leaves them quietly wrong. Only the authentik kinds are checked -
-// the Flux kinds around them belong to CRDs this cluster does not have.
-func TestFluxExamplesAreValid(t *testing.T) {
+// Examples rot silently: nothing compiles them, and a field renamed in the CRD
+// leaves them quietly wrong. Walking the whole directory rather than naming one
+// subdirectory means a new example cannot be added outside the check -- which
+// is what happened when the Flux examples were the only ones covered.
+func TestExampleManifestsAreValid(t *testing.T) {
 	c := envtestClient(t)
 	ctx := context.Background()
-	ns := newTestNamespace(t, ctx, c, "flux-examples")
+	ns := newTestNamespace(t, ctx, c, "examples")
 
-	dir := filepath.Join("..", "..", "examples", "flux", "resources")
-	entries, err := os.ReadDir(dir)
+	root := filepath.Join("..", "..", "examples")
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".yaml") {
+			return nil
+		}
+		// A kustomization is a build input, not a manifest; kustomize's own
+		// kinds are not in this cluster.
+		if filepath.Base(path) == "kustomization.yaml" {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
 	if err != nil {
-		t.Fatalf("reading flux examples: %v", err)
+		t.Fatalf("walking examples: %v", err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no example manifests found; this test is looking in the wrong place")
 	}
 
 	applied := 0
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".yaml") || name == "kustomization.yaml" {
-			continue
-		}
-
-		raw, err := os.ReadFile(filepath.Join(dir, name))
+	for _, path := range files {
+		raw, err := os.ReadFile(path)
 		if err != nil {
-			t.Fatalf("reading %s: %v", name, err)
+			t.Fatalf("reading %s: %v", path, err)
 		}
+		rel := strings.TrimPrefix(filepath.ToSlash(path), "../../")
 
 		for i, doc := range splitYAML(string(raw)) {
 			obj := &unstructured.Unstructured{}
 			if err := yaml.Unmarshal([]byte(doc), obj); err != nil {
-				t.Fatalf("%s document %d: parsing: %v", name, i, err)
+				t.Errorf("%s document %d: parsing: %v", rel, i, err)
+				continue
 			}
 			// Skip Flux kinds and the Secret template, which is deliberately
 			// not a usable manifest.
@@ -140,23 +156,23 @@ func TestFluxExamplesAreValid(t *testing.T) {
 			}
 
 			obj.SetNamespace(ns)
-			if err := c.Create(ctx, obj); err != nil {
+			// Strict, because that is what `kubectl apply` does for the reader
+			// copying it, and dry run because the same name recurs across
+			// examples while only the schema is under test.
+			if err := c.Create(ctx, obj,
+				client.FieldValidation("Strict"), client.DryRunAll); err != nil {
 				t.Errorf("%s document %d (%s/%s) was rejected: %v",
-					name, i, obj.GetKind(), obj.GetName(), err)
+					rel, i, obj.GetKind(), obj.GetName(), err)
 				continue
 			}
 			applied++
-
-			t.Cleanup(func() {
-				_ = c.Delete(context.Background(), obj, client.PropagationPolicy("Background"))
-			})
 		}
 	}
 
 	if applied == 0 {
-		t.Fatal("no authentik resources found in the Flux examples")
+		t.Fatal("no authentik resources found in the examples")
 	}
-	t.Logf("validated %d authentik resources from the Flux examples", applied)
+	t.Logf("validated %d example objects across %d files", applied, len(files))
 }
 
 // splitYAML splits a multi-document YAML file on its document separators.

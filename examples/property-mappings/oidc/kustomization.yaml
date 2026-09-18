@@ -1,0 +1,8 @@
+# A kustomize Component, not an overlay: it is included by a kustomization
+# rather than built on its own, so the same three mappings reach every namespace
+# that needs them without the manifests being copied.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - mappings.yaml
